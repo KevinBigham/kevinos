@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Cloudflare Worker local cache / state (contains account id — never commit)
+.wrangler/
+relay/.wrangler/
+
+# node
+node_modules/
