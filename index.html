@@ -99,8 +99,8 @@
   .sweep-card .sw-ico{flex:none;width:40px;height:40px;border-radius:11px;background:var(--accent);display:grid;place-items:center}
   .sweep-card .sw-ico svg{width:21px;height:21px;color:#fff}
   .sweep-card .sw-txt{flex:1}
-  .sweep-card .sw-title{font-family:var(--font-display);font-size:17px;color:var(--ink)}
-  .sweep-card .sw-sub{font-size:13px;color:var(--ink-soft);margin-top:2px}
+  .sweep-card .sw-title{display:block;font-family:var(--font-display);font-size:17px;color:var(--ink)}
+  .sweep-card .sw-sub{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px}
   .sweep-card .sw-arrow{flex:none;color:var(--accent)}
 
   .view-toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
@@ -297,6 +297,18 @@
   .cq-del svg{width:16px;height:16px;display:block}
   .cq-hint{font-size:12.5px;color:var(--ink-faint);font-family:var(--font-serif);font-style:italic;margin:12px 2px 0;line-height:1.55}
 
+  .rep-tag{flex:none;font-size:12px;color:var(--ink-faint)}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);opacity:0;transition:opacity .25s ease,transform .25s ease;z-index:80;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .wind-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .wind-item{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:12px;background:var(--surface-2)}
+  .wind-txt{flex:1;font-size:15px;color:var(--ink);min-width:0;word-break:break-word}
+  .wind-acts{flex:none;display:flex;gap:4px}
+  .wind-b{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);cursor:pointer;display:grid;place-items:center;font-size:16px;line-height:0;transition:all .14s ease;padding:0}
+  .wind-b:hover{border-color:var(--ink-faint);color:var(--ink)}
+  .wind-b svg{width:16px;height:16px}
+  .wind-b.done:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+
   .sweep-overlay{position:fixed;inset:0;background:var(--bg);z-index:50;overflow-y:auto;display:none}
   .sweep-overlay.active{display:block}
   .sweep-inner{max-width:620px;margin:0 auto;padding:40px 24px 80px;min-height:100%;display:flex;flex-direction:column}
@@ -382,6 +394,7 @@
         <div class="chips" id="chips" role="group" aria-label="Choose an area"></div>
       </section>
       <div id="ghNudge"></div>
+      <div id="homeNudges"></div>
       <hr class="surface-line fade-up d3" />
       <section class="fade-up d4" aria-label="Today">
         <div class="sec-head"><p class="section-label">Today</p><button class="sec-link" type="button" data-goto="tasks">All tasks →</button></div>
@@ -412,7 +425,7 @@
         <button id="taskAddBtn" class="add-btn" type="button">Add</button>
       </div>
       <div class="chips" id="taskChips" role="group" aria-label="Choose an area"></div>
-      <div class="qa-due"><label for="taskDue">Due (optional)</label><input class="inp" id="taskDue" type="date" /></div>
+      <div class="qa-due"><label for="taskDue">Due (optional)</label><input class="inp" id="taskDue" type="date" /><label for="taskRepeat">Repeat</label><select class="inp" id="taskRepeat"><option value="">No repeat</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
       <button class="sweep-card" type="button" id="sweepCardTasks" style="margin-top:18px">
         <span class="sw-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg></span>
         <span class="sw-txt"><span class="sw-title">Run a Life Sweep</span><span class="sw-sub">Brain-dump every area at once, then drop it all in here.</span></span>
@@ -564,12 +577,16 @@
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
-      <div style="margin-top:10px">KevinOS v0.8 · Daily + Next + Workspace + GitHub · installable, backed up, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.9 · Daily + Next + Workspace + GitHub · recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
   <div class="sweep-overlay" id="sweepOverlay" role="dialog" aria-label="Life Sweep">
     <div class="sweep-inner" id="sweepInner"></div>
+  </div>
+
+  <div class="sweep-overlay" id="windOverlay" role="dialog" aria-label="Wind down">
+    <div class="sweep-inner" id="windInner"></div>
   </div>
 
 <script>
@@ -599,6 +616,7 @@
   var LINK_GROUPS=[{key:"Studio"},{key:"Coaching"},{key:"Teaching"},{key:"Finance"},{key:"Channel"},{key:"Personal"},{key:"Other"}];
   var PROMPT_CATS=[{key:"Coaching"},{key:"Teaching"},{key:"Studio"},{key:"Council"},{key:"Writing"},{key:"General"}];
   var PARA_BUCKETS=[{key:"Project",color:"#4A2E78"},{key:"Area",color:"#B8901F"},{key:"Resource",color:"#7E5AA6"},{key:"Archive",color:"#8A8594"}];
+  var REPEAT_OPTS=[{key:"",label:"No repeat"},{key:"daily",label:"Daily"},{key:"weekdays",label:"Weekdays"},{key:"weekly",label:"Weekly"},{key:"monthly",label:"Monthly"}];
   var REFLECTIONS=["Begin where you are. It's the only place that works.","Calm is a pace, not a feeling. Set it.","What's here is enough to work with.","Move once, gently — then again.","Let the small things stay small.","You don't have to carry tomorrow yet. Just the next thing.","You've done hard mornings before."];
   var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
   var MON3=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -617,7 +635,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
   var nextArea="All";
@@ -639,6 +657,19 @@
   function keyToParts(k){var p=k.split("-");return{y:+p[0],m:+p[1]-1,d:+p[2]};}
   function todayKey(){return dateKey(new Date());}
   function addDaysKey(k,n){var p=keyToParts(k);var d=new Date(p.y,p.m,p.d+n);return dateKey(d);}
+  function repeatLabel(r){return r==="daily"?"Daily":r==="weekdays"?"Weekdays":r==="weekly"?"Weekly":r==="monthly"?"Monthly":"";}
+  function nextRepeatKey(k,repeat){
+    if(repeat==="daily")return addDaysKey(k,1);
+    if(repeat==="weekly")return addDaysKey(k,7);
+    if(repeat==="monthly"){var p=keyToParts(k);return dateKey(new Date(p.y,p.m+1,p.d));}
+    if(repeat==="weekdays"){var nk=addDaysKey(k,1);var q=keyToParts(nk);var wd=new Date(q.y,q.m,q.d).getDay();if(wd===6)nk=addDaysKey(nk,2);else if(wd===0)nk=addDaysKey(nk,1);return nk;}
+    return null;
+  }
+  function rollRecurring(it){
+    if(!it||!it.repeat)return;
+    var base=it.due||todayKey();var nd=nextRepeatKey(base,it.repeat);if(!nd)return;
+    state.items.unshift({id:uid(),text:it.text,area:it.area,today:false,done:false,due:nd,projectId:it.projectId||null,repeat:it.repeat,createdAt:Date.now()});
+  }
   function prettyDate(k){var p=keyToParts(k);var d=new Date(p.y,p.m,p.d);return DAYS[d.getDay()]+", "+MONTHS[p.m]+" "+p.d;}
   function fmtTime(t){var p=t.split(":");var h=+p[0],m=p[1];var ap=h<12?"AM":"PM";var h12=h%12;if(h12===0)h12=12;return h12+":"+m+" "+ap;}
   function relDay(k){var tk=todayKey();if(k===tk)return "Today";if(k===addDaysKey(tk,1))return "Tomorrow";var p=keyToParts(k);var d=new Date(p.y,p.m,p.d);if(k>tk&&k<=addDaysKey(tk,6))return DAYS[d.getDay()];return WD3[d.getDay()]+" "+MON3[p.m]+" "+p.d;}
@@ -703,6 +734,7 @@
     if(opts.editable){text.type="button";text.dataset.action="edit";text.dataset.id=item.id;text.setAttribute("aria-label","Edit task");}
     row.appendChild(text);
     if(item.due&&!item.done){var dc=document.createElement("span");var tk=todayKey();dc.className="due-chip"+(item.due===tk?" today":(item.due<tk?" earlier":""));dc.textContent=dueLabel(item.due);row.appendChild(dc);}
+    if(item.repeat&&!item.done){var rt=document.createElement("span");rt.className="rep-tag";rt.textContent="↻";rt.title="Repeats "+repeatLabel(item.repeat);row.appendChild(rt);}
     var dot=document.createElement("span");dot.className="dot";dot.style.background=areaColor(item.area);row.appendChild(dot);
     if(opts.areaTag){var tag=document.createElement("span");tag.className="area-tag";tag.textContent=item.area;row.appendChild(tag);}
     if(item.projectId){var pr=findProject(item.projectId);if(pr){var pt=document.createElement("span");pt.className="proj-tag";pt.innerHTML='<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';var sp=document.createElement("span");sp.textContent=pr.title;pt.appendChild(sp);row.appendChild(pt);}}
@@ -717,6 +749,7 @@
     var f2=field("Area");f2.appendChild(selEl("editArea",AREA_OPTS,item.area));p.appendChild(f2);
     var f3=field("Project");f3.appendChild(selEl("editProject",projectOpts(),item.projectId||""));p.appendChild(f3);
     var f4=field("Due (optional)");f4.appendChild(inpEl("editDue","date",item.due||""));p.appendChild(f4);
+    var f5=field("Repeat");f5.appendChild(selEl("editRepeat",REPEAT_OPTS,item.repeat||""));p.appendChild(f5);
     p.appendChild(editActions("edit",item.id));
     return p;
   }
@@ -757,17 +790,18 @@
     }
   }
   function renderTasks(){buildFilterChips($("taskFilter"),function(){return taskFilter;},function(k){taskFilter=k;renderTasks();});renderTaskList();}
-  function addTask(input,areaRef,dueId){
+  function addTask(input,areaRef,dueId,repeatId){
     var text=(input.value||"").trim();if(!text)return;
     var due=dueId?($(dueId).value||null):null;
-    state.items.unshift({id:uid(),text:text,area:areaRef(),today:false,done:false,due:due,projectId:null,createdAt:Date.now()});
-    input.value="";if(dueId)$(dueId).value="";
+    var rep=repeatId?($(repeatId).value||""):"";
+    state.items.unshift({id:uid(),text:text,area:areaRef(),today:false,done:false,due:due,projectId:null,repeat:rep,createdAt:Date.now()});
+    input.value="";if(dueId)$(dueId).value="";if(repeatId)$(repeatId).value="";
     renderTasks();renderHome();save();
   }
   function handleTaskAction(e){
     var btn=e.target.closest("[data-action]");if(!btn)return;
     var id=btn.dataset.id,act=btn.dataset.action,it=findItem(id);if(!it)return;
-    if(act==="done"){it.done=!it.done;if(it.done){it.today=false;if(editingId===id)editingId=null;}}
+    if(act==="done"){it.done=!it.done;if(it.done){it.today=false;rollRecurring(it);if(editingId===id)editingId=null;}}
     else if(act==="pin"){it.today=true;}
     else if(act==="unpin"){it.today=false;}
     else if(act==="delete"){state.items=state.items.filter(function(x){return x.id!==id;});if(editingId===id)editingId=null;}
@@ -776,7 +810,7 @@
   }
   function handleTaskListClick(e){
     var sv=e.target.closest("[data-edit-save]");
-    if(sv){var it=findItem(sv.dataset.editSave);if(it){var t=(pf(sv,"editText").value||"").trim();if(t)it.text=t;it.area=pf(sv,"editArea").value;it.projectId=pf(sv,"editProject").value||null;it.due=pf(sv,"editDue").value||null;}editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
+    if(sv){var it=findItem(sv.dataset.editSave);if(it){var t=(pf(sv,"editText").value||"").trim();if(t)it.text=t;it.area=pf(sv,"editArea").value;it.projectId=pf(sv,"editProject").value||null;it.due=pf(sv,"editDue").value||null;it.repeat=pf(sv,"editRepeat").value||"";}editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
     var cn=e.target.closest("[data-edit-cancel]");if(cn){editingId=null;renderTasks();return;}
     var dl=e.target.closest("[data-edit-delete]");if(dl){state.items=state.items.filter(function(x){return x.id!==dl.dataset.editDelete;});editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
     handleTaskAction(e);
@@ -813,7 +847,7 @@
       row.appendChild(kind);box.appendChild(row);
     });
   }
-  function renderHome(){renderHomeToday();renderUpNext();renderGithubNudge();}
+  function renderHome(){renderHomeToday();renderUpNext();renderGithubNudge();renderHomeNudges();}
 
   /* ---------- NEXT (to-do hub) ---------- */
   function projSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';}
@@ -890,11 +924,12 @@
     }
     cq+='<p class="cq-hint">Captured offline. When AI connects (Phase 2), these run automatically and bring answers back to you.</p>';
     box.insertAdjacentHTML("beforeend",cq);
+    box.insertAdjacentHTML("beforeend",'<button class="sweep-card" type="button" data-openwind="1" style="margin-top:24px"><span class="sw-ico" style="background:#3a2c59">'+moonSvg()+'</span><span class="sw-txt"><span class="sw-title">Wind down the day</span><span class="sw-sub">Close out today — finish, defer, or let go, then rest.</span></span><span class="sw-arrow">'+chevSvg()+'</span></button>');
   }
   function addNextTask(){
     var inp=$("nextInput");if(!inp)return;var t=(inp.value||"").trim();if(!t)return;
     var ar=(nextArea==="All")?"Inbox":nextArea;
-    state.items.unshift({id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,createdAt:Date.now()});
+    state.items.unshift({id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});
     inp.value="";renderNext();renderHome();save();
   }
   function addCouncil(){
@@ -905,11 +940,12 @@
   }
   function handleNextClick(e){
     var ca=e.target.closest("[data-next-area]");if(ca){nextArea=ca.getAttribute("data-next-area");renderNext();return;}
+    if(e.target.closest("[data-openwind]")){openWind();return;}
     if(e.target.closest("[data-next-add]")){addNextTask();return;}
     if(e.target.closest("[data-council-add]")){addCouncil();return;}
     var cdel=e.target.closest("[data-council-del]");if(cdel){var id=cdel.getAttribute("data-council-del");state.council=state.council.filter(function(x){return x.id!==id;});renderNext();save();return;}
     var gob=e.target.closest("[data-go]");if(gob){go(gob.getAttribute("data-go"));return;}
-    var act=e.target.closest("[data-action]");if(act){var it=findItem(act.dataset.id);if(it&&act.dataset.action==="done"){it.done=!it.done;if(it.done)it.today=false;renderNext();renderHome();save();}return;}
+    var act=e.target.closest("[data-action]");if(act){var it=findItem(act.dataset.id);if(it&&act.dataset.action==="done"){it.done=!it.done;if(it.done){it.today=false;rollRecurring(it);}renderNext();renderHome();save();}return;}
   }
   function renderGithubNudge(){
     var box=$("ghNudge");if(!box)return;
@@ -923,6 +959,56 @@
       ?'<strong>Keep the streak alive.</strong> Nothing logged today — one contribution holds your '+s.current+'-day streak.'
       :'<strong>Start a streak today.</strong> One contribution on GitHub gets it going.';
     box.innerHTML='<button class="gh-nudge'+(alive?" alive":"")+'" type="button" data-go="github">'+ghFlame()+'<span class="nu-txt">'+txt+'</span><span class="nu-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span></button>';
+  }
+
+  /* ---------- home nudges + wind-down (v0.9) ---------- */
+  function moonSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';}
+  function saveSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>';}
+  function chevSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';}
+  function openTodayCount(){var tk=todayKey();return state.items.filter(function(i){return !i.done&&(i.today||(i.due&&i.due<=tk));}).length;}
+  function renderHomeNudges(){
+    var box=$("homeNudges");if(!box)return;var html="";var tk=todayKey();var hr=(new Date()).getHours();
+    var openToday=openTodayCount();
+    if(hr>=17&&openToday>0&&state.lastShutdown!==tk){
+      html+='<button class="gh-nudge" type="button" data-openwind="1" style="background:var(--accent-soft);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">'+moonSvg()+'</span><span class="nu-txt"><strong>Wind down the day.</strong> '+openToday+' still open — close it out and rest.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
+    }
+    var hasData=state.items.length||state.notes.length||state.projects.length||state.events.length;
+    var lb=state.lastBackupAt||0;var stale=!lb||(Date.now()-lb>604800000);
+    if(hasData&&stale){
+      var msg=lb?'<strong>Time to back up.</strong> Last export '+ghAgo(new Date(lb).toISOString())+' — keep your data safe.':'<strong>Back up your data.</strong> One tap saves a copy you can restore anytime.';
+      html+='<button class="gh-nudge" type="button" data-backup="1" style="background:var(--bg-deep);margin-top:14px"><span class="gh-fire" style="color:var(--clay)">'+saveSvg()+'</span><span class="nu-txt">'+msg+'</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
+    }
+    box.innerHTML=html;
+  }
+  var windActive=false;
+  function windItems(){var tk=todayKey();return state.items.filter(function(i){return !i.done&&(i.today||(i.due&&i.due<=tk));});}
+  function openWind(){windActive=true;$("windOverlay").classList.add("active");document.body.style.overflow="hidden";renderWind();}
+  function closeWind(){windActive=false;$("windOverlay").classList.remove("active");document.body.style.overflow="";state.lastShutdown=todayKey();save();renderHome();if(room==="next")renderNext();}
+  function windCheck(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>';}
+  function renderWind(){
+    var inner=$("windInner");if(!inner)return;
+    var left=windItems();
+    var top='<div class="sweep-top"><p class="sweep-eyebrow">Wind down</p><button class="sweep-exit" type="button" data-wind="close">Close</button></div>';
+    if(!left.length){inner.innerHTML=top+'<h1 class="sweep-q">Your board is clear.</h1><p class="sweep-prompt sweep-serif">Nothing left for today. Rest well — tomorrow starts fresh.</p><div class="sweep-nav"><button class="add-btn" type="button" data-wind="close">Good night</button></div>';return;}
+    var list="";
+    left.forEach(function(it){
+      list+='<div class="wind-item"><span class="dot" style="background:'+areaColor(it.area)+'"></span><span class="wind-txt">'+escapeHtml(it.text)+'</span><span class="wind-acts">'+
+        '<button class="wind-b done" type="button" data-wind-done="'+it.id+'" aria-label="Mark done" title="Done">'+windCheck()+'</button>'+
+        '<button class="wind-b" type="button" data-wind-tom="'+it.id+'" aria-label="Push to tomorrow" title="Tomorrow">→</button>'+
+        '<button class="wind-b" type="button" data-wind-clear="'+it.id+'" aria-label="Take off today" title="Off today">✕</button>'+
+        '</span></div>';
+    });
+    inner.innerHTML=top+'<h1 class="sweep-q">'+left.length+' still open.</h1><p class="sweep-prompt">Close out the day — finish what you can, push the rest to tomorrow, or let it go.</p><div class="wind-list">'+list+'</div><div class="sweep-nav"><button class="add-btn" type="button" data-wind="rollall">Push all to tomorrow</button><button class="btn-ghost" type="button" data-wind="close">Done for today</button></div>';
+  }
+  function handleWind(e){
+    var c=e.target.closest("[data-wind],[data-wind-done],[data-wind-tom],[data-wind-clear]");if(!c)return;
+    var tk=todayKey(),tm=addDaysKey(tk,1);
+    if(c.dataset.windDone!==undefined){var i1=findItem(c.dataset.windDone);if(i1){i1.done=true;i1.today=false;rollRecurring(i1);}save();renderWind();return;}
+    if(c.dataset.windTom!==undefined){var i2=findItem(c.dataset.windTom);if(i2){i2.due=tm;i2.today=false;}save();renderWind();return;}
+    if(c.dataset.windClear!==undefined){var i3=findItem(c.dataset.windClear);if(i3){i3.today=false;if(i3.due&&i3.due<=tk)i3.due=null;}save();renderWind();return;}
+    var a=c.dataset.wind;
+    if(a==="close")closeWind();
+    else if(a==="rollall"){windItems().forEach(function(it){it.due=tm;it.today=false;});save();renderWind();}
   }
 
   function dayItems(k){var out=[];state.events.forEach(function(e){if(e.date===k)out.push({kind:"event",ref:e});});state.items.forEach(function(i){if(i.due===k&&!i.done)out.push({kind:"task",ref:i});});return out;}
@@ -1073,7 +1159,7 @@
     }
   }
   function sweepAdd(){var step=SWEEP_STEPS[sweep.step];if(step.type!=="area")return;var inp=$("sweepInput");var v=(inp.value||"").trim();if(!v)return;sweep.data[step.area].push(v);inp.value="";renderSweep();}
-  function sweepCommit(){AREAS.forEach(function(a){(sweep.data[a.key]||[]).forEach(function(t){state.items.unshift({id:uid(),text:t,area:a.key,today:false,done:false,due:null,projectId:null,createdAt:Date.now()});});});exitSweep();save();taskFilter="All";taskView="due";go("tasks");}
+  function sweepCommit(){AREAS.forEach(function(a){(sweep.data[a.key]||[]).forEach(function(t){state.items.unshift({id:uid(),text:t,area:a.key,today:false,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});});});exitSweep();save();taskFilter="All";taskView="due";go("tasks");}
   function handleSweep(e){
     var t=e.target.closest("[data-sw],[data-sw-del]");if(!t)return;
     if(t.dataset.swDel!==undefined){var step=SWEEP_STEPS[sweep.step];sweep.data[step.area].splice(+t.dataset.swDel,1);renderSweep();return;}
@@ -1143,7 +1229,7 @@
     var sv=e.target.closest("[data-proj-save]");if(sv){var p=findProject(sv.dataset.projSave);if(p){var t=(pf(sv,"pTitle").value||"").trim();if(t)p.title=t;p.area=pf(sv,"pArea").value;p.status=pf(sv,"pStatus").value;p.outcome=pf(sv,"pOutcome").value;p.nextAction=pf(sv,"pNext").value;p.notes=pf(sv,"pNotes").value;}editingProjId=null;renderProjList();renderTasks();renderHome();save();return;}
     var cn=e.target.closest("[data-proj-cancel]");if(cn){editingProjId=null;renderProjList();return;}
     var dl=e.target.closest("[data-proj-delete]");if(dl){var id=dl.dataset.projDelete;state.items.forEach(function(i){if(i.projectId===id)i.projectId=null;});state.projects=state.projects.filter(function(x){return x.id!==id;});editingProjId=null;renderProjList();renderTasks();renderHome();save();return;}
-    var da=e.target.closest("[data-action]");if(da){var it=findItem(da.dataset.id);if(it&&da.dataset.action==="done"){it.done=true;it.today=false;}renderProjList();renderTasks();renderHome();save();return;}
+    var da=e.target.closest("[data-action]");if(da){var it=findItem(da.dataset.id);if(it&&da.dataset.action==="done"){it.done=true;it.today=false;rollRecurring(it);}renderProjList();renderTasks();renderHome();save();return;}
   }
 
   /* ---------- STUDIO ---------- */
@@ -1490,6 +1576,7 @@
   $("captureInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("captureInput"),function(){return selectedArea;},null);}});
   $("homeTodayList").addEventListener("click",handleTaskAction);
   $("ghNudge").addEventListener("click",function(){if(state.github&&state.github.token)go("github");});
+  $("homeNudges").addEventListener("click",function(e){if(e.target.closest("[data-openwind]")){openWind();return;}if(e.target.closest("[data-backup]")){exportBackup();}});
   $("nextView").addEventListener("click",handleNextClick);
   $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}});
   $("nav").addEventListener("click",function(e){var t=e.target.closest(".tab");if(t)go(t.dataset.room);});
@@ -1497,8 +1584,8 @@
   $("sweepCardHome").addEventListener("click",startSweep);
   $("sweepCardTasks").addEventListener("click",startSweep);
 
-  $("taskAddBtn").addEventListener("click",function(){addTask($("taskInput"),function(){return taskArea;},"taskDue");});
-  $("taskInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("taskInput"),function(){return taskArea;},"taskDue");}});
+  $("taskAddBtn").addEventListener("click",function(){addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat");});
+  $("taskInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat");}});
   $("taskList").addEventListener("click",handleTaskListClick);
   $("taskDoneList").addEventListener("click",handleTaskAction);
   $("taskDoneToggle").addEventListener("click",function(){taskDoneOpen=!taskDoneOpen;renderTaskList();});
@@ -1516,11 +1603,13 @@
   $("evAddBtn").addEventListener("click",addEvent);
   $("evTitle").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addEvent();}});
   $("agendaList").addEventListener("click",function(e){
-    var td=e.target.closest("[data-taskdone]");if(td){var it=findItem(td.dataset.taskdone);if(it){it.done=true;it.today=false;}renderCalendar();renderHome();save();return;}
+    var td=e.target.closest("[data-taskdone]");if(td){var it=findItem(td.dataset.taskdone);if(it){it.done=true;it.today=false;rollRecurring(it);}renderCalendar();renderHome();save();return;}
     var btn=e.target.closest("[data-del]");if(btn){state.events=state.events.filter(function(x){return x.id!==btn.dataset.del;});renderCalendar();renderHome();save();}
   });
   $("sweepInner").addEventListener("click",handleSweep);
   $("sweepInner").addEventListener("keydown",function(e){if(e.key==="Enter"){var step=SWEEP_STEPS[sweep.step];if(step&&step.type==="area"){e.preventDefault();sweepAdd();}}});
+  $("windInner").addEventListener("click",handleWind);
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(sweep.active)exitSweep();else if(windActive)closeWind();}});
 
   $("projAddBtn").addEventListener("click",addProject);
   $("projInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addProject();}});
@@ -1556,6 +1645,7 @@
       var blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});var url=URL.createObjectURL(blob);
       var a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);
       setTimeout(function(){URL.revokeObjectURL(url);},1500);
+      state.lastBackupAt=Date.now();save();renderHomeNudges();
     }catch(e){window.alert("Couldn’t export the backup.");}
   }
   function importBackup(file){
@@ -1566,6 +1656,8 @@
       if(!window.confirm("Import this backup? It replaces everything in KevinOS on this device. Tip: export a backup first."))return;
       ["items","events","projects","builds","briefs","links","prompts","notes","council"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
+      if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
+      if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
       if(saved.v)state.v=saved.v;
       editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=null;
       save();go(room);window.alert("Backup imported — everything’s restored.");
@@ -1577,6 +1669,23 @@
   $("restoreBtn").addEventListener("click",function(){$("restoreInput").click();});
   $("restoreInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importBackup(f);e.target.value="";});
   if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});}
+
+  function toast(msg){
+    var el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);
+    setTimeout(function(){el.classList.add("show");},20);
+    setTimeout(function(){el.classList.remove("show");setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},320);},2800);
+  }
+  function ingestShared(){
+    var qs;try{qs=new URLSearchParams(location.search);}catch(e){return null;}
+    var add=qs.get("add"),title=qs.get("title"),text=qs.get("text"),url=qs.get("url");
+    var t=add||"";
+    if(!t){var parts=[];if(title)parts.push(title);if(text)parts.push(text);t=parts.join(" ");if(url)t=(t?t+" ":"")+url;}
+    t=(t||"").trim();if(!t)return null;
+    var areaQ=qs.get("area"),ar="Inbox";for(var i=0;i<AREAS.length;i++)if(AREAS[i].key===areaQ)ar=areaQ;
+    state.items.unshift({id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});
+    try{history.replaceState({},document.title,location.pathname+location.hash);}catch(e){}
+    return "Captured to today";
+  }
 
   /* ---------- init ---------- */
   paintHeader();
@@ -1605,12 +1714,16 @@
       if(isArr(saved.notes))state.notes=saved.notes;
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(isArr(saved.council))state.council=saved.council;
+      if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
+      if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=8;
+    state.v=9;
+    var sharedMsg=ingestShared();
     renderHome();
     save();
+    if(sharedMsg)toast(sharedMsg);
   });
 })();
 </script>
