@@ -296,6 +296,12 @@
   .cq-del:hover{color:var(--clay);background:var(--surface-2)}
   .cq-del svg{width:16px;height:16px;display:block}
   .cq-hint{font-size:12.5px;color:var(--ink-faint);font-family:var(--font-serif);font-style:italic;margin:12px 2px 0;line-height:1.55}
+  .cq-answer{margin-top:10px;font-size:14px;color:var(--ink-soft);line-height:1.55;white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+  .cq-arow{display:flex;align-items:center;gap:10px;margin-top:8px}
+  .cq-prov{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+  .cq-pill.running{background:var(--accent-soft);color:var(--accent)}
+  .cq-pill.err{background:var(--clay-soft);color:var(--clay)}
+  .cq-runlink{margin-left:8px}
 
   .rep-tag{flex:none;font-size:12px;color:var(--ink-faint)}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);opacity:0;transition:opacity .25s ease,transform .25s ease;z-index:80;max-width:90vw;text-align:center}
@@ -577,7 +583,7 @@
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
-      <div style="margin-top:10px">KevinOS v0.9 · Daily + Next + Workspace + GitHub · recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.10 · Daily + Next + Workspace + GitHub · AI relay, recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -635,10 +641,10 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
-  var nextArea="All";
+  var nextArea="All", relayOpen=false;
   var projFilter="All", projView="status", editingProjId=null;
   var editingBuildId=null;
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
@@ -913,16 +919,31 @@
       box.insertAdjacentHTML("beforeend",'<p class="empty">'+(nextArea==="All"?"Nothing pressing right now. Set a due date or a project next-action and it’ll surface here.":"Nothing actionable in "+nextArea+".")+'</p>');
     }
     if(later>0){box.insertAdjacentHTML("beforeend",'<button class="sec-link" type="button" data-go="tasks" style="margin-top:12px">+'+later+' more without a near-term date →</button>');}
-    var cq='<hr class="surface-line"><div class="sec-head" style="margin-top:6px"><p class="section-label">Council queue</p></div>'+
-      '<div class="capture-row"><input id="councilInput" class="capture-input" type="text" placeholder="Ask the Council something…" autocomplete="off" aria-label="Council question"><button class="add-btn" type="button" data-council-add="1">Queue</button></div>';
+    var on=relayOn();
+    var cq='<hr class="surface-line"><div class="sec-head" style="margin-top:6px"><p class="section-label">Council queue</p><button class="sec-link" type="button" data-relay-toggle="1">'+(on?"AI connected ✓":"Connect AI")+'</button></div>';
+    if(relayOpen){
+      cq+='<div class="edit-panel"><div class="field"><label for="relayUrl">Relay URL</label><input class="inp" id="relayUrl" type="text" placeholder="https://kevinos-relay.…workers.dev" value="'+escapeHtml((state.relay&&state.relay.url)||"")+'" autocomplete="off" spellcheck="false"></div><div class="edit-actions"><button class="add-btn" type="button" data-relay-save="1">Save</button>'+(on?'<button class="btn-ghost danger" type="button" data-relay-clear="1">Disconnect</button>':'')+'</div><p class="hint">Paste your Cloudflare Worker URL (see <code>relay/RELAY_SETUP.md</code>). Your AI key stays on the relay, never in the browser. Leave blank to stay fully offline.</p></div>';
+    }
+    cq+='<div class="capture-row"><input id="councilInput" class="capture-input" type="text" placeholder="Ask the Council something…" autocomplete="off" aria-label="Council question"><button class="add-btn" type="button" data-council-add="1">'+(on?"Ask":"Queue")+'</button></div>';
     if(state.council&&state.council.length){
       cq+='<div class="cq-list">';
       state.council.forEach(function(q){
-        cq+='<div class="cq-item"><div class="cq-main"><div class="cq-text">'+escapeHtml(q.text)+'</div><span class="cq-pill">queued</span></div><button class="cq-del" type="button" data-council-del="'+q.id+'" aria-label="Remove">'+delSvg()+'</button></div>';
+        var st=q.status||"queued";
+        cq+='<div class="cq-item"><div class="cq-main"><div class="cq-text">'+escapeHtml(q.text)+'</div>';
+        if(st==="answered"&&q.answer){
+          cq+='<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-council-copy="'+q.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>';
+        } else if(st==="running"){
+          cq+='<span class="cq-pill running">running…</span>';
+        } else if(st==="error"){
+          cq+='<span class="cq-pill err">'+escapeHtml(q.error||"failed")+'</span>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Retry</button>':'');
+        } else {
+          cq+='<span class="cq-pill">queued</span>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Run now</button>':'');
+        }
+        cq+='</div><button class="cq-del" type="button" data-council-del="'+q.id+'" aria-label="Remove">'+delSvg()+'</button></div>';
       });
       cq+='</div>';
     }
-    cq+='<p class="cq-hint">Captured offline. When AI connects (Phase 2), these run automatically and bring answers back to you.</p>';
+    cq+='<p class="cq-hint">'+(on?"Connected. Ask the Council and answers come back here.":"Captured offline. Connect AI above (or wait for the relay) — then these run automatically.")+'</p>';
     box.insertAdjacentHTML("beforeend",cq);
     box.insertAdjacentHTML("beforeend",'<button class="sweep-card" type="button" data-openwind="1" style="margin-top:24px"><span class="sw-ico" style="background:#3a2c59">'+moonSvg()+'</span><span class="sw-txt"><span class="sw-title">Wind down the day</span><span class="sw-sub">Close out today — finish, defer, or let go, then rest.</span></span><span class="sw-arrow">'+chevSvg()+'</span></button>');
   }
@@ -932,17 +953,41 @@
     state.items.unshift({id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});
     inp.value="";renderNext();renderHome();save();
   }
+  function relayBase(){var u=((state.relay&&state.relay.url)||"").trim();return u.replace(/\/+$/,"");}
+  function relayOn(){return !!relayBase();}
+  function findCouncil(id){for(var i=0;i<state.council.length;i++)if(state.council[i].id===id)return state.council[i];return null;}
+  function runCouncil(id){
+    var base=relayBase();if(!base)return;
+    var q=findCouncil(id);if(!q)return;
+    q.status="running";q.error="";renderNext();
+    fetch(base+"/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:q.text,system:"You are the Council inside KevinOS, Kevin's calm personal operating system. Answer directly, concisely, and practically. Lead with the recommendation, then the why. Plain text, no preamble."})})
+      .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};},function(){return {ok:false,j:null};});})
+      .then(function(res){
+        var cur=findCouncil(id);if(!cur)return;
+        if(res.ok&&res.j&&res.j.text){cur.status="answered";cur.answer=res.j.text;cur.provider=res.j.provider||"AI";cur.error="";}
+        else{cur.status="error";cur.error=(res.j&&res.j.error)||"No answer from the relay";}
+        renderNext();save();
+      })
+      .catch(function(){var cur=findCouncil(id);if(cur){cur.status="error";cur.error="Couldn’t reach the relay";}renderNext();save();});
+  }
   function addCouncil(){
     var inp=$("councilInput");if(!inp)return;var t=(inp.value||"").trim();if(!t)return;
     if(!state.council)state.council=[];
-    state.council.unshift({id:uid(),text:t,status:"queued",createdAt:Date.now()});
+    var id=uid();
+    state.council.unshift({id:id,text:t,status:"queued",createdAt:Date.now()});
     inp.value="";renderNext();save();
+    if(relayOn())runCouncil(id);
   }
   function handleNextClick(e){
     var ca=e.target.closest("[data-next-area]");if(ca){nextArea=ca.getAttribute("data-next-area");renderNext();return;}
     if(e.target.closest("[data-openwind]")){openWind();return;}
     if(e.target.closest("[data-next-add]")){addNextTask();return;}
     if(e.target.closest("[data-council-add]")){addCouncil();return;}
+    if(e.target.closest("[data-relay-toggle]")){relayOpen=!relayOpen;renderNext();return;}
+    if(e.target.closest("[data-relay-save]")){var ri=$("relayUrl");if(ri){if(!state.relay)state.relay={url:""};state.relay.url=(ri.value||"").trim();}relayOpen=false;renderNext();save();return;}
+    if(e.target.closest("[data-relay-clear]")){state.relay={url:""};relayOpen=false;renderNext();save();return;}
+    var crun=e.target.closest("[data-council-run]");if(crun){runCouncil(crun.getAttribute("data-council-run"));return;}
+    var ccopy=e.target.closest("[data-council-copy]");if(ccopy){var cq2=findCouncil(ccopy.getAttribute("data-council-copy"));if(cq2&&cq2.answer){copyText(cq2.answer);var ob=ccopy.innerHTML;ccopy.innerHTML="Copied";setTimeout(function(){if(ccopy.isConnected)ccopy.innerHTML=ob;},1300);}return;}
     var cdel=e.target.closest("[data-council-del]");if(cdel){var id=cdel.getAttribute("data-council-del");state.council=state.council.filter(function(x){return x.id!==id;});renderNext();save();return;}
     var gob=e.target.closest("[data-go]");if(gob){go(gob.getAttribute("data-go"));return;}
     var act=e.target.closest("[data-action]");if(act){var it=findItem(act.dataset.id);if(it&&act.dataset.action==="done"){it.done=!it.done;if(it.done){it.today=false;rollRecurring(it);}renderNext();renderHome();save();}return;}
@@ -1578,7 +1623,7 @@
   $("ghNudge").addEventListener("click",function(){if(state.github&&state.github.token)go("github");});
   $("homeNudges").addEventListener("click",function(e){if(e.target.closest("[data-openwind]")){openWind();return;}if(e.target.closest("[data-backup]")){exportBackup();}});
   $("nextView").addEventListener("click",handleNextClick);
-  $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}});
+  $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}else if(t&&t.id==="relayUrl"){e.preventDefault();if(!state.relay)state.relay={url:""};state.relay.url=(t.value||"").trim();relayOpen=false;renderNext();save();}});
   $("nav").addEventListener("click",function(e){var t=e.target.closest(".tab");if(t)go(t.dataset.room);});
   var goBtns=document.querySelectorAll("[data-goto]");for(var gi=0;gi<goBtns.length;gi++){goBtns[gi].addEventListener("click",function(){go(this.dataset.goto);});}
   $("sweepCardHome").addEventListener("click",startSweep);
@@ -1656,6 +1701,7 @@
       if(!window.confirm("Import this backup? It replaces everything in KevinOS on this device. Tip: export a backup first."))return;
       ["items","events","projects","builds","briefs","links","prompts","notes","council"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
+      if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
       if(saved.v)state.v=saved.v;
@@ -1714,12 +1760,13 @@
       if(isArr(saved.notes))state.notes=saved.notes;
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(isArr(saved.council))state.council=saved.council;
+      if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=9;
+    state.v=10;
     var sharedMsg=ingestShared();
     renderHome();
     save();
