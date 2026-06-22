@@ -302,6 +302,17 @@
   .cq-pill.running{background:var(--accent-soft);color:var(--accent)}
   .cq-pill.err{background:var(--clay-soft);color:var(--clay)}
   .cq-runlink{margin-left:8px}
+  .cq-synth{margin-top:10px}
+  .cq-synth-head{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:6px}
+  .cq-synth .cq-answer{border-color:var(--accent-soft);background:var(--accent-soft)}
+  .cq-seats{margin-top:12px}
+  .cq-seat-toggle{font-size:12px;color:var(--ink-soft);background:none;border:0;cursor:pointer;padding:2px 0;font-family:var(--font-ui)}
+  .cq-seat-toggle:hover{color:var(--ink)}
+  .cq-seatlist{margin-top:10px;display:flex;flex-direction:column;gap:14px}
+  .cq-seat-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+  .cq-seat-label{font-size:12.5px;font-weight:600;color:var(--ink)}
+  .cq-seat.err .cq-seat-label{color:var(--clay)}
+  .cq-seat .cq-pill{margin-top:0}
 
   .rep-tag{flex:none;font-size:12px;color:var(--ink-faint)}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);opacity:0;transition:opacity .25s ease,transform .25s ease;z-index:80;max-width:90vw;text-align:center}
@@ -583,7 +594,7 @@
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
-      <div style="margin-top:10px">KevinOS v0.10 · Daily + Next + Workspace + GitHub · AI relay, recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.11 · Daily + Next + Workspace + GitHub · Multi-model Council, recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -644,7 +655,7 @@
   var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
-  var nextArea="All", relayOpen=false;
+  var nextArea="All", relayOpen=false, councilSeatsOpen={};
   var projFilter="All", projView="status", editingProjId=null;
   var editingBuildId=null;
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
@@ -930,10 +941,10 @@
       state.council.forEach(function(q){
         var st=q.status||"queued";
         cq+='<div class="cq-item"><div class="cq-main"><div class="cq-text">'+escapeHtml(q.text)+'</div>';
-        if(st==="answered"&&q.answer){
-          cq+='<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-council-copy="'+q.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>';
+        if(st==="answered"&&((q.seats&&q.seats.length)||q.answer)){
+          cq+=councilAnswerHTML(q,on);
         } else if(st==="running"){
-          cq+='<span class="cq-pill running">running…</span>';
+          cq+='<span class="cq-pill running">asking the Council…</span>';
         } else if(st==="error"){
           cq+='<span class="cq-pill err">'+escapeHtml(q.error||"failed")+'</span>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Retry</button>':'');
         } else {
@@ -956,15 +967,66 @@
   function relayBase(){var u=((state.relay&&state.relay.url)||"").trim();return u.replace(/\/+$/,"");}
   function relayOn(){return !!relayBase();}
   function findCouncil(id){for(var i=0;i<state.council.length;i++)if(state.council[i].id===id)return state.council[i];return null;}
+  function copySvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';}
+  function flashCopied(btn){var ob=btn.innerHTML;btn.innerHTML="Copied";setTimeout(function(){if(btn.isConnected)btn.innerHTML=ob;},1300);}
+  function councilAnswerHTML(q,on){
+    if((!q.seats||!q.seats.length)&&q.answer){
+      return '<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-legacy="'+q.id+'">'+copySvg()+'Copy</button><span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>';
+    }
+    var h="",hasSynth=q.synthesis&&q.synthesis.ok&&q.synthesis.text;
+    if(hasSynth){
+      h+='<div class="cq-synth"><div class="cq-synth-head">Council synthesis</div><div class="cq-answer">'+escapeHtml(q.synthesis.text)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-synth="'+q.id+'">'+copySvg()+'Copy</button><span class="cq-prov">chair · '+escapeHtml(q.synthesis.provider||"")+'</span></div></div>';
+    }
+    var open=councilSeatsOpen[q.id]===true||!hasSynth;
+    var aCount=(typeof q.answered==="number")?q.answered:0,nCount=(typeof q.asked==="number")?q.asked:(q.seats?q.seats.length:0);
+    h+='<div class="cq-seats"><button class="cq-seat-toggle" type="button" data-council-seats="'+q.id+'">'+aCount+' of '+nCount+' answered'+(hasSynth?' · '+(open?"hide":"show")+' responses':"")+'</button>';
+    if(open){
+      h+='<div class="cq-seatlist">';
+      (q.seats||[]).forEach(function(s,i){
+        if(s.ok){
+          h+='<div class="cq-seat"><div class="cq-seat-head"><span class="cq-seat-label">'+escapeHtml(s.label||s.provider||"AI")+'</span><span class="cq-prov">'+escapeHtml(s.lane||"")+'</span></div><div class="cq-answer">'+escapeHtml(s.text)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-seat="'+q.id+'" data-seat="'+i+'">'+copySvg()+'Copy</button><span class="cq-prov">'+escapeHtml((s.provider||"")+(s.ms?" · "+(s.ms/1000).toFixed(1)+"s":""))+'</span></div></div>';
+        } else {
+          h+='<div class="cq-seat err"><div class="cq-seat-head"><span class="cq-seat-label">'+escapeHtml(s.label||s.provider||"AI")+'</span><span class="cq-pill err">'+escapeHtml(s.error||"failed")+'</span></div></div>';
+        }
+      });
+      h+='</div>';
+    }
+    h+='</div>';
+    if(on)h+='<div class="cq-arow"><button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Ask again</button></div>';
+    return h;
+  }
   function runCouncil(id){
     var base=relayBase();if(!base)return;
     var q=findCouncil(id);if(!q)return;
     q.status="running";q.error="";renderNext();
+    fetch(base+"/council",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:q.text,synthesize:true})})
+      .then(function(r){
+        if(r.status===404)return {legacy:true};
+        return r.json().then(function(j){return {ok:r.ok,j:j};},function(){return {ok:false,j:null};});
+      })
+      .then(function(res){
+        if(res&&res.legacy){runCouncilLegacy(id);return;}
+        var cur=findCouncil(id);if(!cur)return;
+        if(res.ok&&res.j&&isArr(res.j.seats)&&res.j.seats.length){
+          cur.seats=res.j.seats;cur.synthesis=res.j.synthesis||null;cur.answer="";cur.provider="";
+          cur.asked=(typeof res.j.asked==="number")?res.j.asked:res.j.seats.length;
+          cur.answered=(typeof res.j.answered==="number")?res.j.answered:0;
+          if(cur.answered>0){cur.status="answered";cur.error="";}
+          else{cur.status="error";cur.error="No model answered — check the relay seats.";}
+        } else {
+          cur.status="error";cur.error=(res.j&&res.j.error)||"No answer from the relay";
+        }
+        renderNext();save();
+      })
+      .catch(function(){var cur=findCouncil(id);if(cur){cur.status="error";cur.error="Couldn’t reach the relay";}renderNext();save();});
+  }
+  function runCouncilLegacy(id){
+    var base=relayBase();if(!base)return;var q=findCouncil(id);if(!q)return;
     fetch(base+"/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:q.text,system:"You are the Council inside KevinOS, Kevin's calm personal operating system. Answer directly, concisely, and practically. Lead with the recommendation, then the why. Plain text, no preamble."})})
       .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};},function(){return {ok:false,j:null};});})
       .then(function(res){
         var cur=findCouncil(id);if(!cur)return;
-        if(res.ok&&res.j&&res.j.text){cur.status="answered";cur.answer=res.j.text;cur.provider=res.j.provider||"AI";cur.error="";}
+        if(res.ok&&res.j&&res.j.text){cur.status="answered";cur.seats=null;cur.synthesis=null;cur.answer=res.j.text;cur.provider=res.j.provider||"AI";cur.error="";}
         else{cur.status="error";cur.error=(res.j&&res.j.error)||"No answer from the relay";}
         renderNext();save();
       })
@@ -987,7 +1049,10 @@
     if(e.target.closest("[data-relay-save]")){var ri=$("relayUrl");if(ri){if(!state.relay)state.relay={url:""};state.relay.url=(ri.value||"").trim();}relayOpen=false;renderNext();save();return;}
     if(e.target.closest("[data-relay-clear]")){state.relay={url:""};relayOpen=false;renderNext();save();return;}
     var crun=e.target.closest("[data-council-run]");if(crun){runCouncil(crun.getAttribute("data-council-run"));return;}
-    var ccopy=e.target.closest("[data-council-copy]");if(ccopy){var cq2=findCouncil(ccopy.getAttribute("data-council-copy"));if(cq2&&cq2.answer){copyText(cq2.answer);var ob=ccopy.innerHTML;ccopy.innerHTML="Copied";setTimeout(function(){if(ccopy.isConnected)ccopy.innerHTML=ob;},1300);}return;}
+    var cseats=e.target.closest("[data-council-seats]");if(cseats){var sid=cseats.getAttribute("data-council-seats");councilSeatsOpen[sid]=!(councilSeatsOpen[sid]===true);renderNext();return;}
+    var csyn=e.target.closest("[data-cpy-synth]");if(csyn){var qs2=findCouncil(csyn.getAttribute("data-cpy-synth"));if(qs2&&qs2.synthesis&&qs2.synthesis.text){copyText(qs2.synthesis.text);flashCopied(csyn);}return;}
+    var cseat=e.target.closest("[data-cpy-seat]");if(cseat){var qq=findCouncil(cseat.getAttribute("data-cpy-seat")),si=parseInt(cseat.getAttribute("data-seat"),10);if(qq&&qq.seats&&qq.seats[si]&&qq.seats[si].text){copyText(qq.seats[si].text);flashCopied(cseat);}return;}
+    var cleg=e.target.closest("[data-cpy-legacy]");if(cleg){var ql=findCouncil(cleg.getAttribute("data-cpy-legacy"));if(ql&&ql.answer){copyText(ql.answer);flashCopied(cleg);}return;}
     var cdel=e.target.closest("[data-council-del]");if(cdel){var id=cdel.getAttribute("data-council-del");state.council=state.council.filter(function(x){return x.id!==id;});renderNext();save();return;}
     var gob=e.target.closest("[data-go]");if(gob){go(gob.getAttribute("data-go"));return;}
     var act=e.target.closest("[data-action]");if(act){var it=findItem(act.dataset.id);if(it&&act.dataset.action==="done"){it.done=!it.done;if(it.done){it.today=false;rollRecurring(it);}renderNext();renderHome();save();}return;}
@@ -1766,7 +1831,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=10;
+    state.v=11;
     var sharedMsg=ingestShared();
     renderHome();
     save();

@@ -71,8 +71,41 @@ https://kevinos-relay.YOURNAME.workers.dev
 
 ---
 
-## Switching AI later
-Edit `wrangler.toml` → change `PROVIDER`, set the matching secret (Step 3), then `npx wrangler deploy` again. Nothing changes in the app.
+## Add more Council seats (optional — all free)
+
+The Council asks **every seat that has a credential**, in parallel, then a "chair" model synthesizes one brief. Two seats work out of the box:
+
+- **Gemini** — already set (your `GEMINI_API_KEY`).
+- **Cloudflare** — no key needed; it's the `[ai]` binding already in `wrangler.toml`.
+
+To add the other three, make a free key and store it as a secret, then redeploy. Each new seat joins automatically — no app or code change.
+
+```sh
+cd /Users/kevin/KevinOS/app/relay
+
+# Groq — https://console.groq.com/keys
+npx wrangler secret put GROQ_API_KEY
+
+# Mistral — https://console.mistral.ai/api-keys
+npx wrangler secret put MISTRAL_API_KEY
+
+# OpenRouter — https://openrouter.ai/keys
+npx wrangler secret put OPENROUTER_API_KEY
+
+npx wrangler deploy
+```
+
+Check which seats are live any time:
+
+```sh
+curl https://kevinos-relay.YOURNAME.workers.dev/
+# -> {"ok":true,"service":"kevinos-relay","provider":"gemini","seats":["gemini","cloudflare","groq","mistral","openrouter"]}
+```
+
+Swap any seat's model by editing the matching var in `wrangler.toml` (`GROQ_MODEL`, `MISTRAL_MODEL`, `OPENROUTER_MODEL`, …) and redeploying. If the OpenRouter default ever 404s, copy a current free slug from <https://openrouter.ai/models?max_price=0>.
+
+## Switching the single-model endpoint later
+The `/ai` endpoint (one model) still uses `PROVIDER`. Edit `wrangler.toml` → change `PROVIDER`, set the matching secret (Step 3), then `npx wrangler deploy` again. The Council (`/council`) ignores `PROVIDER` — it always uses every seat.
 
 ## Test the relay directly (optional)
 ```sh

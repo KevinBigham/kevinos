@@ -2,14 +2,29 @@ name = "kevinos-relay"
 main = "worker.js"
 compatibility_date = "2024-11-01"
 
-# Which AI to use: "claude" or "gemini". Switch any time, then redeploy.
+# Cloudflare Workers AI — a free Council seat with NO API key (10k neurons/day).
+# This binding is the only thing the Cloudflare seat needs.
+[ai]
+binding = "AI"
+
+# The single-model endpoint (/ai) uses PROVIDER. The Council (/council) uses every
+# seat whose credential is present, independent of PROVIDER.
 [vars]
 PROVIDER = "gemini"
 ALLOW_ORIGIN = "https://kevinbigham.github.io"
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 GEMINI_MODEL = "gemini-2.5-flash"
+CF_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+MISTRAL_MODEL = "mistral-small-latest"
+OPENROUTER_MODEL = "deepseek/deepseek-chat-v3-0324:free"
 MAX_TOKENS = "1024"
 
-# The API key is NOT here — it's a secret. Set it with:
-#   npx wrangler secret put ANTHROPIC_API_KEY     (if PROVIDER = "claude")
-#   npx wrangler secret put GEMINI_API_KEY        (if PROVIDER = "gemini")
+# Keys are secrets, never here. Each Council seat turns on when its secret exists:
+#   npx wrangler secret put GEMINI_API_KEY       # Gemini      (already set)
+#   npx wrangler secret put GROQ_API_KEY         # Groq        https://console.groq.com/keys
+#   npx wrangler secret put MISTRAL_API_KEY      # Mistral     https://console.mistral.ai/api-keys
+#   npx wrangler secret put OPENROUTER_API_KEY   # OpenRouter  https://openrouter.ai/keys
+# The Cloudflare seat needs no key — just the [ai] binding above.
+# Tip: copy a current free model slug from https://openrouter.ai/models?max_price=0
+# into OPENROUTER_MODEL if the default ever 404s.
