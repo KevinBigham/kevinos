@@ -628,7 +628,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.21 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · Council → action (turn a verdict into reviewed tasks) · AI morning brief (a written daily cockpit + smart 8am push), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.22 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · Council → action (turn a verdict into reviewed tasks) · AI morning brief (a written daily cockpit + smart 8am push), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -1230,13 +1230,15 @@
     deriveSyncKey(passphrase).then(function(key){
       s.key=key;syncDeviceId();var base=relayBase();
       return fetch(base+"/sync/pull",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:key})}).then(function(r){return r.json();}).then(function(j){
-        var hasRemote=j&&j.ok&&j.doc&&j.updatedAt>0;
+        var hasRemote=j&&j.ok&&j.doc&&(j.rev||0)>0;
+        s.on=true;s.err="";s.lastSyncAt=Date.now();syncOpen=false;
         if(hasRemote){
-          var useRemote=window.confirm("This passphrase already has synced data.\n\nOK = load it onto THIS device (replaces what's here).\nCancel = keep this device's data and upload it (overwrites the synced copy).");
-          if(useRemote){applySyncDoc(j.doc);s.updatedAt=j.updatedAt;s.rev=j.rev||0;s.on=true;s.err="";s.lastSyncAt=Date.now();syncOpen=false;persist();syncRerender();toast("Synced ✓ This device now matches your other one.");return;}
-          s.on=true;s.rev=j.rev||0;s.err="";syncOpen=false;persist();syncPush(0,true);renderSync();toast("Synced ✓ Uploaded this device's data.");return;
+          // Linking devices MERGES both (union by id) — never deletes half your
+          // stuff. The union is pushed so the cloud + every device converge.
+          mergeRemoteDoc(j.doc);s.rev=j.rev||0;s.updatedAt=j.updatedAt||0;persist();syncRerender();syncPush();
+          toast("Linked ✓ Both devices merged — nothing lost.");return;
         }
-        s.on=true;s.updatedAt=Date.now();s.rev=0;s.err="";s.lastSyncAt=Date.now();syncOpen=false;persist();syncPush();renderSync();toast("Sync on ✓ This is your first synced device.");
+        s.rev=0;s.updatedAt=0;persist();syncPush();renderSync();toast("Sync on ✓ This is your first linked device.");
       });
     }).catch(function(){toast("Couldn’t reach sync. Check the relay connection.");});
   }
@@ -1256,7 +1258,7 @@
     if(!s.on){
       var h=head+dotOff+'<strong>Cross-device sync · Off</strong><button class="linklike" type="button" data-sync-toggle="1">'+(syncOpen?"Close":"Connect")+'</button></div>';
       if(syncOpen){
-        h+='<div class="edit-panel"><div class="field"><label for="syncPass">Sync passphrase</label><input class="inp" id="syncPass" type="password" placeholder="a secret phrase — same on every device" autocomplete="off" spellcheck="false"></div><div class="edit-actions"><button class="add-btn" type="button" data-sync-connect="1">Start syncing</button><button class="btn-ghost" type="button" data-sync-gen="1">Generate</button></div><p class="hint">Pick any phrase and enter the <strong>same one</strong> on your other devices to link them. It never leaves this device — only its fingerprint is sent. Your data lives in your own Cloudflare database.</p></div>';
+        h+='<div class="edit-panel"><div class="field"><label for="syncPass">Sync passphrase</label><input class="inp" id="syncPass" type="password" placeholder="a secret phrase — same on every device" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></div><div class="edit-actions"><button class="add-btn" type="button" data-sync-connect="1">Start syncing</button><button class="btn-ghost" type="button" data-sync-gen="1">Generate</button></div><p class="hint">Type the <strong>exact same phrase</strong> on each device — lowercase, no spaces is easiest. The <strong>link code</strong> shown afterward is only a check: when it matches on both devices, the two are linked. (You type your <em>phrase</em>, not the code.) It never leaves this device — only its fingerprint is sent.</p></div>';
       }else{
         h+='<p class="hint">Keep tasks, notes, and everything else in lock-step across your Mac and phone. One passphrase links your devices.</p>';
       }
@@ -2623,7 +2625,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=21;
+    state.v=22;
     var sharedMsg=ingestShared();
     renderHome();
     save();
