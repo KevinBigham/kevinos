@@ -31,7 +31,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **2b — Phone reminders** (Web Push: morning brief + per-task due-time) | **Shipped** v0.14 → VAPID + KV + cron, $0/mo |
 | ✅ | **2b — GitHub OAuth** (token off-device via the relay) | **LIVE** v0.15 → OAuth App registered, relay holds the token, $0/mo |
 | ✅ | **3 — Sync** (one live dataset across devices) | **LIVE** v0.16 → passphrase-linked, Cloudflare D1, $0/mo |
-| ⬜ | **4 — Calendar / File AI** | Planned |
+| ✅ | **4 — Calendar / File AI** (photo/PDF/text → reviewed events) | **LIVE** v0.17 → Gemini multimodal + .ics hardening, $0/mo |
 | ⬜ | **5 — Email Command Center** | Planned (built last) |
 
 ---
@@ -163,17 +163,19 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 ---
 
-## ⬜ Phase 4 — Calendar / File AI
+## ✅ Phase 4 — Calendar / File AI *(shipped, v0.17)*
 **Goal:** Throw messy input at it — notes, PDFs, screenshots — and get clean calendar events out.
 
-**Ships:**
-- [ ] Capture by typing **and** file upload → AI routes it
-- [ ] AI extracts events from notes/PDFs/screenshots → **review queue** → export Apple/Google (`.ics`)
-- [ ] **Calendar hardening** (clears the last v0.5 bugs): `parseICS` to honor DTEND / TZID / RRULE / EXDATE; export timed events with TZID/Z so they stop drifting across DST
+**Shipped & LIVE (v0.17):**
+- [x] **Relay `/extract`** — Gemini 2.5 Flash **multimodal**: typed text, a photo/screenshot, or a PDF → strict-JSON events `{title,date,start,end,allDay,location,notes}`, resolving relative dates ("next Saturday") against today + the device timezone. Sanitized server-side. The key stays on the relay; the browser sends base64 + asks.
+- [x] **Smart-add capture** in the Calendar room — paste text and/or upload a photo/PDF → "Extract events" → proposed events land in a **review queue**.
+- [x] **Review queue (the core primitive):** each proposed event is an editable card (title/date/time/area) with **Add to calendar** / **Dismiss** (+ Approve-all / Dismiss-all). AI proposes → Kevin approves → it becomes a real event. Queue is `state.pending` (syncs as content).
+- [x] **Calendar hardening (clears the last v0.5 bugs):** `parseICS` now honors **DTEND, RRULE** (DAILY/WEEKLY/MONTHLY/YEARLY + INTERVAL/COUNT/UNTIL, weekly **BYDAY**), **EXDATE**, **LOCATION/DESCRIPTION**, and **Z (UTC→local)**; recurring events expand into individual occurrences (bounded, RFC-correct COUNT-before-EXDATE). Export now writes **timed events as UTC (Z)** so they no longer float/drift across DST in Apple/Google, plus LOCATION/DESCRIPTION.
+- [x] **Verified:** `/extract` curl (text → 3 correct events incl. relative dates); **Node test suite** for the ICS engine — RRULE/BYDAY/UNTIL/EXDATE + DST round-trip — **all pass across 4 timezones** (system / Eastern / Central / Honolulu); app in preview (mocked `/extract` → 2 review cards → approve → event on the calendar), zero console errors.
 
-**Tech:** relay AI (Phase 2) + review queue; reuses the existing `.ics` engine, fixed.
-**Done when:** a screenshot of a flyer becomes a correctly-timed, reviewed event on the calendar.
-**Cost:** AI usage only.
+**Tech:** relay AI (Phase 2) multimodal + the review-queue primitive; reuses the existing `.ics` engine, now fixed. `state.v` → 17.
+**Done when:** ~~a screenshot of a flyer becomes a correctly-timed, reviewed event on the calendar.~~ ✅
+**Cost:** $0 (Gemini free tier).
 
 ---
 
@@ -229,4 +231,6 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Cross-device sync shipped 🎉🎉 (v0.16)** KevinOS is now **one live dataset on every device**. Set a sync passphrase on the Mac and the phone and tasks / notes / everything stay in lock-step — through the relay, backed by a **Cloudflare D1** database, with no database key ever in the browser (the app sends only `sha256(passphrase)`). Last-write-wins, content-only (device connections stay local), pull-on-focus + 60s poll, debounced push. Verified end-to-end (curl + a mocked two-device preview run), **$0/mo**. **Phases 0 → 3 are all shipped.**
 
-**Next up:** **Phase 4** (Calendar / File AI) — throw a note / PDF / screenshot at it → AI extracts events → review queue → `.ics`, and clear the carried-over calendar bugs (parseICS RRULE/TZID/DTEND; DST drift on export). Then **Phase 5** (Email Command Center), built last. Both only on Kevin's go.
+**Calendar / File AI shipped 🎉🎉🎉 (v0.17)** Throw *anything* at the calendar: paste a flyer/email, snap a photo, or drop a PDF → **Gemini reads it** (multimodal, on the relay) → proposed events land in a **review queue** → approve each (editable) → it's on your calendar. Relative dates resolve against today. And the old `.ics` bugs are dead: imports now honor **RRULE / BYDAY / DTEND / EXDATE / UTC**, and exports are **DST-safe (UTC Z)** — Node-verified across 4 timezones. Still **$0/mo**.
+
+**Next up:** **Phase 5 — Email Command Center** (built last, on purpose): multi-account **Gmail** via relay OAuth, AI drafts replies → **review queue** → approve → **sent on approval** (`gmail.send`), never auto-sends. Needs Kevin's one-time Google Cloud OAuth registration (like GitHub).

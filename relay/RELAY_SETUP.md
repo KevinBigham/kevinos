@@ -174,6 +174,10 @@ How it works, and how to reproduce it on a fresh relay:
 
 The model is **last-write-wins**: the most recent edit wins. **Content** syncs (tasks, notes, projects, calendar, …); **device connections** (the relay URL, push, GitHub) stay per-device. Your passphrase never leaves the device — only `sha256(passphrase)` is sent, and that's the database row key. Backup/restore still works as the escape hatch, and importing a backup never links a device on its own. Cost stays **$0** (Cloudflare D1 free tier — 5 GB, far beyond a personal dataset).
 
+## Calendar / File AI — already set up (v0.17)
+
+The calendar can turn a **photo, a PDF, or pasted text** into events. This rides on your existing Gemini key — **nothing to set up.** In KevinOS → **Calendar** → **✨ Smart add** → paste text or pick a photo/PDF → **Extract events** → approve each proposed event onto your calendar. The relay endpoint is `POST /extract` (Gemini multimodal); `GET /` shows `"extract":true` whenever a `GEMINI_API_KEY` is set. Cost stays **$0** (Gemini free tier).
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.

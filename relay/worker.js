@@ -293,6 +293,61 @@ function streamCouncil(env, seats, system, prompt, wantSynth, origin) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Calendar / File AI (Phase 4) — extract events from typed text, a photo/
+// screenshot, or a PDF using Gemini's multimodal model, returned as strict JSON.
+// ─────────────────────────────────────────────────────────────────────────────
+async function extractEvents(env, payload) {
+  if (!env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set on the relay");
+  const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
+  const today = (payload.today || "").toString();
+  const tz = (payload.tz || "").toString();
+  const instr =
+    "You extract calendar events from the input, which may be typed text, an image/screenshot of a flyer or schedule, or a PDF. " +
+    "Today is " + (today || "unknown") + (tz ? " (timezone " + tz + ")" : "") + ". " +
+    "Resolve every relative date ('next Saturday', 'tomorrow', 'the 15th') against today. " +
+    'Return ONLY a JSON array. Each event = {"title":string,"date":"YYYY-MM-DD","start":"HH:MM" 24-hour or "","end":"HH:MM" or "","allDay":boolean,"location":string,"notes":string}. ' +
+    'Use "" for anything unknown. If the input contains no real events, return []. No prose, no markdown.';
+  const parts = [{ text: instr }];
+  if (payload.text) parts.push({ text: "INPUT TEXT:\n" + payload.text.toString().slice(0, 20000) });
+  if (payload.file && payload.file.dataB64 && payload.file.mime)
+    parts.push({ inlineData: { mimeType: payload.file.mime, data: payload.file.dataB64 } });
+
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }),
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error((data.error && data.error.message) || "Gemini error " + r.status);
+  const cand = (data.candidates || [])[0];
+  const txt = (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
+  let arr = null;
+  try { arr = JSON.parse(txt); } catch (e) {
+    const a = txt.indexOf("["), b = txt.lastIndexOf("]");
+    if (a >= 0 && b > a) { try { arr = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { arr = null; } }
+  }
+  if (!Array.isArray(arr)) throw new Error("Could not parse events from the model");
+  const clean = [];
+  for (const ev of arr.slice(0, 50)) {
+    if (!ev || typeof ev !== "object") continue;
+    const title = (ev.title || "").toString().trim().slice(0, 200);
+    const date = (ev.date || "").toString().trim();
+    if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    const start = /^\d{1,2}:\d{2}$/.test((ev.start || "").toString()) ? normHM(ev.start) : "";
+    const end = /^\d{1,2}:\d{2}$/.test((ev.end || "").toString()) ? normHM(ev.end) : "";
+    clean.push({
+      title, date, start, end,
+      allDay: ev.allDay === true || !start,
+      location: (ev.location || "").toString().trim().slice(0, 200),
+      notes: (ev.notes || "").toString().trim().slice(0, 1000),
+    });
+  }
+  return clean;
+}
+function normHM(s) { const p = s.toString().split(":"); return (p[0].length < 2 ? "0" + p[0] : p[0]) + ":" + p[1].slice(0, 2); }
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Web Push (Phase 2b) — VAPID + RFC 8291 aes128gcm encryption, all in WebCrypto.
 // The app computes its reminder set (morning brief + per-task due) and syncs it
 // here; a cron fires due reminders. The browser holds no keys; the relay signs.
@@ -455,7 +510,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -508,6 +563,20 @@ export default {
         return json({ text, provider }, 200, origin);
       } catch (err) {
         return json({ error: (err && err.message) || "AI request failed" }, 502, origin);
+      }
+    }
+
+    // Calendar / File AI — extract events from text / photo / PDF.
+    if (request.method === "POST" && url.pathname === "/extract") {
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      if (!payload || (!payload.text && !(payload.file && payload.file.dataB64)))
+        return json({ error: "Provide text or a file to extract from" }, 400, origin);
+      try {
+        const events = await extractEvents(env, payload);
+        return json({ ok: true, events }, 200, origin);
+      } catch (e) {
+        return json({ error: (e && e.message) || "extract failed" }, 502, origin);
       }
     }
 
