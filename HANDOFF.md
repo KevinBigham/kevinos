@@ -8,9 +8,9 @@
 
 KevinOS is Kevin's **personal life operating system** — a calm daily cockpit (tasks, calendar, notes, projects, GitHub, reference) as an installable PWA. It is **live, installed on his phone, and fully working**.
 
-- **App:** `v0.11`, live at **https://kevinbigham.github.io/kevinos/** (GitHub Pages, public repo `KevinBigham/kevinos`).
-- **Backend ("the relay"):** a Cloudflare Worker, **live** at **https://kevinos-relay.kevinbigham.workers.dev**. It holds every AI key as a server secret and powers the in-app **Council**. As of v0.11 the Council is **multi-model**: one prompt fans out to **5 free seats** (Gemini, Cloudflare Workers AI, Groq, Mistral, OpenRouter) in parallel, then a **synthesis chair** (Gemini) combines them into one decision-ready brief. Source is in `relay/` in this same repo.
-- **Whole stack is operational at $0/mo.** Phases 0 → 2 shipped, including the v0.11 multi-model Council.
+- **App:** `v0.12`, live at **https://kevinbigham.github.io/kevinos/** (GitHub Pages, public repo `KevinBigham/kevinos`).
+- **Backend ("the relay"):** a Cloudflare Worker, **live** at **https://kevinos-relay.kevinbigham.workers.dev**. It holds every AI key as a server secret and powers the in-app **Council**. As of v0.12 the Council is **multi-model with per-seat lanes**: one prompt fans out to **5 free seats** (Gemini, Cloudflare Workers AI, Groq, Mistral, OpenRouter) in parallel — each answering from a distinct assigned role (grounded · fast tactical · research · open-model · devil's advocate) — then a **synthesis chair** (Gemini) combines them into one decision-ready brief, which Kevin can save to Notes. Source is in `relay/` in this same repo.
+- **Whole stack is operational at $0/mo.** Phases 0 → 2 shipped, including the v0.12 Council (multi-model, per-seat lanes, save-to-Notes).
 - **The single most important rule:** the app's JavaScript is **ES5-style on purpose** (see §2). Do not introduce arrow functions, template literals, `async/await`, `const`/`let`, or any dependency into the app. The Worker (`relay/`) is exempt — it's modern ES modules.
 
 If you only remember two things: **(1) keep the app ES5-style and dependency-free; (2) the AI key lives ONLY on the Worker as a secret — never in the browser, the repo, or his phone.**
@@ -83,7 +83,7 @@ Everything is in ONE public repo (`github.com/KevinBigham/kevinos`). A fresh `gi
 ```
 /Users/kevin/KevinOS/                ← local parent folder (NOT in git)
 ├── app/                             ← THE GIT REPO → github.com/KevinBigham/kevinos (PUBLIC)
-│   ├── index.html                   ← THE APP (v0.11, ~1750 lines, ES5)
+│   ├── index.html                   ← THE APP (v0.12, ~1850 lines, ES5)
 │   ├── manifest.json                ← PWA manifest (+ share_target)
 │   ├── sw.js                        ← service worker (CACHE = "kevinos-v0_11")
 │   ├── icon-192.png, icon-512.png, .nojekyll
@@ -144,7 +144,8 @@ npx wrangler deploy
   - `cloudflare` — Llama 3.3 70B on Workers AI (free, **no key** — just the `[ai]` binding)
   - `groq` — Llama 3.3 70B Versatile (free)
   - `mistral` — Mistral Small (free mode)
-  - `openrouter` — wildcard, **fallback chain** of free models (Qwen3-Next-80B → Llama-3.3-70B → Gemma-4; OpenRouter routes to the first available)
+  - `openrouter` — **devil's-advocate** lane, **fallback chain** of free models (Qwen3-Next-80B → Llama-3.3-70B → Gemma-4; OpenRouter routes to the first available)
+- **Per-seat lanes (v0.12):** the `/council` handler appends a distinct **role** to each seat's system prompt — `gemini`=grounded/fact-first, `groq`=fast tactical, `mistral`=research/trade-offs, `cloudflare`=open-model wildcard, `openrouter`=devil's advocate — so the council genuinely diverges instead of five near-identical answers. The synthesis chair is told each answer's lane.
 - **Single-model endpoint (`/ai`)** still uses `PROVIDER` (currently `gemini`); **`/council` ignores `PROVIDER`** and always uses every seat.
 - **Secrets set (encrypted, server-side only):** `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, plus `ANTHROPIC_API_KEY` (idle — the fallback chair / a `/ai` option). The Cloudflare seat needs **no** secret. Set/rotate with `npx wrangler secret put <NAME>`.
 - **CORS:** `ALLOW_ORIGIN = "https://kevinbigham.github.io"` (browser guard only — see §7).
@@ -183,7 +184,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - **Claude billing:** Kevin's Anthropic account had $0 credit, so Claude auth *succeeded* but calls failed with "credit balance too low." That's why we run on Gemini's free tier. (The Claude key still works the moment there's credit — just flip `PROVIDER`.)
 - **Finding the Council:** it lives in the **Next** room (top nav), scroll to the bottom — NOT on Home. Kevin looked for it on Home and couldn't find it.
 - **Event handling:** the app uses **event delegation on stable containers** so `innerHTML` re-renders don't drop listeners. Follow that pattern; don't attach listeners to elements that get re-rendered.
-- **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 11`. When you change the state shape, bump `state.v` and handle the migration in `load()`. (v11 added per-question `seats[]` + `synthesis` to `state.council[]`; old single-`answer` items still render via a legacy branch.)
+- **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 12`. When you change the state shape, bump `state.v` and handle the migration in `load()`. (v11 added per-question `seats[]` + `synthesis` to `state.council[]`; old single-`answer` items still render via a legacy branch. v12 added no new shape — "Save to Notes" writes a Council session into `state.notes` as an ordinary note.)
 - **OpenRouter free models rotate AND rate-limit.** Free slugs flip to paid (`deepseek/deepseek-chat-v3-0324:free` did) and free endpoints get "rate-limited upstream" under load. Fix is baked in: `OPENROUTER_MODEL` is a **comma-separated fallback chain** (≤3 entries — OpenRouter rejects 4+) sent as the `models` array, so OpenRouter routes to the first available. Currently `qwen3-next-80b → llama-3.3-70b → gemma-4`. `callOpenAICompatible` now also surfaces the upstream `metadata.raw`/`provider_name` so errors aren't masked as a generic "Provider returned error." Refresh slugs from `https://openrouter.ai/api/v1/models` (filter `pricing.prompt=="0"`) + redeploy.
 - **Free-tier seats blip.** Gemini occasionally returns "experiencing high demand"; that seat fails for that one request and the others carry the Council (and Gemini can still chair the synthesis). Expected, not a bug — `Promise.all` with per-seat try/catch isolates each failure.
 
@@ -213,6 +214,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - Phase 1.5 — recurring tasks, share/URL capture, backup nudge, wind-down ritual — v0.9
 - **Phase 2 (first slice) — THE RELAY IS LIVE:** Council wired to real AI through the Worker; review-queue pattern (`queued → answered`) — v0.10
 - **Phase 2 (Council upgrade) — MULTI-MODEL COUNCIL:** `/council` fans one prompt to 5 free seats (Gemini, Cloudflare, Groq, Mistral, OpenRouter) in parallel + a Gemini synthesis chair; app renders the synthesis brief + a collapsible per-seat roster — v0.11. Automates Kevin's "Council of Friends" workflow at $0/mo.
+- **Phase 2 (Council depth) — PER-SEAT LANES + SAVE-TO-NOTES:** each seat answers from a distinct lane (grounded / fast tactical / research / open-model / devil's advocate); synthesis is lane-aware; any Council session saves into Notes; offline-queued questions auto-run the moment the relay connects — v0.12.
 
 **Next, when Kevin says go (do NOT start unprompted):**
 - **Phase 2b:** Web Push reminders to the installed PWA + email-to-self backstop; move the GitHub PAT off-device to OAuth via the relay.

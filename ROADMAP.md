@@ -26,6 +26,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **1.5 — Daily polish** (recurring, share-capture, backup nudge, wind-down) | **Shipped** v0.9 |
 | ✅ | **2 — The Relay** (online AI + review queue) — *first slice LIVE* | **Shipped** v0.10 → relay on Gemini, $0/mo |
 | ✅ | **2 — Multi-model Council** (5-seat fan-out + synthesis chair) | **Shipped** v0.11 → Gemini · Cloudflare · Groq · Mistral · OpenRouter, $0/mo |
+| ✅ | **2 — Council depth** (per-seat lanes + save-to-Notes + auto-run on connect) | **Shipped** v0.12 → grounded · tactical · research · open-model · devil's-advocate, $0/mo |
 | ⬜ | **3 — Sync** (one live dataset across devices) | Planned |
 | ⬜ | **4 — Calendar / File AI** | Planned |
 | ⬜ | **5 — Email Command Center** | Planned (built last) |
@@ -112,6 +113,12 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 - [x] **Verified live** end-to-end via server-side `curl /council` (the relay doesn't reject by Origin) — real multi-model answers + synthesis
 - [x] Realizes the **"Council of Friends"** workflow — automated, in-app, $0/mo
 
+**Shipped & LIVE (v0.12) — Council depth:**
+- [x] **Per-seat lanes** — each seat answers from a distinct assigned role (grounded / fast tactical / research / open-model / devil's advocate) instead of the same prompt ×5; the synthesis chair is lane-aware. Realizes Kevin's "distinct assignment per friend" rule end-to-end — verified live (5/5 seats genuinely diverged on the same question)
+- [x] **Save Council → Notes** — one tap turns a session (question + synthesis + every seat) into a durable note (`Resource` bucket, `council` tag)
+- [x] **Auto-run on connect** — offline-queued questions fire automatically the moment the relay connects (fulfils the UI's existing promise); `state.v` → 12
+- [x] **Verified** — live `curl /council` (divergent lane answers + lane-aware synthesis) **and** browser preview against a mocked relay (Save-to-Notes + auto-run, no console errors)
+
 - [ ] **Web Push** reminders to the installed PWA + **email-to-self** backstop *(Phase 2b — next)*
 - [ ] Move the **GitHub token off-device** to OAuth via the relay *(Phase 2b — next)*
 
@@ -192,4 +199,6 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Multi-model Council shipped 🎉🎉 (v0.11)** The Council is now a true **council**: one prompt fans out to **5 free seats** (Gemini · Cloudflare · Groq · Mistral · OpenRouter) in parallel, then a Gemini **synthesis chair** distills one decision-ready brief. Each seat self-enables when its key lands on the relay — adding a model is one `wrangler secret put` + redeploy, no app change. Still **$0/mo**. Built from two free-API research reports; realizes Kevin's "Council of Friends" workflow, automated.
 
-**Next up (Phase 2b — only when Kevin says go):** Web Push reminders to the installed PWA + email-to-self backstop, then move the GitHub token off-device to OAuth via the relay. After that, Phase 3 (Supabase sync across devices). Council polish ideas on deck: per-seat lanes (distinct system prompt per friend), progressive streaming as each seat returns, and a "copy all" / save-to-Notes for the synthesis.
+**Council depth shipped 🎉🎉🎉 (v0.12)** The council now genuinely *diverges*: each seat answers from a **distinct lane** — Gemini grounded, Groq fast-tactical, Mistral research, Cloudflare open-model wildcard, OpenRouter **devil's advocate** — and the chair synthesizes lane-aware. Any session **saves to Notes** in one tap, and offline-queued questions **auto-run the moment the relay connects**. Verified live (5/5 seats split on the same question) + in-browser. This is Kevin's "distinct assignment per friend" rule, fully automated.
+
+**Next up (Phase 2b — only when Kevin says go):** Web Push reminders to the installed PWA + email-to-self backstop, then move the GitHub token off-device to OAuth via the relay. After that, Phase 3 (Supabase sync across devices). Remaining Council polish on deck: **progressive streaming** (per-seat cards fill as each model returns, instead of all-at-once) — the last of the three v0.12 polish ideas, and the one worth doing next for the Council.

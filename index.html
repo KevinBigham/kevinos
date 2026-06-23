@@ -594,7 +594,7 @@
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
-      <div style="margin-top:10px">KevinOS v0.11 · Daily + Next + Workspace + GitHub · Multi-model Council, recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.12 · Daily + Next + Workspace + GitHub · Council with lanes + save-to-Notes, recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -968,10 +968,10 @@
   function relayOn(){return !!relayBase();}
   function findCouncil(id){for(var i=0;i<state.council.length;i++)if(state.council[i].id===id)return state.council[i];return null;}
   function copySvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';}
-  function flashCopied(btn){var ob=btn.innerHTML;btn.innerHTML="Copied";setTimeout(function(){if(btn.isConnected)btn.innerHTML=ob;},1300);}
+  function flashCopied(btn,msg){var ob=btn.innerHTML;btn.innerHTML=msg||"Copied";setTimeout(function(){if(btn.isConnected)btn.innerHTML=ob;},1300);}
   function councilAnswerHTML(q,on){
     if((!q.seats||!q.seats.length)&&q.answer){
-      return '<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-legacy="'+q.id+'">'+copySvg()+'Copy</button><span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>';
+      return '<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-legacy="'+q.id+'">'+copySvg()+'Copy</button><button class="linklike" type="button" data-council-save="'+q.id+'">Save to Notes</button><span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>';
     }
     var h="",hasSynth=q.synthesis&&q.synthesis.ok&&q.synthesis.text;
     if(hasSynth){
@@ -992,7 +992,7 @@
       h+='</div>';
     }
     h+='</div>';
-    if(on)h+='<div class="cq-arow"><button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Ask again</button></div>';
+    h+='<div class="cq-arow"><button class="linklike" type="button" data-council-save="'+q.id+'">Save to Notes</button>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Ask again</button>':'')+'</div>';
     return h;
   }
   function runCouncil(id){
@@ -1032,6 +1032,21 @@
       })
       .catch(function(){var cur=findCouncil(id);if(cur){cur.status="error";cur.error="Couldn’t reach the relay";}renderNext();save();});
   }
+  function councilToText(q){
+    var L=["Q: "+q.text,""];
+    if(q.synthesis&&q.synthesis.ok&&q.synthesis.text){L.push("SYNTHESIS — chair · "+(q.synthesis.provider||""),q.synthesis.text,"");}
+    if(q.seats&&q.seats.length){
+      L.push("── Council responses ──");
+      q.seats.forEach(function(s){if(s.ok)L.push("",(s.label||s.provider||"AI")+(s.lane?" — "+s.lane:""),s.text);});
+    } else if(q.answer){L.push(q.answer);}
+    return L.join("\n");
+  }
+  function saveCouncilToNotes(id){
+    var q=findCouncil(id);if(!q)return;
+    state.notes.unshift({id:uid(),title:"Council · "+q.text,para:"Resource",area:"Inbox",tags:"council",body:councilToText(q),createdAt:Date.now()});
+    save();toast("Saved to Notes");
+  }
+  function runQueuedCouncil(){if(isArr(state.council))state.council.forEach(function(q){if(q.status==="queued"||q.status==="error")runCouncil(q.id);});}
   function addCouncil(){
     var inp=$("councilInput");if(!inp)return;var t=(inp.value||"").trim();if(!t)return;
     if(!state.council)state.council=[];
@@ -1046,13 +1061,14 @@
     if(e.target.closest("[data-next-add]")){addNextTask();return;}
     if(e.target.closest("[data-council-add]")){addCouncil();return;}
     if(e.target.closest("[data-relay-toggle]")){relayOpen=!relayOpen;renderNext();return;}
-    if(e.target.closest("[data-relay-save]")){var ri=$("relayUrl");if(ri){if(!state.relay)state.relay={url:""};state.relay.url=(ri.value||"").trim();}relayOpen=false;renderNext();save();return;}
+    if(e.target.closest("[data-relay-save]")){var ri=$("relayUrl");if(ri){if(!state.relay)state.relay={url:""};state.relay.url=(ri.value||"").trim();}relayOpen=false;renderNext();save();if(relayOn())runQueuedCouncil();return;}
     if(e.target.closest("[data-relay-clear]")){state.relay={url:""};relayOpen=false;renderNext();save();return;}
     var crun=e.target.closest("[data-council-run]");if(crun){runCouncil(crun.getAttribute("data-council-run"));return;}
     var cseats=e.target.closest("[data-council-seats]");if(cseats){var sid=cseats.getAttribute("data-council-seats");councilSeatsOpen[sid]=!(councilSeatsOpen[sid]===true);renderNext();return;}
     var csyn=e.target.closest("[data-cpy-synth]");if(csyn){var qs2=findCouncil(csyn.getAttribute("data-cpy-synth"));if(qs2&&qs2.synthesis&&qs2.synthesis.text){copyText(qs2.synthesis.text);flashCopied(csyn);}return;}
     var cseat=e.target.closest("[data-cpy-seat]");if(cseat){var qq=findCouncil(cseat.getAttribute("data-cpy-seat")),si=parseInt(cseat.getAttribute("data-seat"),10);if(qq&&qq.seats&&qq.seats[si]&&qq.seats[si].text){copyText(qq.seats[si].text);flashCopied(cseat);}return;}
     var cleg=e.target.closest("[data-cpy-legacy]");if(cleg){var ql=findCouncil(cleg.getAttribute("data-cpy-legacy"));if(ql&&ql.answer){copyText(ql.answer);flashCopied(cleg);}return;}
+    var csav=e.target.closest("[data-council-save]");if(csav){saveCouncilToNotes(csav.getAttribute("data-council-save"));flashCopied(csav,"Saved ✓");return;}
     var cdel=e.target.closest("[data-council-del]");if(cdel){var id=cdel.getAttribute("data-council-del");state.council=state.council.filter(function(x){return x.id!==id;});renderNext();save();return;}
     var gob=e.target.closest("[data-go]");if(gob){go(gob.getAttribute("data-go"));return;}
     var act=e.target.closest("[data-action]");if(act){var it=findItem(act.dataset.id);if(it&&act.dataset.action==="done"){it.done=!it.done;if(it.done){it.today=false;rollRecurring(it);}renderNext();renderHome();save();}return;}
@@ -1831,7 +1847,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=11;
+    state.v=12;
     var sharedMsg=ingestShared();
     renderHome();
     save();

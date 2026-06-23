@@ -146,19 +146,22 @@ function councilSeats(env) {
   const seats = [];
   if (env.GEMINI_API_KEY)
     seats.push({
-      id: "gemini", label: "Gemini", lane: "Grounded · multimodal", provider: "google",
+      id: "gemini", label: "Gemini", lane: "Grounded", provider: "google",
+      role: "Be the grounded, fact-first voice. Anchor your answer in what is verifiably true and concrete; flag what is uncertain. Specifics over generalities.",
       model: env.GEMINI_MODEL || DEFAULTS.geminiModel,
       run: (system, prompt) => callGemini(env, system, prompt),
     });
   if (env.AI)
     seats.push({
-      id: "cloudflare", label: "Llama · Cloudflare", lane: "Edge open-model", provider: "cloudflare",
+      id: "cloudflare", label: "Llama · Cloudflare", lane: "Open-model", provider: "cloudflare",
+      role: "Be the open-model wildcard. Offer the angle the mainstream models miss — an unconventional but genuinely workable approach.",
       model: env.CF_MODEL || DEFAULTS.cfModel,
       run: (system, prompt) => callCloudflare(env, system, prompt),
     });
   if (env.GROQ_API_KEY)
     seats.push({
       id: "groq", label: "Groq", lane: "Fast tactical", provider: "groq",
+      role: "Be the fast tactical voice. Give the punchiest, most actionable take — what to do next, in order. Bias hard to action.",
       model: env.GROQ_MODEL || DEFAULTS.groqModel,
       run: (system, prompt) =>
         callOpenAICompatible({
@@ -169,7 +172,8 @@ function councilSeats(env) {
     });
   if (env.MISTRAL_API_KEY)
     seats.push({
-      id: "mistral", label: "Mistral", lane: "European · research", provider: "mistral",
+      id: "mistral", label: "Mistral", lane: "Research", provider: "mistral",
+      role: "Be the research voice. Bring rigor: weigh the main options, name the trade-offs, and surface edge cases and what the evidence favors.",
       model: env.MISTRAL_MODEL || DEFAULTS.mistralModel,
       run: (system, prompt) =>
         callOpenAICompatible({
@@ -182,7 +186,8 @@ function councilSeats(env) {
     const orModels = (env.OPENROUTER_MODEL || DEFAULTS.openrouterModel)
       .split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3); // OpenRouter caps the fallback array at 3
     seats.push({
-      id: "openrouter", label: "OpenRouter", lane: "Wildcard", provider: "openrouter",
+      id: "openrouter", label: "OpenRouter", lane: "Devil's advocate", provider: "openrouter",
+      role: "Be the contrarian. Challenge the obvious answer; make the strongest case against the likely consensus and name the risk others will miss.",
       model: orModels[0],
       run: (system, prompt) =>
         callOpenAICompatible({
@@ -210,11 +215,12 @@ async function synthesize(env, prompt, answered) {
   const ch = chair(env);
   if (!ch || answered.length < 2) return null;
   const system =
-    "You are the Chair of Kevin's Council of AIs. Several models answered the same question independently. " +
+    "You are the Chair of Kevin's Council of AIs. Several models answered the same question independently, " +
+    "each from an assigned lane (grounded, fast tactical, research, open-model, devil's advocate). " +
     "Synthesize their answers into one decision-ready brief. Be concise, specific, plain text, no preamble.";
   const body =
-    "QUESTION:\n" + prompt + "\n\nThe Council's answers:\n\n" +
-    answered.map((a) => "[" + a.label + "]\n" + a.text).join("\n\n") +
+    "QUESTION:\n" + prompt + "\n\nThe Council's answers (each tagged with its lane):\n\n" +
+    answered.map((a) => "[" + a.label + (a.lane ? " · " + a.lane : "") + "]\n" + a.text).join("\n\n") +
     "\n\nReturn exactly these four short sections:\n" +
     "1) Consensus — where they agree\n" +
     "2) Split — where they diverge and why it matters\n" +
@@ -260,8 +266,9 @@ export default {
       const results = await Promise.all(
         seats.map(async (seat) => {
           const t0 = Date.now();
+          const seatSystem = seat.role ? system + "\n\n" + seat.role : system;
           try {
-            const text = await withTimeout(seat.run(system, prompt), DEFAULTS.seatTimeoutMs, seat.label);
+            const text = await withTimeout(seat.run(seatSystem, prompt), DEFAULTS.seatTimeoutMs, seat.label);
             return {
               id: seat.id, label: seat.label, lane: seat.lane, provider: seat.provider, model: seat.model,
               ok: !!text, text: text || "", ms: Date.now() - t0, error: text ? "" : "Empty response",
