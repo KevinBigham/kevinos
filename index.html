@@ -628,7 +628,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.18 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · Council → action (turn a verdict into reviewed tasks) · AI morning brief (a written daily cockpit + smart 8am push), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.21 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · Council → action (turn a verdict into reviewed tasks) · AI morning brief (a written daily cockpit + smart 8am push), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -1146,11 +1146,31 @@
   function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync "+passphrase);}
   function isEditing(){var el=document.activeElement;if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select";}
   function buildSyncDoc(){var d={},k;for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}return d;}
+  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","council","pending"];
   function applySyncDoc(doc){
     if(!doc||typeof doc!=="object")return false;
-    ["items","events","projects","builds","briefs","links","prompts","notes","council","pending"].forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
+    SYNC_ARRAYS.forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=doc.lastBackupAt;
     if(typeof doc.lastShutdown==="string")state.lastShutdown=doc.lastShutdown;
+    return true;
+  }
+  // Lossless union by id — a conflicting push (both devices changed things) must
+  // never drop what either side added; for a shared id the remote (converged
+  // cloud) copy wins. Order: remote first, then local-only.
+  function mergeById(local,remote){
+    local=isArr(local)?local:[];remote=isArr(remote)?remote:[];
+    var by={},out=[],seen={},i,it;
+    for(i=0;i<local.length;i++){it=local[i];if(it&&it.id!=null)by[it.id]=it;}
+    for(i=0;i<remote.length;i++){it=remote[i];if(it&&it.id!=null)by[it.id]=it;}
+    for(i=0;i<remote.length;i++){it=remote[i];if(it&&it.id!=null&&!seen[it.id]){out.push(by[it.id]);seen[it.id]=1;}}
+    for(i=0;i<local.length;i++){it=local[i];if(it&&it.id!=null&&!seen[it.id]){out.push(by[it.id]);seen[it.id]=1;}}
+    return out;
+  }
+  function mergeRemoteDoc(doc){
+    if(!doc||typeof doc!=="object")return false;
+    SYNC_ARRAYS.forEach(function(k){state[k]=mergeById(state[k],doc[k]);});
+    if(typeof doc.lastBackupAt==="number")state.lastBackupAt=Math.max(state.lastBackupAt||0,doc.lastBackupAt);
+    if(typeof doc.lastShutdown==="string"&&(!state.lastShutdown||doc.lastShutdown>state.lastShutdown))state.lastShutdown=doc.lastShutdown;
     return true;
   }
   function syncRerender(){
@@ -1174,28 +1194,34 @@
       _syncBusy=false;
       if(!j||!j.ok){s.err=(j&&j.error)||"sync error";renderSync();return;}
       s.err="";s.lastSyncAt=Date.now();
-      if(j.doc&&j.updatedAt>s.updatedAt){
+      if(j.doc&&(j.rev||0)>(s.rev||0)){
         if(isEditing()){renderSync();return;} // don't yank the UI mid-edit — next focus/poll retries
-        applySyncDoc(j.doc);s.updatedAt=j.updatedAt;s.rev=j.rev||s.rev;persist();syncRerender();return;
+        applySyncDoc(j.doc);s.rev=j.rev||0;s.updatedAt=j.updatedAt||s.updatedAt;persist();syncRerender();return;
       }
       renderSync();
     }).catch(function(){_syncBusy=false;s.err="offline";renderSync();});
   }
-  function syncPush(){
+  function syncPush(depth,force){
     if(!syncOn())return;
-    var s=syncCfg(),base=relayBase();if(!s.updatedAt)s.updatedAt=Date.now();
-    fetch(base+"/sync/push",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:s.key,doc:buildSyncDoc(),updatedAt:s.updatedAt,deviceId:syncDeviceId(),rev:s.rev})}).then(function(r){return r.json();}).then(function(j){
+    var s=syncCfg(),base=relayBase();
+    fetch(base+"/sync/push",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:s.key,doc:buildSyncDoc(),baseRev:s.rev||0,deviceId:syncDeviceId(),force:!!force})}).then(function(r){return r.json();}).then(function(j){
       if(!j){s.err="sync error";renderSync();return;}
-      if(j.ok){s.rev=j.rev||s.rev;s.lastSyncAt=Date.now();s.err="";persist();renderSync();return;}
-      if(j.stale&&j.doc){applySyncDoc(j.doc);s.updatedAt=j.updatedAt;s.rev=j.rev||s.rev;s.lastSyncAt=Date.now();s.err="";persist();if(isEditing())renderSync();else syncRerender();return;}
+      if(j.ok){s.rev=j.rev||s.rev;s.updatedAt=j.updatedAt||s.updatedAt;s.lastSyncAt=Date.now();s.err="";persist();renderSync();return;}
+      if(j.stale&&j.doc){
+        // the cloud advanced under us — MERGE losslessly (never overwrite), then
+        // re-push the union so both devices converge to the same superset.
+        mergeRemoteDoc(j.doc);s.rev=j.rev||s.rev;s.updatedAt=j.updatedAt||s.updatedAt;s.lastSyncAt=Date.now();s.err="";persist();
+        if(isEditing())renderSync();else syncRerender();
+        if((depth||0)<2)syncPush((depth||0)+1);
+        return;
+      }
       s.err=j.error||"sync error";renderSync();
     }).catch(function(){s.err="offline";renderSync();});
   }
-  // A local edit is always newer than anything we've seen — bump strictly past the
-  // last synced stamp so a future-dated remote clock can't lock out our changes.
-  function bumpSyncStamp(){var s=syncCfg();s.updatedAt=Math.max(Date.now(),(s.updatedAt||0)+1);}
-  function scheduleSyncPush(){if(!syncOn())return;bumpSyncStamp();if(_syncPushT)clearTimeout(_syncPushT);_syncPushT=setTimeout(function(){_syncPushT=null;syncPush();},2000);}
-  function syncNow(){if(!syncOn()){toast("Connect sync first.");return;}bumpSyncStamp();syncPush();setTimeout(syncPull,900);toast("Syncing…");}
+  // Ordering is the server's rev now (skew-proof), so a local edit just needs to
+  // get pushed — no client-clock bumping. A stale push merges + retries.
+  function scheduleSyncPush(){if(!syncOn())return;if(_syncPushT)clearTimeout(_syncPushT);_syncPushT=setTimeout(function(){_syncPushT=null;syncPush();},2000);}
+  function syncNow(){if(!syncOn()){toast("Connect sync first.");return;}syncPush();setTimeout(syncPull,900);toast("Syncing…");}
   function connectSync(passphrase){
     passphrase=(passphrase||"").trim();
     if(passphrase.length<4){toast("Use a longer sync passphrase (4+ characters).");return;}
@@ -1208,7 +1234,7 @@
         if(hasRemote){
           var useRemote=window.confirm("This passphrase already has synced data.\n\nOK = load it onto THIS device (replaces what's here).\nCancel = keep this device's data and upload it (overwrites the synced copy).");
           if(useRemote){applySyncDoc(j.doc);s.updatedAt=j.updatedAt;s.rev=j.rev||0;s.on=true;s.err="";s.lastSyncAt=Date.now();syncOpen=false;persist();syncRerender();toast("Synced ✓ This device now matches your other one.");return;}
-          s.on=true;s.updatedAt=Date.now();s.rev=j.rev||0;s.err="";syncOpen=false;persist();syncPush();renderSync();toast("Synced ✓ Uploaded this device's data.");return;
+          s.on=true;s.rev=j.rev||0;s.err="";syncOpen=false;persist();syncPush(0,true);renderSync();toast("Synced ✓ Uploaded this device's data.");return;
         }
         s.on=true;s.updatedAt=Date.now();s.rev=0;s.err="";s.lastSyncAt=Date.now();syncOpen=false;persist();syncPush();renderSync();toast("Sync on ✓ This is your first synced device.");
       });
@@ -1236,7 +1262,8 @@
       }
       box.innerHTML=h;return;
     }
-    box.innerHTML=head+'<span style="width:8px;height:8px;border-radius:50%;background:#3FA34D;display:inline-block"></span><strong>Cross-device sync · On</strong><button class="linklike" type="button" data-sync-now="1">Sync now</button><button class="linklike" type="button" data-sync-off="1" style="color:#B25B5B">Disconnect</button></div><p class="hint">'+escapeHtml(syncStatusLine())+'</p>';
+    var sc=(s.key||"").slice(0,6);
+    box.innerHTML=head+'<span style="width:8px;height:8px;border-radius:50%;background:#3FA34D;display:inline-block"></span><strong>Cross-device sync · On</strong><button class="linklike" type="button" data-sync-now="1">Sync now</button><button class="linklike" type="button" data-sync-off="1" style="color:#B25B5B">Disconnect</button></div><p class="hint">'+escapeHtml(syncStatusLine())+(sc?' · link code <strong>'+escapeHtml(sc)+'</strong> <span style="opacity:.65">(must match on every device)</span>':'')+'</p>';
   }
   function handleSyncClick(e){
     if(e.target.closest("[data-sync-toggle]")){syncOpen=!syncOpen;renderSync();if(syncOpen){var i=$("syncPass");if(i)i.focus();}return;}
@@ -2596,7 +2623,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=20;
+    state.v=21;
     var sharedMsg=ingestShared();
     renderHome();
     save();

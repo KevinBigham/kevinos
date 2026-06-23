@@ -853,8 +853,13 @@ export default {
       return json({ ok: true, doc, updatedAt: row.updated_at, rev: row.rev }, 200, origin);
     }
 
-    // Sync — push a document. Last-write-wins by updatedAt; a strictly-newer
-    // stored version is never clobbered (the app reconciles from the response).
+    // Sync — push a document. Server-authoritative ordering: optimistic
+    // concurrency on `rev` (a server-incremented counter), NEVER the client
+    // wall-clock — two devices' clocks can skew, which silently blocked
+    // propagation (and could wipe the loser on reconcile). A push is accepted
+    // only when its baseRev matches the stored rev (or force=true, or there's
+    // no stored doc); otherwise the app gets the current doc back, merges, and
+    // retries. updated_at is stamped server-side (one clock) for display only.
     if (request.method === "POST" && url.pathname === "/sync/push") {
       if (!env.SYNC) return json({ error: "Sync storage not configured on the relay" }, 500, origin);
       let payload;
@@ -865,15 +870,19 @@ export default {
       if (!doc || typeof doc !== "object") return json({ error: "Missing or invalid doc" }, 400, origin);
       const docStr = JSON.stringify(doc);
       if (docStr.length > 4 * 1024 * 1024) return json({ error: "Doc too large" }, 413, origin);
-      const updatedAt = Number(payload && payload.updatedAt) || Date.now();
       const deviceId = ((payload && payload.deviceId) || "").toString().slice(0, 64);
+      const force = !!(payload && payload.force);
+      // baseRev = the rev this device last had in hand. Back-compat: older app
+      // builds sent `rev` (their last-seen rev) instead of `baseRev`.
+      const baseRev = Number(payload && (payload.baseRev != null ? payload.baseRev : payload.rev)) || 0;
       const existing = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
-      if (existing && existing.updated_at > updatedAt) {
+      if (existing && !force && existing.rev !== baseRev) {
         let cur = null;
         try { cur = JSON.parse(existing.doc); } catch (e) { /* corrupt → null */ }
         return json({ ok: false, stale: true, doc: cur, updatedAt: existing.updated_at, rev: existing.rev }, 200, origin);
       }
       const rev = ((existing && existing.rev) || 0) + 1;
+      const updatedAt = Date.now();
       await env.SYNC.prepare(
         "INSERT INTO docs (id, doc, updated_at, rev, device_id) VALUES (?1, ?2, ?3, ?4, ?5) " +
         "ON CONFLICT(id) DO UPDATE SET doc = ?2, updated_at = ?3, rev = ?4, device_id = ?5"
