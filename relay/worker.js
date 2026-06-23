@@ -455,7 +455,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -644,6 +644,54 @@ export default {
         await env.PUSH.delete("gh:" + session);
       }
       return json({ ok: true }, 200, origin);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Cross-device sync (Phase 3) — one last-write-wins document per passphrase.
+    // The app derives id = sha256(passphrase) client-side and never sends the
+    // phrase itself; the D1 credential lives here, never in the browser.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Sync — pull the current document for a key.
+    if (request.method === "POST" && url.pathname === "/sync/pull") {
+      if (!env.SYNC) return json({ error: "Sync storage not configured on the relay" }, 500, origin);
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const key = ((payload && payload.key) || "").toString();
+      if (!/^[a-f0-9]{16,128}$/.test(key)) return json({ error: "Missing or invalid key" }, 400, origin);
+      const row = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
+      if (!row) return json({ ok: true, doc: null, updatedAt: 0, rev: 0 }, 200, origin);
+      let doc = null;
+      try { doc = JSON.parse(row.doc); } catch (e) { /* corrupt row → treat as empty */ }
+      return json({ ok: true, doc, updatedAt: row.updated_at, rev: row.rev }, 200, origin);
+    }
+
+    // Sync — push a document. Last-write-wins by updatedAt; a strictly-newer
+    // stored version is never clobbered (the app reconciles from the response).
+    if (request.method === "POST" && url.pathname === "/sync/push") {
+      if (!env.SYNC) return json({ error: "Sync storage not configured on the relay" }, 500, origin);
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const key = ((payload && payload.key) || "").toString();
+      if (!/^[a-f0-9]{16,128}$/.test(key)) return json({ error: "Missing or invalid key" }, 400, origin);
+      const doc = payload && payload.doc;
+      if (!doc || typeof doc !== "object") return json({ error: "Missing or invalid doc" }, 400, origin);
+      const docStr = JSON.stringify(doc);
+      if (docStr.length > 4 * 1024 * 1024) return json({ error: "Doc too large" }, 413, origin);
+      const updatedAt = Number(payload && payload.updatedAt) || Date.now();
+      const deviceId = ((payload && payload.deviceId) || "").toString().slice(0, 64);
+      const existing = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
+      if (existing && existing.updated_at > updatedAt) {
+        let cur = null;
+        try { cur = JSON.parse(existing.doc); } catch (e) { /* corrupt → null */ }
+        return json({ ok: false, stale: true, doc: cur, updatedAt: existing.updated_at, rev: existing.rev }, 200, origin);
+      }
+      const rev = ((existing && existing.rev) || 0) + 1;
+      await env.SYNC.prepare(
+        "INSERT INTO docs (id, doc, updated_at, rev, device_id) VALUES (?1, ?2, ?3, ?4, ?5) " +
+        "ON CONFLICT(id) DO UPDATE SET doc = ?2, updated_at = ?3, rev = ?4, device_id = ?5"
+      ).bind(key, docStr, updatedAt, rev, deviceId).run();
+      return json({ ok: true, rev, updatedAt }, 200, origin);
     }
 
     return json({ error: "Not found" }, 404, origin);

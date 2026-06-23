@@ -156,6 +156,24 @@ KevinOS connects to GitHub with **OAuth** so the token lives on the relay, never
 
 Scope is `read:user repo` (matches the old token — counts private contributions). Disconnecting in-app **revokes** the token on GitHub. `GET /` shows `"github":true` once configured.
 
+## Cross-device sync — already set up (v0.16)
+
+KevinOS keeps your tasks, notes, and everything else **in lock-step across every device**. This is wired and live — you don't redo it. To **use** it: open KevinOS on each device → footer → **Cross-device sync · Connect** → enter the **same passphrase** on every device. That's the only step. Data flows through the relay, and **no database key is ever in your browser** — the app only sends a fingerprint of your passphrase.
+
+How it works, and how to reproduce it on a fresh relay:
+
+1. **Create the D1 database** (a tiny free SQL store on your Cloudflare account) and its one table:
+   ```sh
+   cd /Users/kevin/KevinOS/app/relay
+   npx wrangler d1 create kevinos-sync
+   # paste the printed database_id into wrangler.toml under [[d1_databases]] binding = "SYNC"
+   npx wrangler d1 execute kevinos-sync --remote --command "CREATE TABLE IF NOT EXISTS docs (id TEXT PRIMARY KEY, doc TEXT NOT NULL, updated_at INTEGER NOT NULL, rev INTEGER NOT NULL DEFAULT 0, device_id TEXT);"
+   ```
+2. The `[[d1_databases]]` binding is already in `wrangler.toml`. **Deploy:** `npx wrangler deploy`. `GET /` then shows `"sync":true`.
+3. In KevinOS → footer → **Cross-device sync** → **Connect** → pick any passphrase (or tap **Generate**) → **Start syncing**. Enter the **same** passphrase on your other devices to link them.
+
+The model is **last-write-wins**: the most recent edit wins. **Content** syncs (tasks, notes, projects, calendar, …); **device connections** (the relay URL, push, GitHub) stay per-device. Your passphrase never leaves the device — only `sha256(passphrase)` is sent, and that's the database row key. Backup/restore still works as the escape hatch, and importing a backup never links a device on its own. Cost stays **$0** (Cloudflare D1 free tier — 5 GB, far beyond a personal dataset).
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.

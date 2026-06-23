@@ -30,7 +30,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **2 — Council live streaming** (per-seat cards fill in as each model returns) | **Shipped** v0.13 → NDJSON stream, ES5 reader, $0/mo |
 | ✅ | **2b — Phone reminders** (Web Push: morning brief + per-task due-time) | **Shipped** v0.14 → VAPID + KV + cron, $0/mo |
 | ✅ | **2b — GitHub OAuth** (token off-device via the relay) | **LIVE** v0.15 → OAuth App registered, relay holds the token, $0/mo |
-| ⬜ | **3 — Sync** (one live dataset across devices) | Planned |
+| ✅ | **3 — Sync** (one live dataset across devices) | **LIVE** v0.16 → passphrase-linked, Cloudflare D1, $0/mo |
 | ⬜ | **4 — Calendar / File AI** | Planned |
 | ⬜ | **5 — Email Command Center** | Planned (built last) |
 
@@ -145,18 +145,21 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 ---
 
-## ⬜ Phase 3 — Sync  *(one dataset, every device)*
+## ✅ Phase 3 — Sync  *(one dataset, every device — shipped, v0.16)*
 **Goal:** Edit on the Mac, see it on the phone. No more per-URL islands.
 
-**Ships:**
-- [ ] **Supabase** (free tier) as the synced store
-- [ ] Start simple: **last-write-wins + `updatedAt`** (correct enough for a solo user)
-- [ ] Upgrade to op-log / field-merge + tombstones **only if** real conflicts show up
-- [ ] Backup/restore still works as the escape hatch
+**Shipped & LIVE (v0.16):**
+- [x] **Relay-mediated sync on Cloudflare D1** (not Supabase — see note). New `/sync/pull` + `/sync/push`; one `docs(id, doc, updated_at, rev, device_id)` table; **one last-write-wins document per passphrase**.
+- [x] **Secrets off the browser:** the app derives `id = sha256(passphrase)` client-side and sends only that fingerprint — the D1 credential lives on the relay, never in the browser. A strictly-newer stored doc is never clobbered (server-side LWW guard returns `stale` so the app reconciles).
+- [x] **Content-only replication:** items/events/projects/builds/briefs/links/prompts/notes/council (+ lastBackupAt/lastShutdown) sync; device-connection state (`relay`/`push`/`github`/`sync`) stays local.
+- [x] **Pull on focus / visibility / online + a 60s poll** (skipped mid-edit so it never yanks the UI); **push debounced 2s** into `save()`. Monotonic timestamps so a future-dated remote clock can't lock out local edits.
+- [x] **Backup/restore still the escape hatch;** `state.sync` is never restored from a backup, so importing data can't silently link a device. `state.v` → 16.
+- [x] **Verified:** relay round-trip via curl (pull / push / stale-guard / bad-key); app in preview against a mocked relay — connect seeds the cloud with content-only keys, a simulated second-device write pulls in on focus, a local edit pushes up, disconnect keeps local data. Zero console errors.
 
-**Tech:** Supabase; the existing storage abstraction (`window.storage` → localStorage → memory) gets a cloud tier.
-**Done when:** a change on one device appears on another within seconds, offline edits reconcile on reconnect.
-**Cost:** $0 → $25/mo ceiling only if it ever outgrows free.
+**Why D1, not Supabase:** the roadmap named Supabase, but Cloudflare **D1** needs **zero new account** (it's on the Cloudflare account the relay already uses), keeps the **DB secret on the relay** (matches "secrets off the browser"), is **strongly consistent**, and stays **$0**. Supabase remains the upgrade path if realtime or per-field merge is ever needed.
+**Tech:** the existing storage abstraction (`window.storage` → localStorage → memory) gains a cloud tier through the relay; no app dependency added (still ES5, single file).
+**Done when:** ~~a change on one device appears on another within seconds, offline edits reconcile on reconnect.~~ ✅
+**Cost:** $0 (Cloudflare D1 free tier — 5 GB, far beyond a solo dataset).
 
 ---
 
@@ -222,6 +225,8 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Phone reminders shipped 🎉 (v0.14)** Web Push is live: KevinOS can notify the installed PWA with a **morning brief** (at a chosen hour) and **per-task due reminders** (any task with a due time), all through the relay — VAPID + RFC-8291 encryption in WebCrypto, a Cloudflare KV store, and a per-minute cron. **$0/mo.** The headline half of Phase 2b is done; the only thing left is for Kevin to tap **Send test** once on his phone to confirm delivery.
 
-**GitHub OAuth built 🎉 (v0.15)** The GitHub token moves off-device: a one-tap "Connect with GitHub" runs the OAuth flow through the relay, which holds the token server-side and proxies all GitHub data. Code shipped + verified in preview; it **activates the moment Kevin registers the OAuth App** (set `GITHUB_CLIENT_ID` + the secret + redeploy). This finishes **Phase 2b**.
+**GitHub OAuth built 🎉 (v0.15)** The GitHub token moves off-device: a one-tap "Connect with GitHub" runs the OAuth flow through the relay, which holds the token server-side and proxies all GitHub data. Code shipped + verified in preview; **LIVE** since Kevin registered the OAuth App (`GITHUB_CLIENT_ID = Ov23lixf4auBApdAVsRA`). This finished **Phase 2b**.
 
-**Next up:** **Phase 3** (Supabase sync across devices) — one live dataset on Mac + phone. The Council is feature-complete; Phases 0 → 2b are done once the OAuth App is registered.
+**Cross-device sync shipped 🎉🎉 (v0.16)** KevinOS is now **one live dataset on every device**. Set a sync passphrase on the Mac and the phone and tasks / notes / everything stay in lock-step — through the relay, backed by a **Cloudflare D1** database, with no database key ever in the browser (the app sends only `sha256(passphrase)`). Last-write-wins, content-only (device connections stay local), pull-on-focus + 60s poll, debounced push. Verified end-to-end (curl + a mocked two-device preview run), **$0/mo**. **Phases 0 → 3 are all shipped.**
+
+**Next up:** **Phase 4** (Calendar / File AI) — throw a note / PDF / screenshot at it → AI extracts events → review queue → `.ics`, and clear the carried-over calendar bugs (parseICS RRULE/TZID/DTEND; DST drift on export). Then **Phase 5** (Email Command Center), built last. Both only on Kevin's go.

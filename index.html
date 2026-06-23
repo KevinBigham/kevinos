@@ -607,7 +607,8 @@
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
-      <div style="margin-top:10px">KevinOS v0.15 · Daily + Next + Workspace + GitHub · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
+      <div style="margin-top:10px">KevinOS v0.16 · Daily + Next + Workspace + GitHub · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -665,10 +666,10 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
-  var nextArea="All", relayOpen=false, councilSeatsOpen={};
+  var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={};
   var projFilter="All", projView="status", editingProjId=null;
   var editingBuildId=null;
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
@@ -681,7 +682,8 @@
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
   function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
-  function save(){var r=store.save(state);scheduleReminderSync();return r;}
+  function save(){var r=store.save(state);scheduleReminderSync();scheduleSyncPush();return r;}
+  function persist(){return store.save(state);}
   function pad(n){return n<10?"0"+n:""+n;}
   function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
   function keyToParts(k){var p=k.split("-");return{y:+p[0],m:+p[1]-1,d:+p[2]};}
@@ -1062,6 +1064,120 @@
     }
     return h;
   }
+  /* ---------- cross-device sync (v0.16) ---------- */
+  // Content syncs; device connections (relay/push/github) and sync itself never do.
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,v:1};
+  var _syncPushT=null,_syncBusy=false;
+  function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
+  function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
+  function syncDeviceId(){var s=syncCfg();if(!s.deviceId)s.deviceId=uid()+uid();return s.deviceId;}
+  function sha256Hex(str){
+    return crypto.subtle.digest("SHA-256",new TextEncoder().encode(str)).then(function(buf){
+      var b=new Uint8Array(buf),h="",i;for(i=0;i<b.length;i++)h+=(b[i]<16?"0":"")+b[i].toString(16);return h;
+    });
+  }
+  function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync "+passphrase);}
+  function isEditing(){var el=document.activeElement;if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select";}
+  function buildSyncDoc(){var d={},k;for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}return d;}
+  function applySyncDoc(doc){
+    if(!doc||typeof doc!=="object")return false;
+    ["items","events","projects","builds","briefs","links","prompts","notes","council"].forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
+    if(typeof doc.lastBackupAt==="number")state.lastBackupAt=doc.lastBackupAt;
+    if(typeof doc.lastShutdown==="string")state.lastShutdown=doc.lastShutdown;
+    return true;
+  }
+  function syncRerender(){
+    if(room==="home")renderHome();
+    else if(room==="next")renderNext();
+    else if(room==="tasks")renderTasks();
+    else if(room==="calendar")renderCalendar();
+    else if(room==="projects")renderProjects();
+    else if(room==="studio")renderBuilds();
+    else if(room==="briefs")renderBriefs();
+    else if(room==="launchpad")renderLinks();
+    else if(room==="prompts")renderPrompts();
+    else if(room==="notes")renderNotes();
+    else if(room==="github"){if(state.github&&state.github.cache)renderGithub();}
+    renderSync();
+  }
+  function syncPull(){
+    if(!syncOn()||_syncBusy)return;
+    var s=syncCfg(),base=relayBase();_syncBusy=true;
+    fetch(base+"/sync/pull",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:s.key})}).then(function(r){return r.json();}).then(function(j){
+      _syncBusy=false;
+      if(!j||!j.ok){s.err=(j&&j.error)||"sync error";renderSync();return;}
+      s.err="";s.lastSyncAt=Date.now();
+      if(j.doc&&j.updatedAt>s.updatedAt){
+        if(isEditing()){renderSync();return;} // don't yank the UI mid-edit — next focus/poll retries
+        applySyncDoc(j.doc);s.updatedAt=j.updatedAt;s.rev=j.rev||s.rev;persist();syncRerender();return;
+      }
+      renderSync();
+    }).catch(function(){_syncBusy=false;s.err="offline";renderSync();});
+  }
+  function syncPush(){
+    if(!syncOn())return;
+    var s=syncCfg(),base=relayBase();if(!s.updatedAt)s.updatedAt=Date.now();
+    fetch(base+"/sync/push",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:s.key,doc:buildSyncDoc(),updatedAt:s.updatedAt,deviceId:syncDeviceId(),rev:s.rev})}).then(function(r){return r.json();}).then(function(j){
+      if(!j){s.err="sync error";renderSync();return;}
+      if(j.ok){s.rev=j.rev||s.rev;s.lastSyncAt=Date.now();s.err="";persist();renderSync();return;}
+      if(j.stale&&j.doc){applySyncDoc(j.doc);s.updatedAt=j.updatedAt;s.rev=j.rev||s.rev;s.lastSyncAt=Date.now();s.err="";persist();if(isEditing())renderSync();else syncRerender();return;}
+      s.err=j.error||"sync error";renderSync();
+    }).catch(function(){s.err="offline";renderSync();});
+  }
+  // A local edit is always newer than anything we've seen — bump strictly past the
+  // last synced stamp so a future-dated remote clock can't lock out our changes.
+  function bumpSyncStamp(){var s=syncCfg();s.updatedAt=Math.max(Date.now(),(s.updatedAt||0)+1);}
+  function scheduleSyncPush(){if(!syncOn())return;bumpSyncStamp();if(_syncPushT)clearTimeout(_syncPushT);_syncPushT=setTimeout(function(){_syncPushT=null;syncPush();},2000);}
+  function syncNow(){if(!syncOn()){toast("Connect sync first.");return;}bumpSyncStamp();syncPush();setTimeout(syncPull,900);toast("Syncing…");}
+  function connectSync(passphrase){
+    passphrase=(passphrase||"").trim();
+    if(passphrase.length<4){toast("Use a longer sync passphrase (4+ characters).");return;}
+    if(!relayOn()){toast("Connect AI (the relay) first — sync runs through it.");return;}
+    var s=syncCfg();
+    deriveSyncKey(passphrase).then(function(key){
+      s.key=key;syncDeviceId();var base=relayBase();
+      return fetch(base+"/sync/pull",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:key})}).then(function(r){return r.json();}).then(function(j){
+        var hasRemote=j&&j.ok&&j.doc&&j.updatedAt>0;
+        if(hasRemote){
+          var useRemote=window.confirm("This passphrase already has synced data.\n\nOK = load it onto THIS device (replaces what's here).\nCancel = keep this device's data and upload it (overwrites the synced copy).");
+          if(useRemote){applySyncDoc(j.doc);s.updatedAt=j.updatedAt;s.rev=j.rev||0;s.on=true;s.err="";s.lastSyncAt=Date.now();syncOpen=false;persist();syncRerender();toast("Synced ✓ This device now matches your other one.");return;}
+          s.on=true;s.updatedAt=Date.now();s.rev=j.rev||0;s.err="";syncOpen=false;persist();syncPush();renderSync();toast("Synced ✓ Uploaded this device's data.");return;
+        }
+        s.on=true;s.updatedAt=Date.now();s.rev=0;s.err="";s.lastSyncAt=Date.now();syncOpen=false;persist();syncPush();renderSync();toast("Sync on ✓ This is your first synced device.");
+      });
+    }).catch(function(){toast("Couldn’t reach sync. Check the relay connection.");});
+  }
+  function disconnectSync(){var s=syncCfg();s.on=false;s.key="";s.err="";if(_syncPushT){clearTimeout(_syncPushT);_syncPushT=null;}syncOpen=false;persist();renderSync();toast("Sync off on this device. Your synced data is kept — reconnect any time.");}
+  function syncStatusLine(){
+    var s=state.sync;if(!s||!s.on)return "";
+    if(!navigator.onLine)return "Offline — will sync when you’re back online";
+    if(s.err)return "Offline — will retry";
+    if(s.lastSyncAt){var sec=Math.round((Date.now()-s.lastSyncAt)/1000);return sec<8?"Synced just now":sec<60?("Synced "+sec+"s ago"):("Synced "+Math.round(sec/60)+"m ago");}
+    return "Syncing…";
+  }
+  function renderSync(){
+    var box=$("syncRow");if(!box)return;
+    var s=state.sync||{},dotOff='<span style="width:8px;height:8px;border-radius:50%;background:#8A8594;display:inline-block"></span>';
+    var head='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">';
+    if(!relayOn()){box.innerHTML=head+dotOff+'<strong>Cross-device sync</strong></div><p class="hint">Connect AI (the relay) first — sync runs through it, with no database key ever in your browser.</p>';return;}
+    if(!s.on){
+      var h=head+dotOff+'<strong>Cross-device sync · Off</strong><button class="linklike" type="button" data-sync-toggle="1">'+(syncOpen?"Close":"Connect")+'</button></div>';
+      if(syncOpen){
+        h+='<div class="edit-panel"><div class="field"><label for="syncPass">Sync passphrase</label><input class="inp" id="syncPass" type="password" placeholder="a secret phrase — same on every device" autocomplete="off" spellcheck="false"></div><div class="edit-actions"><button class="add-btn" type="button" data-sync-connect="1">Start syncing</button><button class="btn-ghost" type="button" data-sync-gen="1">Generate</button></div><p class="hint">Pick any phrase and enter the <strong>same one</strong> on your other devices to link them. It never leaves this device — only its fingerprint is sent. Your data lives in your own Cloudflare database.</p></div>';
+      }else{
+        h+='<p class="hint">Keep tasks, notes, and everything else in lock-step across your Mac and phone. One passphrase links your devices.</p>';
+      }
+      box.innerHTML=h;return;
+    }
+    box.innerHTML=head+'<span style="width:8px;height:8px;border-radius:50%;background:#3FA34D;display:inline-block"></span><strong>Cross-device sync · On</strong><button class="linklike" type="button" data-sync-now="1">Sync now</button><button class="linklike" type="button" data-sync-off="1" style="color:#B25B5B">Disconnect</button></div><p class="hint">'+escapeHtml(syncStatusLine())+'</p>';
+  }
+  function handleSyncClick(e){
+    if(e.target.closest("[data-sync-toggle]")){syncOpen=!syncOpen;renderSync();if(syncOpen){var i=$("syncPass");if(i)i.focus();}return;}
+    if(e.target.closest("[data-sync-gen]")){var g=$("syncPass");if(g){g.type="text";g.value=(uid()+uid()).replace(/[^a-z0-9]/g,"").slice(0,16);}return;}
+    if(e.target.closest("[data-sync-connect]")){var p=$("syncPass");connectSync(p?p.value:"");return;}
+    if(e.target.closest("[data-sync-now]")){syncNow();return;}
+    if(e.target.closest("[data-sync-off]")){disconnectSync();return;}
+  }
   function findCouncil(id){for(var i=0;i<state.council.length;i++)if(state.council[i].id===id)return state.council[i];return null;}
   function copySvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';}
   function flashCopied(btn,msg){var ob=btn.innerHTML;btn.innerHTML=msg||"Copied";setTimeout(function(){if(btn.isConnected)btn.innerHTML=ob;},1300);}
@@ -1233,8 +1349,8 @@
     if(e.target.closest("[data-push-test]")){testPush();return;}
     if(e.target.closest("[data-push-off]")){disablePush();return;}
     if(e.target.closest("[data-relay-toggle]")){relayOpen=!relayOpen;renderNext();return;}
-    if(e.target.closest("[data-relay-save]")){var ri=$("relayUrl");if(ri){if(!state.relay)state.relay={url:""};state.relay.url=(ri.value||"").trim();}relayOpen=false;renderNext();save();if(relayOn())runQueuedCouncil();return;}
-    if(e.target.closest("[data-relay-clear]")){state.relay={url:""};relayOpen=false;renderNext();save();return;}
+    if(e.target.closest("[data-relay-save]")){var ri=$("relayUrl");if(ri){if(!state.relay)state.relay={url:""};state.relay.url=(ri.value||"").trim();}relayOpen=false;renderNext();save();renderSync();if(relayOn())runQueuedCouncil();return;}
+    if(e.target.closest("[data-relay-clear]")){state.relay={url:""};relayOpen=false;renderNext();save();renderSync();return;}
     var crun=e.target.closest("[data-council-run]");if(crun){runCouncil(crun.getAttribute("data-council-run"));return;}
     var cseats=e.target.closest("[data-council-seats]");if(cseats){var sid=cseats.getAttribute("data-council-seats");councilSeatsOpen[sid]=!(councilSeatsOpen[sid]===true);renderNext();return;}
     var csyn=e.target.closest("[data-cpy-synth]");if(csyn){var qs2=findCouncil(csyn.getAttribute("data-cpy-synth"));if(qs2&&qs2.synthesis&&qs2.synthesis.text){copyText(qs2.synthesis.text);flashCopied(csyn);}return;}
@@ -2017,6 +2133,8 @@
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
       if(saved.push&&typeof saved.push==="object")state.push=saved.push;
       if(saved.v)state.v=saved.v;
+      // note: state.sync is intentionally NOT restored from a backup — sync is a
+      // per-device connection, so importing data never silently links a device.
       editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=null;
       save();go(room);window.alert("Backup imported — everything’s restored.");
     };
@@ -2026,6 +2144,14 @@
   $("backupBtn").addEventListener("click",exportBackup);
   $("restoreBtn").addEventListener("click",function(){$("restoreInput").click();});
   $("restoreInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importBackup(f);e.target.value="";});
+  $("syncRow").addEventListener("click",handleSyncClick);
+  $("syncRow").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="syncPass"){e.preventDefault();connectSync(e.target.value);}});
+  window.addEventListener("focus",function(){if(syncOn())syncPull();});
+  document.addEventListener("visibilitychange",function(){if(!document.hidden&&syncOn())syncPull();});
+  window.addEventListener("online",function(){if(syncOn())syncPush();renderSync();});
+  window.addEventListener("offline",function(){renderSync();});
+  setInterval(function(){if(syncOn()&&!document.hidden&&navigator.onLine)syncPull();},60000);
+  renderSync();
   if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});}
 
   function toast(msg){
@@ -2076,14 +2202,16 @@
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
       if(saved.push&&typeof saved.push==="object")state.push=saved.push;
+      if(saved.sync&&typeof saved.sync==="object")state.sync=saved.sync;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=15;
+    state.v=16;
     var sharedMsg=ingestShared();
     renderHome();
     save();
     if(state.push&&state.push.enabled)syncReminders();
+    renderSync();if(syncOn())syncPull();
     if(state.github&&state.github.session&&state.github.pendingOAuth&&!state.github.cache)ghOAuthPoll(0);
     if(sharedMsg)toast(sharedMsg);
   });
