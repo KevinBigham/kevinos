@@ -29,7 +29,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **2 — Council depth** (per-seat lanes + save-to-Notes + auto-run on connect) | **Shipped** v0.12 → grounded · tactical · research · open-model · devil's-advocate, $0/mo |
 | ✅ | **2 — Council live streaming** (per-seat cards fill in as each model returns) | **Shipped** v0.13 → NDJSON stream, ES5 reader, $0/mo |
 | ✅ | **2b — Phone reminders** (Web Push: morning brief + per-task due-time) | **Shipped** v0.14 → VAPID + KV + cron, $0/mo |
-| 🔜 | **2b — GitHub OAuth** (token off-device via the relay) | **Code shipped** v0.15 → activates the moment Kevin registers the OAuth App |
+| ✅ | **2b — GitHub OAuth** (token off-device via the relay) | **LIVE** v0.15 → OAuth App registered, relay holds the token, $0/mo |
 | ⬜ | **3 — Sync** (one live dataset across devices) | Planned |
 | ⬜ | **4 — Calendar / File AI** | Planned |
 | ⬜ | **5 — Email Command Center** | Planned (built last) |
