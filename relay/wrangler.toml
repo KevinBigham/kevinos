@@ -7,6 +7,15 @@ compatibility_date = "2024-11-01"
 [ai]
 binding = "AI"
 
+# Web Push reminder store (Phase 2b) — subscriptions + the app's synced reminder set.
+[[kv_namespaces]]
+binding = "PUSH"
+id = "8aa1aff4ad944e1b840d6c9a4647338b"
+
+# Fire due reminders every minute (Phase 2b).
+[triggers]
+crons = ["* * * * *"]
+
 # The single-model endpoint (/ai) uses PROVIDER. The Council (/council) uses every
 # seat whose credential is present, independent of PROVIDER.
 [vars]
@@ -19,6 +28,12 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 MISTRAL_MODEL = "mistral-small-latest"
 OPENROUTER_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-31b-it:free"
 MAX_TOKENS = "1024"
+
+# Web Push (Phase 2b). The VAPID public key is meant to be public — the app
+# advertises it as applicationServerKey. The matching private key is a secret:
+#   npx wrangler secret put VAPID_PRIVATE_KEY
+VAPID_PUBLIC_KEY = "BFF-1pgElFELUsaWJ54X-9c2rLMxIBSA-FeS1kQ3hyOMpxRw2T9ieBkl-tVK25vh1v75FwrmqgYKoCeM22ZCJDE"
+VAPID_SUBJECT = "https://kevinbigham.github.io/kevinos/"
 
 # Keys are secrets, never here. Each Council seat turns on when its secret exists:
 #   npx wrangler secret put GEMINI_API_KEY       # Gemini      (already set)

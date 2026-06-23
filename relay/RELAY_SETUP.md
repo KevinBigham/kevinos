@@ -113,6 +113,27 @@ curl https://kevinos-relay.YOURNAME.workers.dev/
 # -> {"ok":true,"service":"kevinos-relay","provider":"claude"}
 ```
 
+## Phone reminders (Web Push) — already set up (v0.14)
+
+KevinOS can push a **morning brief** and **per-task due reminders** to the installed PWA. This is wired and live — you don't need to redo it. Here's how it works, and how to reproduce it on a fresh relay:
+
+1. **Generate a VAPID keypair** (one P-256 keypair — the public half is advertised to the app, the private half signs the pushes):
+   ```sh
+   node -e 'const c=crypto.subtle;(async()=>{const k=await c.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign","verify"]);const pub=Buffer.from(await c.exportKey("raw",k.publicKey)).toString("base64url");const d=(await c.exportKey("jwk",k.privateKey)).d;console.log("PUBLIC:",pub);console.log("PRIVATE:",d);})()'
+   ```
+2. Put **PUBLIC** in `wrangler.toml` as `VAPID_PUBLIC_KEY` (it's meant to be public). Set **PRIVATE** as a secret (paste at the prompt — never as a CLI argument):
+   ```sh
+   npx wrangler secret put VAPID_PRIVATE_KEY
+   ```
+3. **Create the KV store** for subscriptions + reminders, then paste its id into `wrangler.toml` under `[[kv_namespaces]] binding = "PUSH"`:
+   ```sh
+   npx wrangler kv namespace create PUSH
+   ```
+4. The cron is already in `wrangler.toml` (`[triggers] crons = ["* * * * *"]`). **Deploy:** `npx wrangler deploy`.
+5. In KevinOS → **Next** → **Phone reminders** → **Turn on** (needs KevinOS added to your iPhone home screen, and the relay connected above). Tap **Send test** to confirm a notification lands.
+
+The keys never touch the app or the repo: the **private** key is a Cloudflare secret; the app fetches the **public** key from `GET /push/key`. There's **no `web-push` library** — the relay does VAPID signing + RFC-8291 payload encryption in WebCrypto (verified against the RFC test vector). Cost stays **$0** (KV + Cron free tier).
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.

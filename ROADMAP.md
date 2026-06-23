@@ -28,6 +28,8 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **2 — Multi-model Council** (5-seat fan-out + synthesis chair) | **Shipped** v0.11 → Gemini · Cloudflare · Groq · Mistral · OpenRouter, $0/mo |
 | ✅ | **2 — Council depth** (per-seat lanes + save-to-Notes + auto-run on connect) | **Shipped** v0.12 → grounded · tactical · research · open-model · devil's-advocate, $0/mo |
 | ✅ | **2 — Council live streaming** (per-seat cards fill in as each model returns) | **Shipped** v0.13 → NDJSON stream, ES5 reader, $0/mo |
+| ✅ | **2b — Phone reminders** (Web Push: morning brief + per-task due-time) | **Shipped** v0.14 → VAPID + KV + cron, $0/mo |
+| ⬜ | **2b — GitHub OAuth** (token off-device via the relay) | Deferred (needs Kevin to register an OAuth App) |
 | ⬜ | **3 — Sync** (one live dataset across devices) | Planned |
 | ⬜ | **4 — Calendar / File AI** | Planned |
 | ⬜ | **5 — Email Command Center** | Planned (built last) |
@@ -126,8 +128,13 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 - [x] **No persisted shape change** (`state.v` → 13) — streaming uses transient `streaming`/`pending` flags cleared before `save()`
 - [x] **Verified** — live `curl -N` proved staggered delivery (start 0.05s → Groq 0.36s → rest 0.99s → done 1.10s); browser preview drove a manual-emit NDJSON mock through every state (5 thinking cards → progressive fill → synthesis → Save-to-Notes captured the streamed data), zero console errors
 
-- [ ] **Web Push** reminders to the installed PWA + **email-to-self** backstop *(Phase 2b — next)*
-- [ ] Move the **GitHub token off-device** to OAuth via the relay *(Phase 2b — next)*
+**Shipped & LIVE (v0.14) — Phone reminders (Web Push):**
+- [x] **Web Push to the installed PWA** — VAPID + RFC 8291 `aes128gcm` payload encryption, all in WebCrypto on the relay (no library). The app subscribes via `pushManager`; the relay signs (ES256 VAPID JWT) + encrypts + sends. Encryption verified **byte-for-byte against the RFC 8291 test vector**; the cron fires every minute (confirmed live via `wrangler tail`, zero exceptions)
+- [x] **Two reminder types** — a **morning brief** at a chosen hour ("N things need you today") + **per-task due reminders** (any task with a due *time*). The app computes its reminder set and syncs it to the relay (`/push/sync`); a Cloudflare **KV** store + **cron trigger** fire due ones and drop them (the app owns recurrence by re-syncing). Tasks gained an optional **due time**; `state.v` → 14
+- [x] **$0/mo** — Cloudflare KV + Cron free tier. Verified end-to-end in preview (subscribe → sync → per-task + brief payloads, hour selector, send-test), zero console errors. The one device-only step is Kevin tapping **Send test** once on his iPhone to confirm a notification lands
+
+- [ ] Move the **GitHub token off-device** to OAuth via the relay *(remaining Phase 2b half — deferred by Kevin; do when he says go, needs him to register a GitHub OAuth App)*
+- [ ] *(optional)* email-to-self backstop
 
 **Tech:** Cloudflare Worker; Google kept in **Testing mode** (sole user) to dodge the ~$900–1,500/yr CASA audit; treat 7-day token expiry as a calm "Reconnect."
 **Done when:** an AI suggestion appears in the review queue, Kevin approves it, and a push notification fires — all without any token in the browser.
@@ -210,4 +217,6 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Council live streaming shipped 🎉🎉🎉🎉 (v0.13)** The Council now answers *in front of you*: ask, and the five seats appear as "thinking" cards that **fill in one by one the instant each model returns** — fastest-first — under a live "N of M answered" counter, then settle into the synthesis. Built on a `stream:true` **NDJSON** endpoint and a tiny ES5 stream reader; the non-streaming JSON path stays for `curl`/back-compat. Curl-verified the stagger (Groq back in 0.36s, the rest by ~1s); preview-verified every UI state with zero console errors. Still **$0/mo**. **This completes the three-idea Council polish arc** (lanes → save-to-Notes → streaming) — the Council-of-Friends workflow is now fully realized in-app.
 
-**Next up (only when Kevin says go):** **Phase 2b** — Web Push reminders to the installed PWA + email-to-self backstop, then move the GitHub token off-device to OAuth via the relay. After that, **Phase 3** (Supabase sync across devices). The Council itself is feature-complete for now; further Council work would be net-new ideas, not pending polish.
+**Phone reminders shipped 🎉 (v0.14)** Web Push is live: KevinOS can notify the installed PWA with a **morning brief** (at a chosen hour) and **per-task due reminders** (any task with a due time), all through the relay — VAPID + RFC-8291 encryption in WebCrypto, a Cloudflare KV store, and a per-minute cron. **$0/mo.** The headline half of Phase 2b is done; the only thing left is for Kevin to tap **Send test** once on his phone to confirm delivery.
+
+**Next up (only when Kevin says go):** the **remaining Phase 2b half** — move the GitHub token off-device to OAuth via the relay (needs Kevin to register a GitHub OAuth App, ~3 min). After that, **Phase 3** (Supabase sync across devices). The Council is feature-complete; further Council work would be net-new ideas, not pending polish.

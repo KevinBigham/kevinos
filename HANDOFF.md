@@ -8,9 +8,9 @@
 
 KevinOS is Kevin's **personal life operating system** — a calm daily cockpit (tasks, calendar, notes, projects, GitHub, reference) as an installable PWA. It is **live, installed on his phone, and fully working**.
 
-- **App:** `v0.13`, live at **https://kevinbigham.github.io/kevinos/** (GitHub Pages, public repo `KevinBigham/kevinos`).
+- **App:** `v0.14`, live at **https://kevinbigham.github.io/kevinos/** (GitHub Pages, public repo `KevinBigham/kevinos`).
 - **Backend ("the relay"):** a Cloudflare Worker, **live** at **https://kevinos-relay.kevinbigham.workers.dev**. It holds every AI key as a server secret and powers the in-app **Council**. As of v0.12 the Council is **multi-model with per-seat lanes**: one prompt fans out to **5 free seats** (Gemini, Cloudflare Workers AI, Groq, Mistral, OpenRouter) in parallel — each answering from a distinct assigned role (grounded · fast tactical · research · open-model · devil's advocate). As of **v0.13** the answers **stream back live** — per-seat cards fill in the instant each model returns (NDJSON stream), instead of the whole panel appearing at once — then a **synthesis chair** (Gemini) combines them into one decision-ready brief, which Kevin can save to Notes. Source is in `relay/` in this same repo.
-- **Whole stack is operational at $0/mo.** Phases 0 → 2 shipped, including the v0.13 Council (multi-model, per-seat lanes, live streaming, save-to-Notes).
+- **Whole stack is operational at $0/mo.** Phases 0 → 2 shipped, including the v0.13 Council (multi-model, per-seat lanes, live streaming, save-to-Notes) and **v0.14 phone reminders** — Web Push to the installed PWA (a morning brief + per-task due-time nudges), powered by VAPID + RFC-8291 encryption + a KV store + a per-minute cron, all on the relay. (The GitHub-OAuth half of Phase 2b is intentionally deferred — see §10.)
 - **The single most important rule:** the app's JavaScript is **ES5-style on purpose** (see §2). Do not introduce arrow functions, template literals, `async/await`, `const`/`let`, or any dependency into the app. The Worker (`relay/`) is exempt — it's modern ES modules.
 
 If you only remember two things: **(1) keep the app ES5-style and dependency-free; (2) the AI key lives ONLY on the Worker as a secret — never in the browser, the repo, or his phone.**
@@ -83,9 +83,9 @@ Everything is in ONE public repo (`github.com/KevinBigham/kevinos`). A fresh `gi
 ```
 /Users/kevin/KevinOS/                ← local parent folder (NOT in git)
 ├── app/                             ← THE GIT REPO → github.com/KevinBigham/kevinos (PUBLIC)
-│   ├── index.html                   ← THE APP (v0.13, ~1940 lines, ES5)
+│   ├── index.html                   ← THE APP (v0.14, ~2010 lines, ES5)
 │   ├── manifest.json                ← PWA manifest (+ share_target)
-│   ├── sw.js                        ← service worker (CACHE = "kevinos-v0_13")
+│   ├── sw.js                        ← service worker (CACHE = "kevinos-v0_14", + push / notificationclick)
 │   ├── icon-192.png, icon-512.png, .nojekyll
 │   ├── README.md
 │   ├── ROADMAP.md                   ← the full phased build plan (current)
@@ -93,7 +93,7 @@ Everything is in ONE public repo (`github.com/KevinBigham/kevinos`). A fresh `gi
 │   ├── .gitignore
 │   └── relay/                       ← Cloudflare Worker (the backend)
 │       ├── worker.js                ← the Worker (ES module — modern JS OK)
-│       ├── wrangler.toml            ← config: PROVIDER, [ai] binding, per-seat models, CORS origin
+│       ├── wrangler.toml            ← config: PROVIDER, [ai] binding, per-seat models, CORS, PUSH KV, cron, VAPID public
 │       ├── RELAY_SETUP.md           ← Kevin's foolproof provisioning guide
 │       └── .wrangler/               ← local wrangler cache (gitignored; holds account id)
 └── (historical archives — local only, NOT in git, may hold pre-scrub personal data:)
@@ -150,14 +150,21 @@ npx wrangler deploy
 - **Secrets set (encrypted, server-side only):** `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, plus `ANTHROPIC_API_KEY` (idle — the fallback chair / a `/ai` option). The Cloudflare seat needs **no** secret. Set/rotate with `npx wrangler secret put <NAME>`.
 - **CORS:** `ALLOW_ORIGIN = "https://kevinbigham.github.io"` (browser guard only — see §7).
 - **Vars:** `PROVIDER`, `CLAUDE_MODEL`, `GEMINI_MODEL`, `CF_MODEL`, `GROQ_MODEL`, `MISTRAL_MODEL`, `OPENROUTER_MODEL`, `MAX_TOKENS`. Swap any seat's model by editing its var + redeploy; add a seat by setting its secret + redeploy (no code change).
+- **Web Push (v0.14):** secret `VAPID_PRIVATE_KEY` (ES256 signing key — set via `wrangler secret put`, lives only on Cloudflare); vars `VAPID_PUBLIC_KEY` (public, advertised to the app as `applicationServerKey`) + `VAPID_SUBJECT`. Binding `PUSH` (KV namespace, id in `wrangler.toml`). Cron `crons = ["* * * * *"]`. The encryption (`encryptPayload`) is RFC 8291 `aes128gcm` done entirely in WebCrypto — **no `web-push` dependency** — and was verified byte-for-byte against the RFC 8291 test vector before shipping.
 
 **Endpoints:**
-- `GET /` → health `{ ok, service, provider, seats:[…] }` (seats = currently-live roster)
+- `GET /` → health `{ ok, service, provider, seats:[…], push }` (`push` = VAPID configured; seats = currently-live roster)
 - `POST /council` with `{ prompt, system?, synthesize?, stream? }`:
   - **Default** (no `stream`) → one JSON object `{ seats:[{id,label,lane,provider,model,ok,text,ms,error}], synthesis:{ok,provider,text}|null, asked, answered }`.
   - **`stream:true`** (v0.13) → an **NDJSON stream** (`Content-Type: application/x-ndjson`), one JSON object per line, emitted as events happen: `{type:"start",asked,seats:[{id,label,lane,provider,model}]}` immediately, then `{type:"seat",seat:{…}}` per seat **in completion order**, then `{type:"synthesis",synthesis}`, then `{type:"done",asked,answered}`. This is what powers the live per-seat fill-in. The app uses this mode; a plain `curl` without `stream` still gets the single-object form (and `curl -N … -d '{…,"stream":true}'` prints each line as it arrives — the fastest way to *see* the stagger).
   - Either way it fans out in parallel with a **45s per-seat timeout**; one slow/failed seat never blocks the rest; synthesis runs when ≥2 seats answer.
 - `POST /ai` with `{ prompt, system? }` → `{ text, provider }` (single model, back-compat)
+- **Web Push (v0.14):**
+  - `GET /push/key` → `{ publicKey }` (the VAPID public key, so the app never hardcodes it)
+  - `POST /push/sync` `{ subscription, reminders:[{id,fireAt,title,body,url,tag}] }` → stores it under `sub:<sha256(endpoint)>` in the `PUSH` KV (full-replace). The app calls this on enable, on load, and (debounced) after any `save()` while reminders are on.
+  - `POST /push/unsubscribe` `{ endpoint }` → deletes that record
+  - `POST /push/test` `{ subscription }` → sends one push immediately (this is how Kevin confirms delivery on his phone)
+  - **cron** `* * * * *` → `scheduled()` → `firePush(env)`: fires every reminder whose `fireAt ≤ now` (1h stale-grace), then drops it; a 404/410 from the push service deletes the subscription. The app owns recurrence by re-syncing the next occurrence.
 
 **Quick live test (works from anywhere — the relay doesn't reject by Origin):**
 ```
@@ -179,6 +186,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - **`save()` is async** (Promise microtask). If you write state then read `localStorage` in the *same* `preview_eval`, you'll get the OLD value. Re-read in a *separate* eval call.
 - **CORS is a *browser* guard, not a server check.** The relay sets `Access-Control-Allow-Origin` to the live site, so a **browser** on any other origin (preview server, localhost) is blocked — for in-browser UI testing, mock `window.fetch` in a `preview_eval` (that's how the v0.11 Council UI was verified). But the Worker does **not** reject by Origin, so a **server-side `curl` POST to `/council` works for real end-to-end testing** with live models — the fastest way to confirm seats answer, no deploy-to-live needed.
 - **Verifying the streaming UI (v0.13):** the mock must return `new Response(new ReadableStream({start(c){…}}), {headers:{"Content-Type":"application/x-ndjson"}})`. Preview tool-calls cost ~5–7s each, which overshoots any `setTimeout`-paced stream — so drive it with a **manual-emit** controller: stash the stream's `controller` on `window`, expose `window.__emit()` that enqueues the next NDJSON line on demand, and step through `start → seat… → synthesis → done` one `preview_eval` at a time, screenshotting between. Note enqueue is async (the app's reader resolves next tick) — emit in one call, assert/screenshot in the next.
+- **Verifying Web Push UI (v0.14):** the app's closures aren't reachable, and a real push subscription can't be minted in the preview, so drive the enable flow by mocking three globals in a `preview_eval`: `window.fetch` (capture `/push/key`, `/push/sync`, `/push/test`), `Notification.requestPermission` (→ `"granted"`), and `navigator.serviceWorker` (via `Object.defineProperty`, with a fake `pushManager.subscribe`/`getSubscription`). Then click `[data-push-toggle]` and assert `window.__calls` + `localStorage["kevinos:v1"].push`. **Encryption/VAPID correctness is proven in Node, not the browser** (RFC 8291 vector + a sign/verify round-trip); the browser test only covers the app wiring. Real end-to-end delivery is Kevin tapping **Send test** on his iPhone.
 
 ---
 
@@ -188,7 +196,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - **Claude billing:** Kevin's Anthropic account had $0 credit, so Claude auth *succeeded* but calls failed with "credit balance too low." That's why we run on Gemini's free tier. (The Claude key still works the moment there's credit — just flip `PROVIDER`.)
 - **Finding the Council:** it lives in the **Next** room (top nav), scroll to the bottom — NOT on Home. Kevin looked for it on Home and couldn't find it.
 - **Event handling:** the app uses **event delegation on stable containers** so `innerHTML` re-renders don't drop listeners. Follow that pattern; don't attach listeners to elements that get re-rendered.
-- **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 13`. When you change the state shape, bump `state.v` and handle the migration in `load()`. (v11 added per-question `seats[]` + `synthesis` to `state.council[]`; old single-`answer` items still render via a legacy branch. v12 added no new shape — "Save to Notes" writes a Council session into `state.notes` as an ordinary note. v13 added no persisted shape — live streaming uses **transient** `streaming` (on the council item) + `pending` (on placeholder seats) flags that are cleared before any `save()`, so an interrupted stream never persists a stuck "running" item.)
+- **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 14`. When you change the state shape, bump `state.v` and handle the migration in `load()`. (v11 added per-question `seats[]` + `synthesis` to `state.council[]`; old single-`answer` items still render via a legacy branch. v12 added no new shape — "Save to Notes" writes a Council session into `state.notes` as an ordinary note. v13 added no persisted shape — live streaming uses **transient** `streaming` (on the council item) + `pending` (on placeholder seats) flags that are cleared before any `save()`, so an interrupted stream never persists a stuck "running" item. v14 added `state.push` (`{enabled, endpoint, hour, syncedAt}`) and an optional `dueTime` (`"HH:MM"`) on task items; reminders are recomputed (`buildReminders`) and re-synced to the relay on every `save()` (debounced 1.5s) and on load, so the relay always mirrors the app's current task state without any sync layer.)
 - **OpenRouter free models rotate AND rate-limit.** Free slugs flip to paid (`deepseek/deepseek-chat-v3-0324:free` did) and free endpoints get "rate-limited upstream" under load. Fix is baked in: `OPENROUTER_MODEL` is a **comma-separated fallback chain** (≤3 entries — OpenRouter rejects 4+) sent as the `models` array, so OpenRouter routes to the first available. Currently `qwen3-next-80b → llama-3.3-70b → gemma-4`. `callOpenAICompatible` now also surfaces the upstream `metadata.raw`/`provider_name` so errors aren't masked as a generic "Provider returned error." Refresh slugs from `https://openrouter.ai/api/v1/models` (filter `pricing.prompt=="0"`) + redeploy.
 - **Free-tier seats blip.** Gemini occasionally returns "experiencing high demand"; that seat fails for that one request and the others carry the Council (and Gemini can still chair the synthesis). Expected, not a bug — `Promise.all` with per-seat try/catch isolates each failure.
 
@@ -220,9 +228,10 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - **Phase 2 (Council upgrade) — MULTI-MODEL COUNCIL:** `/council` fans one prompt to 5 free seats (Gemini, Cloudflare, Groq, Mistral, OpenRouter) in parallel + a Gemini synthesis chair; app renders the synthesis brief + a collapsible per-seat roster — v0.11. Automates Kevin's "Council of Friends" workflow at $0/mo.
 - **Phase 2 (Council depth) — PER-SEAT LANES + SAVE-TO-NOTES:** each seat answers from a distinct lane (grounded / fast tactical / research / open-model / devil's advocate); synthesis is lane-aware; any Council session saves into Notes; offline-queued questions auto-run the moment the relay connects — v0.12.
 - **Phase 2 (Council polish) — LIVE STREAMING:** `/council` gained a `stream:true` **NDJSON** mode (`start` → `seat`×N in completion order → `synthesis` → `done`); the app reads it with a small ES5 stream reader (`response.body.getReader()` + `TextDecoder`, line-buffered) and fills each per-seat card the instant that model returns — a "thinking" pulse per pending seat under a live **"N of M answered · live"** counter, settling into the synthesis when done. Curl-verified staggered delivery; non-streaming path kept for back-compat — v0.13. The Council-of-Friends loop is now fully realized.
+- **Phase 2b (first half) — PHONE REMINDERS (Web Push):** the relay gained VAPID + RFC-8291 `aes128gcm` encryption (WebCrypto, no library), a `PUSH` KV store, and a per-minute cron; the app subscribes via `pushManager` and syncs its reminder set (`/push/sync`). Two reminder types — a **morning brief** (chosen hour) + **per-task due-time** nudges. Tasks gained an optional due time; `state.v` → 14 — v0.14.
 
 **Next, when Kevin says go (do NOT start unprompted):**
-- **Phase 2b:** Web Push reminders to the installed PWA + email-to-self backstop; move the GitHub PAT off-device to OAuth via the relay.
+- **Phase 2b (remaining half):** move the GitHub PAT off-device to OAuth via the relay — needs Kevin to register a GitHub OAuth App (his call; he deferred it when v0.14 shipped). Web Push (the first half) is **done** (v0.14). Optional: an email-to-self backstop.
 - **Phase 3 — Sync:** Supabase (free tier), last-write-wins + `updatedAt`, so one dataset spans Mac + phone.
 - **Phase 4 — Calendar/File AI:** messy input (notes/PDFs/screenshots) → AI extracts events → review queue → `.ics`. Also fixes carried-over `.ics` bugs (parseICS DTEND/TZID/RRULE/EXDATE; DST drift on export).
 - **Phase 5 — Email Command Center (built last):** Gmail/Outlook via relay OAuth, AI drafts overnight → review queue, never auto-sends.

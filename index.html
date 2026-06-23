@@ -136,6 +136,9 @@
   .qa-due{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
   .qa-due label{font-size:12px;color:var(--ink-faint)}
   .qa-due .inp{padding:8px 11px;font-size:14px}
+  .push-row{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .push-row label{font-size:12px;color:var(--ink-faint)}
+  .push-row .inp{padding:8px 11px;font-size:14px;width:auto}
   .add-row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
   .add-row .capture-input{min-width:160px}
 
@@ -452,7 +455,7 @@
         <button id="taskAddBtn" class="add-btn" type="button">Add</button>
       </div>
       <div class="chips" id="taskChips" role="group" aria-label="Choose an area"></div>
-      <div class="qa-due"><label for="taskDue">Due (optional)</label><input class="inp" id="taskDue" type="date" /><label for="taskRepeat">Repeat</label><select class="inp" id="taskRepeat"><option value="">No repeat</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
+      <div class="qa-due"><label for="taskDue">Due (optional)</label><input class="inp" id="taskDue" type="date" /><input class="inp" id="taskDueTime" type="time" aria-label="Due time" /><label for="taskRepeat">Repeat</label><select class="inp" id="taskRepeat"><option value="">No repeat</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
       <button class="sweep-card" type="button" id="sweepCardTasks" style="margin-top:18px">
         <span class="sw-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg></span>
         <span class="sw-txt"><span class="sw-title">Run a Life Sweep</span><span class="sw-sub">Brain-dump every area at once, then drop it all in here.</span></span>
@@ -604,7 +607,7 @@
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
-      <div style="margin-top:10px">KevinOS v0.13 · Daily + Next + Workspace + GitHub · Council with live streaming + lanes + save-to-Notes, recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.14 · Daily + Next + Workspace + GitHub · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -662,7 +665,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
   var nextArea="All", relayOpen=false, councilSeatsOpen={};
@@ -678,7 +681,7 @@
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
   function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
-  function save(){return store.save(state);}
+  function save(){var r=store.save(state);scheduleReminderSync();return r;}
   function pad(n){return n<10?"0"+n:""+n;}
   function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
   function keyToParts(k){var p=k.split("-");return{y:+p[0],m:+p[1]-1,d:+p[2]};}
@@ -695,7 +698,7 @@
   function rollRecurring(it){
     if(!it||!it.repeat)return;
     var base=it.due||todayKey();var nd=nextRepeatKey(base,it.repeat);if(!nd)return;
-    state.items.unshift({id:uid(),text:it.text,area:it.area,today:false,done:false,due:nd,projectId:it.projectId||null,repeat:it.repeat,createdAt:Date.now()});
+    state.items.unshift({id:uid(),text:it.text,area:it.area,today:false,done:false,due:nd,dueTime:it.dueTime||"",projectId:it.projectId||null,repeat:it.repeat,createdAt:Date.now()});
   }
   function prettyDate(k){var p=keyToParts(k);var d=new Date(p.y,p.m,p.d);return DAYS[d.getDay()]+", "+MONTHS[p.m]+" "+p.d;}
   function fmtTime(t){var p=t.split(":");var h=+p[0],m=p[1];var ap=h<12?"AM":"PM";var h12=h%12;if(h12===0)h12=12;return h12+":"+m+" "+ap;}
@@ -776,6 +779,7 @@
     var f2=field("Area");f2.appendChild(selEl("editArea",AREA_OPTS,item.area));p.appendChild(f2);
     var f3=field("Project");f3.appendChild(selEl("editProject",projectOpts(),item.projectId||""));p.appendChild(f3);
     var f4=field("Due (optional)");f4.appendChild(inpEl("editDue","date",item.due||""));p.appendChild(f4);
+    var f4b=field("Due time (optional)");f4b.appendChild(inpEl("editDueTime","time",item.dueTime||""));p.appendChild(f4b);
     var f5=field("Repeat");f5.appendChild(selEl("editRepeat",REPEAT_OPTS,item.repeat||""));p.appendChild(f5);
     p.appendChild(editActions("edit",item.id));
     return p;
@@ -817,12 +821,13 @@
     }
   }
   function renderTasks(){buildFilterChips($("taskFilter"),function(){return taskFilter;},function(k){taskFilter=k;renderTasks();});renderTaskList();}
-  function addTask(input,areaRef,dueId,repeatId){
+  function addTask(input,areaRef,dueId,repeatId,dueTimeId){
     var text=(input.value||"").trim();if(!text)return;
     var due=dueId?($(dueId).value||null):null;
     var rep=repeatId?($(repeatId).value||""):"";
-    state.items.unshift({id:uid(),text:text,area:areaRef(),today:false,done:false,due:due,projectId:null,repeat:rep,createdAt:Date.now()});
-    input.value="";if(dueId)$(dueId).value="";if(repeatId)$(repeatId).value="";
+    var dt=dueTimeId?($(dueTimeId).value||""):"";
+    state.items.unshift({id:uid(),text:text,area:areaRef(),today:false,done:false,due:due,dueTime:dt,projectId:null,repeat:rep,createdAt:Date.now()});
+    input.value="";if(dueId)$(dueId).value="";if(repeatId)$(repeatId).value="";if(dueTimeId)$(dueTimeId).value="";
     renderTasks();renderHome();save();
   }
   function handleTaskAction(e){
@@ -837,7 +842,7 @@
   }
   function handleTaskListClick(e){
     var sv=e.target.closest("[data-edit-save]");
-    if(sv){var it=findItem(sv.dataset.editSave);if(it){var t=(pf(sv,"editText").value||"").trim();if(t)it.text=t;it.area=pf(sv,"editArea").value;it.projectId=pf(sv,"editProject").value||null;it.due=pf(sv,"editDue").value||null;it.repeat=pf(sv,"editRepeat").value||"";}editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
+    if(sv){var it=findItem(sv.dataset.editSave);if(it){var t=(pf(sv,"editText").value||"").trim();if(t)it.text=t;it.area=pf(sv,"editArea").value;it.projectId=pf(sv,"editProject").value||null;it.due=pf(sv,"editDue").value||null;it.dueTime=pf(sv,"editDueTime").value||"";it.repeat=pf(sv,"editRepeat").value||"";}editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
     var cn=e.target.closest("[data-edit-cancel]");if(cn){editingId=null;renderTasks();return;}
     var dl=e.target.closest("[data-edit-delete]");if(dl){state.items=state.items.filter(function(x){return x.id!==dl.dataset.editDelete;});editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
     handleTaskAction(e);
@@ -968,6 +973,7 @@
     }
     cq+='<p class="cq-hint">'+(on?"Connected. Ask the Council and answers come back here.":"Captured offline. Connect AI above (or wait for the relay) — then these run automatically.")+'</p>';
     box.insertAdjacentHTML("beforeend",cq);
+    box.insertAdjacentHTML("beforeend",remindersHTML());
     box.insertAdjacentHTML("beforeend",'<button class="sweep-card" type="button" data-openwind="1" style="margin-top:24px"><span class="sw-ico" style="background:#3a2c59">'+moonSvg()+'</span><span class="sw-txt"><span class="sw-title">Wind down the day</span><span class="sw-sub">Close out today — finish, defer, or let go, then rest.</span></span><span class="sw-arrow">'+chevSvg()+'</span></button>');
   }
   function addNextTask(){
@@ -978,6 +984,84 @@
   }
   function relayBase(){var u=((state.relay&&state.relay.url)||"").trim();return u.replace(/\/+$/,"");}
   function relayOn(){return !!relayBase();}
+
+  /* ---------- phone reminders / Web Push (v0.14) ---------- */
+  var _syncT=null;
+  function pushSupported(){return ("serviceWorker" in navigator)&&("PushManager" in window)&&("Notification" in window);}
+  function urlB64ToUint8(b64){var p=b64.length%4,s=b64;if(p===2)s+="==";else if(p===3)s+="=";s=s.replace(/-/g,"+").replace(/_/g,"/");var raw=window.atob(s),arr=new Uint8Array(raw.length),i;for(i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
+  function fmtHour(h){return fmtTime(pad(h)+":00");}
+  function briefHourOpts(){var h=(state.push&&state.push.hour)||8,o="",i;for(i=6;i<=11;i++){o+='<option value="'+i+'"'+(i===h?" selected":"")+">"+fmtHour(i)+"</option>";}return o;}
+  function morningBriefTimes(hour,count){var out=[],now=new Date(),i;var first=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hour,0,0,0);if(first.getTime()<=now.getTime())first=new Date(first.getTime()+86400000);for(i=0;i<count;i++)out.push(first.getTime()+i*86400000);return out;}
+  function taskDueEpoch(it){if(!it.due||!it.dueTime)return 0;var p=keyToParts(it.due),tp=String(it.dueTime).split(":");return new Date(p.y,p.m,p.d,parseInt(tp[0],10)||0,parseInt(tp[1],10)||0,0,0).getTime();}
+  function buildReminders(){
+    var out=[],i,url="https://kevinbigham.github.io/kevinos/";
+    var hour=(state.push&&state.push.hour)||8,times=morningBriefTimes(hour,3),n=openTodayCount();
+    var body=n>0?(n+(n===1?" thing needs":" things need")+" you today."):"You’re clear today. Open KevinOS for what’s next.";
+    for(i=0;i<times.length;i++)out.push({id:"brief-"+i,fireAt:times[i],title:"Good morning, Kevin ☀️",body:body,url:url,tag:"kevinos-brief"});
+    var now=Date.now();
+    state.items.forEach(function(it){if(it.done||!it.due||!it.dueTime)return;var fa=taskDueEpoch(it);if(fa>now)out.push({id:"task-"+it.id,fireAt:fa,title:"Task due",body:it.text,url:url,tag:"kevinos-task-"+it.id});});
+    return out;
+  }
+  function syncReminders(){
+    if(!state.push||!state.push.enabled)return;
+    var base=relayBase();if(!base||!navigator.serviceWorker)return;
+    navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(sub){
+      if(!sub)return;
+      return fetch(base+"/push/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON(),reminders:buildReminders()})});
+    }).then(function(){if(state.push)state.push.syncedAt=Date.now();}).catch(function(){});
+  }
+  function scheduleReminderSync(){if(!state.push||!state.push.enabled)return;if(_syncT)clearTimeout(_syncT);_syncT=setTimeout(function(){_syncT=null;syncReminders();},1500);}
+  function enablePush(){
+    if(!pushSupported()){toast("Reminders need KevinOS added to your home screen.");return;}
+    var base=relayBase();if(!base){toast("Connect AI (the relay) first — it sends the reminders.");return;}
+    Notification.requestPermission().then(function(perm){
+      if(perm!=="granted"){toast("Notifications weren’t allowed.");return;}
+      fetch(base+"/push/key").then(function(r){return r.json();}).then(function(j){
+        var key=j&&j.publicKey;if(!key)throw new Error("no key");
+        return navigator.serviceWorker.ready.then(function(reg){
+          return reg.pushManager.getSubscription().then(function(ex){return ex||reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(key)});});
+        });
+      }).then(function(sub){
+        if(!sub)return;
+        if(!state.push)state.push={enabled:false,endpoint:"",hour:8,syncedAt:0};
+        state.push.enabled=true;state.push.endpoint=sub.endpoint;
+        return fetch(base+"/push/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON(),reminders:buildReminders()})});
+      }).then(function(){save();renderNext();toast("Reminders on. Send a test to confirm.");}).catch(function(){toast("Couldn’t turn on reminders.");});
+    }).catch(function(){toast("Couldn’t turn on reminders.");});
+  }
+  function disablePush(){
+    var base=relayBase();
+    if(navigator.serviceWorker){
+      navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(sub){
+        if(!sub)return;var ep=sub.endpoint;sub.unsubscribe().catch(function(){});
+        if(base)fetch(base+"/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:ep})}).catch(function(){});
+      }).catch(function(){});
+    }
+    if(state.push){state.push.enabled=false;state.push.endpoint="";}
+    save();renderNext();toast("Reminders off.");
+  }
+  function testPush(){
+    var base=relayBase();if(!base){toast("Connect the relay first.");return;}
+    if(!navigator.serviceWorker){toast("No service worker here.");return;}
+    navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(sub){
+      if(!sub){toast("Turn on reminders first.");return;}
+      return fetch(base+"/push/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON()})}).then(function(r){return r.json();}).then(function(j){toast(j&&j.ok?"Test sent — check your notifications.":"Test failed (status "+((j&&j.status)||"?")+").");});
+    }).catch(function(){toast("Couldn’t send the test.");});
+  }
+  function remindersHTML(){
+    var pon=!!(state.push&&state.push.enabled),sup=pushSupported(),hour=(state.push&&state.push.hour)||8;
+    var h='<hr class="surface-line"><div class="sec-head" style="margin-top:6px"><p class="section-label">Phone reminders</p>'+
+      (sup?'<button class="sec-link" type="button" data-push-toggle="1">'+(pon?"On ✓":"Turn on")+"</button>":'<span class="cq-prov">add to home screen</span>')+"</div>";
+    if(pon){
+      h+='<div class="push-row"><label for="briefHour">Morning brief</label><select class="inp" id="briefHour">'+briefHourOpts()+"</select>"+
+        '<button class="btn-soft" type="button" data-push-test="1">Send test</button>'+
+        '<button class="btn-ghost danger" type="button" data-push-off="1">Turn off</button></div>'+
+        '<p class="cq-hint">A morning brief at '+fmtHour(hour)+", plus a nudge when any task with a due time comes up — pushed to this device."+(relayOn()?"":" Connect AI above first.")+"</p>";
+    }else{
+      h+='<p class="cq-hint">Get a morning brief and task-due nudges as notifications on this device. '+(sup?(relayOn()?"Tap “Turn on.”":"Connect AI above first — the relay sends them."):"Add KevinOS to your home screen, then turn this on.")+"</p>";
+    }
+    return h;
+  }
   function findCouncil(id){for(var i=0;i<state.council.length;i++)if(state.council[i].id===id)return state.council[i];return null;}
   function copySvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';}
   function flashCopied(btn,msg){var ob=btn.innerHTML;btn.innerHTML=msg||"Copied";setTimeout(function(){if(btn.isConnected)btn.innerHTML=ob;},1300);}
@@ -1145,6 +1229,9 @@
     if(e.target.closest("[data-openwind]")){openWind();return;}
     if(e.target.closest("[data-next-add]")){addNextTask();return;}
     if(e.target.closest("[data-council-add]")){addCouncil();return;}
+    if(e.target.closest("[data-push-toggle]")){enablePush();return;}
+    if(e.target.closest("[data-push-test]")){testPush();return;}
+    if(e.target.closest("[data-push-off]")){disablePush();return;}
     if(e.target.closest("[data-relay-toggle]")){relayOpen=!relayOpen;renderNext();return;}
     if(e.target.closest("[data-relay-save]")){var ri=$("relayUrl");if(ri){if(!state.relay)state.relay={url:""};state.relay.url=(ri.value||"").trim();}relayOpen=false;renderNext();save();if(relayOn())runQueuedCouncil();return;}
     if(e.target.closest("[data-relay-clear]")){state.relay={url:""};relayOpen=false;renderNext();save();return;}
@@ -1790,13 +1877,14 @@
   $("homeNudges").addEventListener("click",function(e){if(e.target.closest("[data-openwind]")){openWind();return;}if(e.target.closest("[data-backup]")){exportBackup();}});
   $("nextView").addEventListener("click",handleNextClick);
   $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}else if(t&&t.id==="relayUrl"){e.preventDefault();if(!state.relay)state.relay={url:""};state.relay.url=(t.value||"").trim();relayOpen=false;renderNext();save();}});
+  $("nextView").addEventListener("change",function(e){var t=e.target;if(t&&t.id==="briefHour"){if(!state.push)state.push={enabled:false,endpoint:"",hour:8,syncedAt:0};state.push.hour=parseInt(t.value,10)||8;save();renderNext();}});
   $("nav").addEventListener("click",function(e){var t=e.target.closest(".tab");if(t)go(t.dataset.room);});
   var goBtns=document.querySelectorAll("[data-goto]");for(var gi=0;gi<goBtns.length;gi++){goBtns[gi].addEventListener("click",function(){go(this.dataset.goto);});}
   $("sweepCardHome").addEventListener("click",startSweep);
   $("sweepCardTasks").addEventListener("click",startSweep);
 
-  $("taskAddBtn").addEventListener("click",function(){addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat");});
-  $("taskInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat");}});
+  $("taskAddBtn").addEventListener("click",function(){addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat","taskDueTime");});
+  $("taskInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat","taskDueTime");}});
   $("taskList").addEventListener("click",handleTaskListClick);
   $("taskDoneList").addEventListener("click",handleTaskAction);
   $("taskDoneToggle").addEventListener("click",function(){taskDoneOpen=!taskDoneOpen;renderTaskList();});
@@ -1870,6 +1958,7 @@
       if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
+      if(saved.push&&typeof saved.push==="object")state.push=saved.push;
       if(saved.v)state.v=saved.v;
       editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=null;
       save();go(room);window.alert("Backup imported — everything’s restored.");
@@ -1929,13 +2018,15 @@
       if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
+      if(saved.push&&typeof saved.push==="object")state.push=saved.push;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=13;
+    state.v=14;
     var sharedMsg=ingestShared();
     renderHome();
     save();
+    if(state.push&&state.push.enabled)syncReminders();
     if(sharedMsg)toast(sharedMsg);
   });
 })();

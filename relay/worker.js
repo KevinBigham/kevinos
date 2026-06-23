@@ -292,6 +292,124 @@ function streamCouncil(env, seats, system, prompt, wantSynth, origin) {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Web Push (Phase 2b) — VAPID + RFC 8291 aes128gcm encryption, all in WebCrypto.
+// The app computes its reminder set (morning brief + per-task due) and syncs it
+// here; a cron fires due reminders. The browser holds no keys; the relay signs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function b64urlToBytes(s) {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function bytesToB64url(b) {
+  const u = new Uint8Array(b);
+  let bin = "";
+  for (let i = 0; i < u.length; i++) bin += String.fromCharCode(u[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function strToB64url(s) { return bytesToB64url(new TextEncoder().encode(s)); }
+function concatBytes(arrs) {
+  let n = 0; for (const a of arrs) n += a.length;
+  const o = new Uint8Array(n);
+  let p = 0; for (const a of arrs) { o.set(a, p); p += a.length; }
+  return o;
+}
+function jwkFromRaw(pubB64, dB64) {
+  const p = b64urlToBytes(pubB64);
+  return { kty: "EC", crv: "P-256", x: bytesToB64url(p.slice(1, 33)), y: bytesToB64url(p.slice(33, 65)), d: dB64, ext: true };
+}
+async function sha256Hex(s) {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// RFC 8291 / RFC 8188 aes128gcm body for a Web Push payload. This function was
+// verified byte-for-byte against the RFC 8291 test vector before shipping.
+async function encryptPayload(uaPublicB64, authSecretB64, plaintext) {
+  const uaPublic = b64urlToBytes(uaPublicB64);
+  const authSecret = b64urlToBytes(authSecretB64);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const kp = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const asPublic = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+  const uaKey = await crypto.subtle.importKey("raw", uaPublic, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const ecdh = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: uaKey }, kp.privateKey, 256));
+  const enc = new TextEncoder();
+  const keyInfo = concatBytes([enc.encode("WebPush: info\0"), uaPublic, asPublic]);
+  const ecdhKey = await crypto.subtle.importKey("raw", ecdh, "HKDF", false, ["deriveBits"]);
+  const ikm = new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt: authSecret, info: keyInfo }, ecdhKey, 256));
+  const ikmKey = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+  const cek = new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info: enc.encode("Content-Encoding: aes128gcm\0") }, ikmKey, 128));
+  const nonce = new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info: enc.encode("Content-Encoding: nonce\0") }, ikmKey, 96));
+  const record = concatBytes([enc.encode(plaintext), new Uint8Array([2])]);
+  const aesKey = await crypto.subtle.importKey("raw", cek, { name: "AES-GCM" }, false, ["encrypt"]);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce, tagLength: 128 }, aesKey, record));
+  const header = new Uint8Array(16 + 4 + 1 + asPublic.length);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, 4096, false);
+  header[20] = asPublic.length;
+  header.set(asPublic, 21);
+  return concatBytes([header, ct]);
+}
+
+// VAPID (RFC 8292) Authorization header for a given push endpoint.
+async function vapidAuthHeader(endpoint, env) {
+  const aud = new URL(endpoint).origin;
+  const sub = env.VAPID_SUBJECT || "https://kevinbigham.github.io/kevinos/";
+  const header = strToB64url(JSON.stringify({ typ: "JWT", alg: "ES256" }));
+  const payload = strToB64url(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 43200, sub }));
+  const signingInput = header + "." + payload;
+  const key = await crypto.subtle.importKey("jwk", jwkFromRaw(env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(signingInput));
+  return "vapid t=" + signingInput + "." + bytesToB64url(sig) + ", k=" + env.VAPID_PUBLIC_KEY;
+}
+
+// Encrypt + sign + POST one push. Returns the push service's HTTP status.
+async function sendPush(subscription, payloadObj, env, ttl) {
+  const body = await encryptPayload(subscription.keys.p256dh, subscription.keys.auth, JSON.stringify(payloadObj));
+  const res = await fetch(subscription.endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Encoding": "aes128gcm",
+      "Content-Type": "application/octet-stream",
+      "TTL": String(ttl || 86400),
+      "Authorization": await vapidAuthHeader(subscription.endpoint, env),
+    },
+    body,
+  });
+  return { status: res.status };
+}
+
+// Cron: fire every reminder whose time has arrived, then drop it (the app owns
+// recurrence by re-syncing the next occurrence). Stale ones (>1h late) are pruned
+// unsent; a 404/410 means the subscription is gone, so we delete the record.
+async function firePush(env) {
+  if (!env.PUSH || !env.VAPID_PRIVATE_KEY) return;
+  const now = Date.now();
+  const grace = 3600 * 1000;
+  const list = await env.PUSH.list({ prefix: "sub:" });
+  for (const k of list.keys) {
+    const raw = await env.PUSH.get(k.name);
+    if (!raw) continue;
+    let rec;
+    try { rec = JSON.parse(raw); } catch (e) { continue; }
+    const all = Array.isArray(rec.reminders) ? rec.reminders : [];
+    const due = all.filter((r) => r.fireAt <= now && r.fireAt > now - grace);
+    const future = all.filter((r) => r.fireAt > now);
+    if (future.length !== all.length) { rec.reminders = future; await env.PUSH.put(k.name, JSON.stringify(rec)); }
+    for (const r of due) {
+      try {
+        const res = await sendPush(rec.subscription, { title: r.title, body: r.body, url: r.url, tag: r.tag }, env, 86400);
+        if (res.status === 404 || res.status === 410) { await env.PUSH.delete(k.name); break; }
+      } catch (e) { /* drop on failure — a missed reminder beats a stuck queue */ }
+    }
+  }
+}
+
 export default {
   async fetch(request, env) {
     const origin = env.ALLOW_ORIGIN || "*";
@@ -302,7 +420,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -358,6 +476,61 @@ export default {
       }
     }
 
+    // Web Push — the VAPID public key, so the app never has to hardcode it.
+    if (request.method === "GET" && url.pathname === "/push/key") {
+      return json({ publicKey: env.VAPID_PUBLIC_KEY || "" }, 200, origin);
+    }
+
+    // Web Push — store the subscription + the app's computed reminder set.
+    if (request.method === "POST" && url.pathname === "/push/sync") {
+      if (!env.PUSH) return json({ error: "Push storage not configured on the relay" }, 500, origin);
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const sub = payload && payload.subscription;
+      if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth)
+        return json({ error: "Missing or invalid subscription" }, 400, origin);
+      const reminders = Array.isArray(payload.reminders)
+        ? payload.reminders.filter((r) => r && typeof r.fireAt === "number" && r.title).slice(0, 200)
+        : [];
+      await env.PUSH.put("sub:" + (await sha256Hex(sub.endpoint)), JSON.stringify({ subscription: sub, reminders, updatedAt: Date.now() }));
+      return json({ ok: true, count: reminders.length }, 200, origin);
+    }
+
+    // Web Push — forget a subscription.
+    if (request.method === "POST" && url.pathname === "/push/unsubscribe") {
+      if (!env.PUSH) return json({ error: "Push storage not configured on the relay" }, 500, origin);
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const endpoint = payload && payload.endpoint;
+      if (!endpoint) return json({ error: "Missing endpoint" }, 400, origin);
+      await env.PUSH.delete("sub:" + (await sha256Hex(endpoint)));
+      return json({ ok: true }, 200, origin);
+    }
+
+    // Web Push — send a test notification right now (confirms real device delivery).
+    if (request.method === "POST" && url.pathname === "/push/test") {
+      if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return json({ error: "VAPID keys not configured on the relay" }, 500, origin);
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const sub = payload && payload.subscription;
+      if (!sub || !sub.endpoint || !sub.keys) return json({ error: "Missing subscription" }, 400, origin);
+      try {
+        const res = await sendPush(sub, {
+          title: payload.title || "KevinOS reminders are on ✓",
+          body: payload.body || "You'll get your morning brief and task nudges right here.",
+          url: payload.url || "https://kevinbigham.github.io/kevinos/",
+          tag: "kevinos-test",
+        }, env, 60);
+        return json({ ok: res.status >= 200 && res.status < 300, status: res.status }, 200, origin);
+      } catch (e) {
+        return json({ error: (e && e.message) || "push failed" }, 502, origin);
+      }
+    }
+
     return json({ error: "Not found" }, 404, origin);
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(firePush(env));
   },
 };
