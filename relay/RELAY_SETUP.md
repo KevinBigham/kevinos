@@ -134,6 +134,28 @@ KevinOS can push a **morning brief** and **per-task due reminders** to the insta
 
 The keys never touch the app or the repo: the **private** key is a Cloudflare secret; the app fetches the **public** key from `GET /push/key`. There's **no `web-push` library** — the relay does VAPID signing + RFC-8291 payload encryption in WebCrypto (verified against the RFC test vector). Cost stays **$0** (KV + Cron free tier).
 
+## GitHub sign-in (OAuth) — register the app once (v0.15)
+
+KevinOS connects to GitHub with **OAuth** so the token lives on the relay, never on your phone. Register a GitHub "OAuth App" once (~2 min):
+
+1. Go to **https://github.com/settings/developers** → **OAuth Apps** → **New OAuth App** (direct: https://github.com/settings/applications/new).
+2. Fill in:
+   - **Application name:** `KevinOS`
+   - **Homepage URL:** `https://kevinbigham.github.io/kevinos/`
+   - **Authorization callback URL:** `https://kevinos-relay.kevinbigham.workers.dev/github/callback` ← must be exact
+   - Leave "Enable Device Flow" unchecked.
+3. Click **Register application**.
+4. Copy the **Client ID** (public). Then click **Generate a new client secret** and copy the **secret** (shown once).
+5. Put the Client ID in `wrangler.toml` (`GITHUB_CLIENT_ID = "…"`), set the secret, redeploy:
+   ```sh
+   cd /Users/kevin/KevinOS/app/relay
+   npx wrangler secret put GITHUB_CLIENT_SECRET   # paste the secret at the prompt
+   npx wrangler deploy
+   ```
+6. In KevinOS → **GitHub** room → **Connect with GitHub** → approve → done. The token is held on the relay; the app only keeps a random session id.
+
+Scope is `read:user repo` (matches the old token — counts private contributions). Disconnecting in-app **revokes** the token on GitHub. `GET /` shows `"github":true` once configured.
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.

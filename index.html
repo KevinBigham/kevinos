@@ -607,7 +607,7 @@
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
-      <div style="margin-top:10px">KevinOS v0.14 · Daily + Next + Workspace + GitHub · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.15 · Daily + Next + Workspace + GitHub · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -1704,29 +1704,62 @@
     return {current:cur,longest:longest,todayDone:todayDone};
   }
 
-  function ghFetch(token){
-    var q="query{viewer{login name avatarUrl url followers{totalCount} repositories(first:6,orderBy:{field:PUSHED_AT,direction:DESC},ownerAffiliations:OWNER){totalCount nodes{name url description stargazerCount pushedAt isPrivate primaryLanguage{name color}}} contributionsCollection{contributionCalendar{totalContributions weeks{contributionDays{date contributionCount weekday}}}}}}";
-    return fetch("https://api.github.com/graphql",{method:"POST",headers:{"Authorization":"bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({query:q})})
-      .then(function(r){if(r.status===401){var ea=new Error("auth");ea.kind="auth";throw ea;}return r.json();})
-      .then(function(j){
-        if(j.errors&&j.errors.length){var eb=new Error(j.errors[0].message||"GitHub error");eb.kind="api";throw eb;}
-        if(!j.data||!j.data.viewer){var ec=new Error("No data from GitHub");ec.kind="api";throw ec;}
-        return j.data.viewer;
-      });
+  function ghQuery(){return "query{viewer{login name avatarUrl url followers{totalCount} repositories(first:6,orderBy:{field:PUSHED_AT,direction:DESC},ownerAffiliations:OWNER){totalCount nodes{name url description stargazerCount pushedAt isPrivate primaryLanguage{name color}}} contributionsCollection{contributionCalendar{totalContributions weeks{contributionDays{date contributionCount weekday}}}}}}";}
+  function ghParse(j){
+    if(j.errors&&j.errors.length){var eb=new Error(j.errors[0].message||"GitHub error");eb.kind="api";throw eb;}
+    if(!j.data||!j.data.viewer){var ec=new Error("No data from GitHub");ec.kind="api";throw ec;}
+    return j.data.viewer;
+  }
+  // OAuth → proxy the query through the relay (token stays server-side); PAT → call GitHub directly (legacy).
+  function ghFetch(){
+    var gh=state.github||{},q=ghQuery();
+    if(gh.session){
+      var base=relayBase();
+      if(!base){var e0=new Error("relay");e0.kind="auth";return Promise.reject(e0);}
+      return fetch(base+"/github/graphql",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:gh.session,query:q})})
+        .then(function(r){if(r.status===401){var ea=new Error("auth");ea.kind="auth";throw ea;}return r.json();})
+        .then(ghParse);
+    }
+    return fetch("https://api.github.com/graphql",{method:"POST",headers:{"Authorization":"bearer "+gh.token,"Content-Type":"application/json"},body:JSON.stringify({query:q})})
+      .then(function(r){if(r.status===401){var eb=new Error("auth");eb.kind="auth";throw eb;}return r.json();})
+      .then(ghParse);
   }
 
   function ghSync(force){
     var gh=state.github||(state.github={token:"",cache:null,fetchedAt:0});
-    if(!gh.token){renderGithub();return;}
+    if(!gh.token&&!gh.session){renderGithub();return;}
     if(ghLoading)return;
     var fresh=gh.fetchedAt&&(Date.now()-gh.fetchedAt<300000);
     if(!force&&fresh&&gh.cache){renderGithub();return;}
     ghLoading=true;ghError=null;renderGithub();
-    ghFetch(gh.token).then(function(v){
+    ghFetch().then(function(v){
       state.github.cache=v;state.github.fetchedAt=Date.now();ghLoading=false;ghError=null;save();renderGithub();
     }).catch(function(err){
       ghLoading=false;ghError=(err&&err.kind==="auth")?"auth":((err&&err.message)||"Couldn’t reach GitHub");renderGithub();
     });
+  }
+
+  // OAuth connect: open the relay's /github/login (→ GitHub consent) in a tab, then poll until the token lands.
+  function ghOAuthStart(){
+    var base=relayBase();
+    if(!base){ghError="Connect the relay first (Next → Connect AI).";renderGithub();return;}
+    var sid=uid()+uid()+uid();
+    if(!state.github)state.github={token:"",cache:null,fetchedAt:0};
+    state.github.session=sid;state.github.token="";state.github.cache=null;state.github.fetchedAt=0;state.github.pendingOAuth=true;ghError=null;save();
+    try{window.open(base+"/github/login?session="+encodeURIComponent(sid),"_blank");}catch(e){}
+    renderGithub();
+    ghOAuthPoll(0);
+  }
+  function ghOAuthPoll(n){
+    var gh=state.github||{};
+    if(!gh.session||!gh.pendingOAuth)return;
+    var base=relayBase();if(!base)return;
+    fetch(base+"/github/status?session="+encodeURIComponent(gh.session)).then(function(r){return r.json();}).then(function(j){
+      if(!state.github||!state.github.pendingOAuth)return;
+      if(j&&j.connected){state.github.pendingOAuth=false;if(j.login)state.github.login=j.login;ghError=null;save();ghSync(true);return;}
+      if(n<60)setTimeout(function(){ghOAuthPoll(n+1);},2500);
+      else{state.github.pendingOAuth=false;ghError="Timed out waiting for GitHub. Try again.";save();renderGithub();}
+    }).catch(function(){if(n<60)setTimeout(function(){ghOAuthPoll(n+1);},2500);});
   }
 
   function ghConnect(){
@@ -1735,27 +1768,50 @@
     if(!state.github)state.github={token:"",cache:null,fetchedAt:0};
     state.github.token=tok;state.github.cache=null;state.github.fetchedAt=0;ghError=null;save();ghSync(true);
   }
-  function ghClear(){state.github={token:"",cache:null,fetchedAt:0};ghError=null;ghLoading=false;save();renderGithub();}
+  function ghClear(){
+    var gh=state.github||{},base=relayBase();
+    if(gh.session&&base){fetch(base+"/github/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:gh.session})}).catch(function(){});}
+    state.github={token:"",cache:null,fetchedAt:0};ghError=null;ghLoading=false;save();renderGithub();
+  }
   function handleGithubClick(e){
     var a=e.target.closest("[data-gh]");if(!a)return;
     var act=a.getAttribute("data-gh");
     if(act==="connect")ghConnect();
+    else if(act==="oauth")ghOAuthStart();
+    else if(act==="checkoauth")ghOAuthPoll(0);
+    else if(act==="reopenoauth"){var b=relayBase();if(b&&state.github&&state.github.session){try{window.open(b+"/github/login?session="+encodeURIComponent(state.github.session),"_blank");}catch(e2){}}}
+    else if(act==="canceloauth")ghClear();
     else if(act==="refresh")ghSync(true);
     else if(act==="reset")ghClear();
-    else if(act==="disconnect"){if(window.confirm("Disconnect GitHub? Your token is removed from this device."))ghClear();}
+    else if(act==="disconnect"){if(window.confirm("Disconnect GitHub? The token is revoked on GitHub and removed from the relay."))ghClear();}
   }
 
   function ghConnectHTML(){
-    var err=ghError?'<p class="gh-err">'+escapeHtml(ghError==="auth"?"That token didn’t work. Check it’s valid and has read:user.":ghError)+'</p>':"";
+    var err=(ghError&&ghError!=="auth")?'<p class="gh-err">'+escapeHtml(ghError)+'</p>':(ghError==="auth"?'<p class="gh-err">That token didn’t work. Check it’s valid and has read:user.</p>':"");
+    var relayWarn=relayOn()?"":'<p class="hint"><strong>Connect the relay first</strong> — Next → Connect AI — then come back here.</p>';
     return ''+
       '<div class="sec-head"><p class="section-label">Connect GitHub</p></div>'+
       '<div class="gh-connect">'+
       '<p class="gh-lead">Plug in your GitHub and KevinOS becomes your streak keeper — your contribution graph, current &amp; longest streak, and latest repos, right on the dashboard.</p>'+
-      '<div class="field" style="margin-top:16px"><label for="ghTokenInput">Personal access token</label><input class="inp" id="ghTokenInput" type="password" placeholder="ghp_… or github_pat_…" autocomplete="off" spellcheck="false"></div>'+
       err+
-      '<div class="edit-actions"><button class="add-btn" type="button" data-gh="connect">Connect</button><a class="btn-soft" href="https://github.com/settings/tokens/new?scopes=read:user,repo&amp;description=KevinOS" target="_blank" rel="noopener">Create a token ↗</a></div>'+
-      '<p class="hint"><strong>How:</strong> tap <em>Create a token</em> → scroll down → <em>Generate token</em> → copy it → paste above. Keep <code>read:user</code> checked; leave <code>repo</code> checked too if you want private repos &amp; private contributions counted in your streak.</p>'+
-      '<p class="hint">Your token lives only on this device and calls GitHub directly. Disconnect any time and it’s wiped. When we add the secure relay later, this moves off-device entirely.</p>'+
+      '<div class="edit-actions" style="margin-top:16px"><button class="add-btn" type="button" data-gh="oauth">Connect with GitHub ↗</button></div>'+
+      '<p class="hint">One tap — approve KevinOS on GitHub and you’re done. Your token is held securely on the relay, <strong>never on this device</strong>.</p>'+
+      relayWarn+
+      '<details style="margin-top:6px"><summary class="hint" style="cursor:pointer">Advanced: paste a personal token instead</summary>'+
+      '<div class="field" style="margin-top:12px"><label for="ghTokenInput">Personal access token</label><input class="inp" id="ghTokenInput" type="password" placeholder="ghp_… or github_pat_…" autocomplete="off" spellcheck="false"></div>'+
+      '<div class="edit-actions"><button class="add-btn" type="button" data-gh="connect">Connect token</button><a class="btn-soft" href="https://github.com/settings/tokens/new?scopes=read:user,repo&amp;description=KevinOS" target="_blank" rel="noopener">Create a token ↗</a></div>'+
+      '<p class="hint">A token lives only on this device and calls GitHub directly — the old way. Disconnect any time and it’s wiped.</p>'+
+      '</details>'+
+      '</div>';
+  }
+  function ghWaitingHTML(){
+    return ''+
+      '<div class="sec-head"><p class="section-label">Connect GitHub</p></div>'+
+      '<div class="gh-connect">'+
+      '<p class="gh-lead">Waiting for GitHub… approve <strong>KevinOS</strong> in the tab that just opened, then come back here.</p>'+
+      (ghError?'<p class="gh-err">'+escapeHtml(ghError)+'</p>':'<p class="empty" style="margin-top:8px">Checking every couple seconds…</p>')+
+      '<div class="edit-actions"><button class="add-btn" type="button" data-gh="checkoauth">I’ve authorized — check now</button><button class="btn-soft" type="button" data-gh="canceloauth">Cancel</button></div>'+
+      '<p class="hint">No GitHub tab opened? <button class="linklike" type="button" data-gh="reopenoauth">Open it again ↗</button></p>'+
       '</div>';
   }
 
@@ -1775,7 +1831,8 @@
   function renderGithub(){
     var box=$("ghView");if(!box)return;
     var gh=state.github||{};
-    if(!gh.token){box.innerHTML=ghConnectHTML();return;}
+    if(!gh.token&&!gh.session){box.innerHTML=ghConnectHTML();return;}
+    if(gh.session&&gh.pendingOAuth&&!gh.cache){box.innerHTML=ghWaitingHTML();return;}
     var head=''+
       '<div class="sec-head"><p class="section-label">GitHub</p>'+
       '<div style="display:flex;gap:6px;align-items:center">'+
@@ -2022,11 +2079,12 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=14;
+    state.v=15;
     var sharedMsg=ingestShared();
     renderHome();
     save();
     if(state.push&&state.push.enabled)syncReminders();
+    if(state.github&&state.github.session&&state.github.pendingOAuth&&!state.github.cache)ghOAuthPoll(0);
     if(sharedMsg)toast(sharedMsg);
   });
 })();

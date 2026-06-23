@@ -410,6 +410,41 @@ async function firePush(env) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GitHub OAuth (Phase 2b) — the token lives on the relay, never in the browser.
+// The app opens /github/login (→ GitHub consent), the callback stores the token
+// in KV under the app's session id, and the app proxies GraphQL through /github/
+// graphql. Disconnect revokes the token on GitHub and forgets it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ghEsc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function ghHtmlPage(msg) {
+  return new Response(
+    "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><title>KevinOS · GitHub</title>" +
+    "<body style='font-family:-apple-system,system-ui,sans-serif;background:#f4efe6;color:#2b2433;display:flex;min-height:88vh;align-items:center;justify-content:center;text-align:center;padding:24px'>" +
+    "<div style='max-width:340px'><div style='font-size:42px;margin-bottom:12px'>🔗</div>" +
+    "<h2 style='margin:0 0 8px;font-weight:600'>" + ghEsc(msg) + "</h2>" +
+    "<p style='color:#6b6477;line-height:1.5'>You can close this tab and return to KevinOS — it’ll pick up automatically.</p></div></body>",
+    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+  );
+}
+
+// Best-effort token revocation so "Disconnect" truly cuts GitHub access.
+async function ghRevoke(env, token) {
+  try {
+    await fetch("https://api.github.com/applications/" + env.GITHUB_CLIENT_ID + "/token", {
+      method: "DELETE",
+      headers: {
+        Authorization: "Basic " + btoa(env.GITHUB_CLIENT_ID + ":" + env.GITHUB_CLIENT_SECRET),
+        "User-Agent": "kevinos-relay",
+        Accept: "application/vnd.github+json",
+      },
+      body: JSON.stringify({ access_token: token }),
+    });
+  } catch (e) { /* best-effort */ }
+}
+
 export default {
   async fetch(request, env) {
     const origin = env.ALLOW_ORIGIN || "*";
@@ -420,7 +455,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -525,6 +560,90 @@ export default {
       } catch (e) {
         return json({ error: (e && e.message) || "push failed" }, 502, origin);
       }
+    }
+
+    // GitHub OAuth — start: bounce the browser to GitHub's consent screen.
+    if (request.method === "GET" && url.pathname === "/github/login") {
+      if (!env.GITHUB_CLIENT_ID) return ghHtmlPage("GitHub isn’t configured on the relay yet.");
+      const session = url.searchParams.get("session") || "";
+      if (!session) return ghHtmlPage("Missing session — start from KevinOS.");
+      const params = new URLSearchParams({
+        client_id: env.GITHUB_CLIENT_ID,
+        redirect_uri: url.origin + "/github/callback",
+        scope: "read:user repo",
+        state: session,
+        allow_signup: "false",
+      });
+      return Response.redirect("https://github.com/login/oauth/authorize?" + params.toString(), 302);
+    }
+
+    // GitHub OAuth — callback: exchange the code for a token, store it under the session.
+    if (request.method === "GET" && url.pathname === "/github/callback") {
+      const code = url.searchParams.get("code"), session = url.searchParams.get("state");
+      if (!code || !session) return ghHtmlPage("Authorization was cancelled or incomplete.");
+      if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET || !env.PUSH) return ghHtmlPage("GitHub isn’t fully configured on the relay.");
+      try {
+        const tr = await fetch("https://github.com/login/oauth/access_token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": "kevinos-relay" },
+          body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: url.origin + "/github/callback" }),
+        });
+        const tok = await tr.json();
+        if (!tok.access_token) return ghHtmlPage("GitHub didn’t return a token (" + ((tok.error_description || tok.error || "unknown") + "") + ").");
+        let login = "";
+        try {
+          const ur = await fetch("https://api.github.com/user", { headers: { Authorization: "bearer " + tok.access_token, "User-Agent": "kevinos-relay", Accept: "application/vnd.github+json" } });
+          const uj = await ur.json();
+          login = (uj && uj.login) || "";
+        } catch (e) { /* login is cosmetic */ }
+        await env.PUSH.put("gh:" + session, JSON.stringify({ token: tok.access_token, login: login, createdAt: Date.now() }));
+        return ghHtmlPage(login ? "Connected as @" + login + " ✓" : "GitHub connected ✓");
+      } catch (e) {
+        return ghHtmlPage("Couldn’t complete GitHub sign-in. Please try again.");
+      }
+    }
+
+    // GitHub OAuth — status poll (the app waits on this after opening the consent tab).
+    if (request.method === "GET" && url.pathname === "/github/status") {
+      if (!env.PUSH) return json({ connected: false }, 200, origin);
+      const session = url.searchParams.get("session") || "";
+      const raw = session ? await env.PUSH.get("gh:" + session) : null;
+      const rec = raw ? JSON.parse(raw) : null;
+      return json({ connected: !!(rec && rec.token), login: (rec && rec.login) || "" }, 200, origin);
+    }
+
+    // GitHub — proxy a GraphQL query using the stored token (the browser never sees it).
+    if (request.method === "POST" && url.pathname === "/github/graphql") {
+      if (!env.PUSH) return json({ error: "GitHub not configured on the relay" }, 500, origin);
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const session = payload && payload.session, query = payload && payload.query;
+      if (!session || !query) return json({ error: "Missing session or query" }, 400, origin);
+      const raw = await env.PUSH.get("gh:" + session);
+      const rec = raw ? JSON.parse(raw) : null;
+      if (!rec || !rec.token) return json({ error: "not connected" }, 401, origin);
+      const gr = await fetch("https://api.github.com/graphql", {
+        method: "POST",
+        headers: { Authorization: "bearer " + rec.token, "Content-Type": "application/json", "User-Agent": "kevinos-relay" },
+        body: JSON.stringify({ query: query, variables: (payload && payload.variables) || undefined }),
+      });
+      if (gr.status === 401) { await env.PUSH.delete("gh:" + session); return json({ error: "github auth" }, 401, origin); }
+      const data = await gr.json();
+      return json(data, gr.status, origin);
+    }
+
+    // GitHub — disconnect: revoke the token on GitHub, then forget it.
+    if (request.method === "POST" && url.pathname === "/github/logout") {
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const session = payload && payload.session;
+      if (session && env.PUSH) {
+        const raw = await env.PUSH.get("gh:" + session);
+        const rec = raw ? JSON.parse(raw) : null;
+        if (rec && rec.token && env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) await ghRevoke(env, rec.token);
+        await env.PUSH.delete("gh:" + session);
+      }
+      return json({ ok: true }, 200, origin);
     }
 
     return json({ error: "Not found" }, 404, origin);

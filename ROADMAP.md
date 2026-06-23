@@ -29,7 +29,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **2 — Council depth** (per-seat lanes + save-to-Notes + auto-run on connect) | **Shipped** v0.12 → grounded · tactical · research · open-model · devil's-advocate, $0/mo |
 | ✅ | **2 — Council live streaming** (per-seat cards fill in as each model returns) | **Shipped** v0.13 → NDJSON stream, ES5 reader, $0/mo |
 | ✅ | **2b — Phone reminders** (Web Push: morning brief + per-task due-time) | **Shipped** v0.14 → VAPID + KV + cron, $0/mo |
-| ⬜ | **2b — GitHub OAuth** (token off-device via the relay) | Deferred (needs Kevin to register an OAuth App) |
+| 🔜 | **2b — GitHub OAuth** (token off-device via the relay) | **Code shipped** v0.15 → activates the moment Kevin registers the OAuth App |
 | ⬜ | **3 — Sync** (one live dataset across devices) | Planned |
 | ⬜ | **4 — Calendar / File AI** | Planned |
 | ⬜ | **5 — Email Command Center** | Planned (built last) |
@@ -133,7 +133,10 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 - [x] **Two reminder types** — a **morning brief** at a chosen hour ("N things need you today") + **per-task due reminders** (any task with a due *time*). The app computes its reminder set and syncs it to the relay (`/push/sync`); a Cloudflare **KV** store + **cron trigger** fire due ones and drop them (the app owns recurrence by re-syncing). Tasks gained an optional **due time**; `state.v` → 14
 - [x] **$0/mo** — Cloudflare KV + Cron free tier. Verified end-to-end in preview (subscribe → sync → per-task + brief payloads, hour selector, send-test), zero console errors. The one device-only step is Kevin tapping **Send test** once on his iPhone to confirm a notification lands
 
-- [ ] Move the **GitHub token off-device** to OAuth via the relay *(remaining Phase 2b half — deferred by Kevin; do when he says go, needs him to register a GitHub OAuth App)*
+**Shipped (code) v0.15 — GitHub OAuth (token off-device):**
+- [x] **Relay OAuth flow** — `/github/login` (→ GitHub consent), `/github/callback` (code→token exchange, stores the token in KV under the app's session), `/github/status` (poll), `/github/graphql` (proxies the GitHub GraphQL query with the server-side token), `/github/logout` (revokes the token on GitHub + forgets it). **The browser never sees the token.**
+- [x] **App** — a one-tap "Connect with GitHub" (OAuth) in the GitHub room: opens the consent tab, polls `/github/status` until the token lands, then proxies all GitHub data through the relay. The personal-token path is kept as an "Advanced" fallback. `state.v` → 15. Verified in preview (connect → poll → proxied render → disconnect; token never in the browser; zero console errors)
+- [ ] **Activates** once Kevin registers the GitHub OAuth App (callback `https://kevinos-relay.kevinbigham.workers.dev/github/callback`) → `GITHUB_CLIENT_ID` var + `GITHUB_CLIENT_SECRET` secret → redeploy
 - [ ] *(optional)* email-to-self backstop
 
 **Tech:** Cloudflare Worker; Google kept in **Testing mode** (sole user) to dodge the ~$900–1,500/yr CASA audit; treat 7-day token expiry as a calm "Reconnect."
@@ -219,4 +222,6 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Phone reminders shipped 🎉 (v0.14)** Web Push is live: KevinOS can notify the installed PWA with a **morning brief** (at a chosen hour) and **per-task due reminders** (any task with a due time), all through the relay — VAPID + RFC-8291 encryption in WebCrypto, a Cloudflare KV store, and a per-minute cron. **$0/mo.** The headline half of Phase 2b is done; the only thing left is for Kevin to tap **Send test** once on his phone to confirm delivery.
 
-**Next up (only when Kevin says go):** the **remaining Phase 2b half** — move the GitHub token off-device to OAuth via the relay (needs Kevin to register a GitHub OAuth App, ~3 min). After that, **Phase 3** (Supabase sync across devices). The Council is feature-complete; further Council work would be net-new ideas, not pending polish.
+**GitHub OAuth built 🎉 (v0.15)** The GitHub token moves off-device: a one-tap "Connect with GitHub" runs the OAuth flow through the relay, which holds the token server-side and proxies all GitHub data. Code shipped + verified in preview; it **activates the moment Kevin registers the OAuth App** (set `GITHUB_CLIENT_ID` + the secret + redeploy). This finishes **Phase 2b**.
+
+**Next up:** **Phase 3** (Supabase sync across devices) — one live dataset on Mac + phone. The Council is feature-complete; Phases 0 → 2b are done once the OAuth App is registered.
