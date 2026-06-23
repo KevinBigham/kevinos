@@ -22,7 +22,7 @@ const DEFAULTS = {
   cfModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   groqModel: "llama-3.3-70b-versatile",
   mistralModel: "mistral-small-latest",
-  openrouterModel: "deepseek/deepseek-chat-v3-0324:free",
+  openrouterModel: "qwen/qwen3-next-80b-a3b-instruct:free",
   maxTokens: 1024,
   seatTimeoutMs: 45000,
 };

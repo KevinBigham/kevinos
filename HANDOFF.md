@@ -8,9 +8,9 @@
 
 KevinOS is Kevin's **personal life operating system** — a calm daily cockpit (tasks, calendar, notes, projects, GitHub, reference) as an installable PWA. It is **live, installed on his phone, and fully working**.
 
-- **App:** `v0.10`, live at **https://kevinbigham.github.io/kevinos/** (GitHub Pages, public repo `KevinBigham/kevinos`).
-- **Backend ("the relay"):** a Cloudflare Worker, **live** at **https://kevinos-relay.kevinbigham.workers.dev**, currently running **Gemini 2.5 Flash** (free tier, **$0/mo**). It holds the AI key as a server secret and powers the in-app **Council** (ask-AI) queue. Source is in `relay/` in this same repo.
-- **Whole stack is operational at $0/mo.** Phases 0 → 2 (first slice) are shipped.
+- **App:** `v0.11`, live at **https://kevinbigham.github.io/kevinos/** (GitHub Pages, public repo `KevinBigham/kevinos`).
+- **Backend ("the relay"):** a Cloudflare Worker, **live** at **https://kevinos-relay.kevinbigham.workers.dev**. It holds every AI key as a server secret and powers the in-app **Council**. As of v0.11 the Council is **multi-model**: one prompt fans out to **5 free seats** (Gemini, Cloudflare Workers AI, Groq, Mistral, OpenRouter) in parallel, then a **synthesis chair** (Gemini) combines them into one decision-ready brief. Source is in `relay/` in this same repo.
+- **Whole stack is operational at $0/mo.** Phases 0 → 2 shipped, including the v0.11 multi-model Council.
 - **The single most important rule:** the app's JavaScript is **ES5-style on purpose** (see §2). Do not introduce arrow functions, template literals, `async/await`, `const`/`let`, or any dependency into the app. The Worker (`relay/`) is exempt — it's modern ES modules.
 
 If you only remember two things: **(1) keep the app ES5-style and dependency-free; (2) the AI key lives ONLY on the Worker as a secret — never in the browser, the repo, or his phone.**
@@ -57,21 +57,22 @@ When you edit the app, **match the surrounding code exactly.** If you write ``co
 ## 3. Architecture
 
 ```
-  ┌─────────────────────────┐         ┌──────────────────────────────┐
-  │  KevinOS PWA (browser)   │  HTTPS  │  Cloudflare Worker "relay"   │
-  │  index.html, ES5 vanilla │ ──────► │  kevinos-relay.*.workers.dev │
-  │  state in localStorage   │  /ai    │  holds AI key as a SECRET    │
-  │  GitHub Pages (public)   │ ◄────── │  CORS-locked to Pages origin │
-  └─────────────────────────┘  {text} └───────────────┬──────────────┘
-                                                       │ provider switch
-                                              ┌────────┴────────┐
-                                              ▼                 ▼
-                                        Gemini 2.5 Flash   Claude Haiku
-                                         (ACTIVE, $0)      (key set, idle)
+  ┌─────────────────────────┐           ┌──────────────────────────────┐
+  │  KevinOS PWA (browser)   │   HTTPS   │  Cloudflare Worker "relay"   │
+  │  index.html, ES5 vanilla │ ────────► │  kevinos-relay.*.workers.dev │
+  │  state in localStorage   │ /council  │  holds ALL AI keys as SECRETS│
+  │  GitHub Pages (public)   │ ◄──────── │  fans out + synthesizes      │
+  └─────────────────────────┘  {seats,  └───────────────┬──────────────┘
+                                synthesis}               │ parallel fan-out (Promise.all)
+                       ┌──────────┬──────────┬───────────┼───────────┐
+                       ▼          ▼          ▼           ▼           ▼
+                    Gemini   Cloudflare    Groq       Mistral    OpenRouter
+                    (+chair) Workers AI   (Llama)     (small)    (Qwen :free)
+                              all free tiers · $0/mo · synthesis chair = Gemini
 ```
 
-- The browser never sees the AI key. It POSTs `{prompt, system?}` to `<relay>/ai`; the Worker calls the AI and returns `{text, provider}`.
-- **CORS is locked** to `https://kevinbigham.github.io`. Consequence: **the relay only answers requests from the live site.** It will reject calls from `localhost`, the Claude_Preview server, or anywhere else. (See §7 — this matters for testing.)
+- The browser never sees a key. It POSTs `{prompt}` to `<relay>/council`; the Worker calls every configured seat in parallel and returns `{seats:[…], synthesis}`. (`/ai` still exists for single-model calls.)
+- **CORS is locked** to `https://kevinbigham.github.io` — but that's a *browser* guard (a response header), **not** a server-side check. A **browser** on any other origin (preview, localhost) is blocked; a **`curl`/server-side POST to `/council` works fine** and is the fastest way to test seats with live models. (See §7.)
 
 ---
 
@@ -82,9 +83,9 @@ Everything is in ONE public repo (`github.com/KevinBigham/kevinos`). A fresh `gi
 ```
 /Users/kevin/KevinOS/                ← local parent folder (NOT in git)
 ├── app/                             ← THE GIT REPO → github.com/KevinBigham/kevinos (PUBLIC)
-│   ├── index.html                   ← THE APP (v0.10, ~1700 lines, ES5)
+│   ├── index.html                   ← THE APP (v0.11, ~1750 lines, ES5)
 │   ├── manifest.json                ← PWA manifest (+ share_target)
-│   ├── sw.js                        ← service worker (CACHE = "kevinos-v0_10")
+│   ├── sw.js                        ← service worker (CACHE = "kevinos-v0_11")
 │   ├── icon-192.png, icon-512.png, .nojekyll
 │   ├── README.md
 │   ├── ROADMAP.md                   ← the full phased build plan (current)
@@ -92,7 +93,7 @@ Everything is in ONE public repo (`github.com/KevinBigham/kevinos`). A fresh `gi
 │   ├── .gitignore
 │   └── relay/                       ← Cloudflare Worker (the backend)
 │       ├── worker.js                ← the Worker (ES module — modern JS OK)
-│       ├── wrangler.toml            ← config: PROVIDER, models, CORS origin
+│       ├── wrangler.toml            ← config: PROVIDER, [ai] binding, per-seat models, CORS origin
 │       ├── RELAY_SETUP.md           ← Kevin's foolproof provisioning guide
 │       └── .wrangler/               ← local wrangler cache (gitignored; holds account id)
 └── (historical archives — local only, NOT in git, may hold pre-scrub personal data:)
@@ -138,21 +139,30 @@ npx wrangler deploy
 
 - **Worker name:** `kevinos-relay`
 - **URL:** `https://kevinos-relay.kevinbigham.workers.dev` (workers.dev subdomain: `kevinbigham`)
-- **Active provider:** `gemini` → model `gemini-2.5-flash` (free tier, **$0/mo**)
-- **Secrets set (encrypted, server-side only):** `GEMINI_API_KEY` (active) **and** `ANTHROPIC_API_KEY` (set but idle — Claude is ready to switch to). Set/rotate with `npx wrangler secret put GEMINI_API_KEY`.
-- **CORS:** `ALLOW_ORIGIN = "https://kevinbigham.github.io"` (only the live site can call it).
-- **Other vars:** `CLAUDE_MODEL = "claude-haiku-4-5-20251001"`, `GEMINI_MODEL = "gemini-2.5-flash"`, `MAX_TOKENS = "1024"`.
+- **Council seats (the `/council` roster — each turns on automatically when its credential exists):**
+  - `gemini` — Gemini 2.5 Flash (free tier) — also the **synthesis chair**
+  - `cloudflare` — Llama 3.3 70B on Workers AI (free, **no key** — just the `[ai]` binding)
+  - `groq` — Llama 3.3 70B Versatile (free)
+  - `mistral` — Mistral Small (free mode)
+  - `openrouter` — wildcard `:free` model (currently `qwen/qwen3-next-80b-a3b-instruct:free`)
+- **Single-model endpoint (`/ai`)** still uses `PROVIDER` (currently `gemini`); **`/council` ignores `PROVIDER`** and always uses every seat.
+- **Secrets set (encrypted, server-side only):** `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, plus `ANTHROPIC_API_KEY` (idle — the fallback chair / a `/ai` option). The Cloudflare seat needs **no** secret. Set/rotate with `npx wrangler secret put <NAME>`.
+- **CORS:** `ALLOW_ORIGIN = "https://kevinbigham.github.io"` (browser guard only — see §7).
+- **Vars:** `PROVIDER`, `CLAUDE_MODEL`, `GEMINI_MODEL`, `CF_MODEL`, `GROQ_MODEL`, `MISTRAL_MODEL`, `OPENROUTER_MODEL`, `MAX_TOKENS`. Swap any seat's model by editing its var + redeploy; add a seat by setting its secret + redeploy (no code change).
 
 **Endpoints:**
-- `GET /` → health check `{ ok:true, service:"kevinos-relay", provider }`
-- `POST /ai` with `{ prompt, system? }` → `{ text, provider }` (errors as `{ error }`)
+- `GET /` → health `{ ok, service, provider, seats:[…] }` (seats = currently-live roster)
+- `POST /council` with `{ prompt, system?, synthesize? }` → `{ seats:[{id,label,lane,provider,model,ok,text,ms,error}], synthesis:{ok,provider,text}|null, asked, answered }`. Fans out in parallel with a **45s per-seat timeout**; one slow/failed seat never blocks the rest; synthesis runs when ≥2 seats answer.
+- `POST /ai` with `{ prompt, system? }` → `{ text, provider }` (single model, back-compat)
 
-**Quick live test (from anywhere — the GET health check is not CORS-gated):**
+**Quick live test (works from anywhere — the relay doesn't reject by Origin):**
 ```
 curl https://kevinos-relay.kevinbigham.workers.dev/
+curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
+  -H "Content-Type: application/json" -d '{"prompt":"one-sentence test"}'
 ```
 
-**In-app wiring:** Next room → Council queue → "Connect AI" → paste the relay URL → Save. Stored in `state.relay.url`. When connected, asking a question runs it immediately (`queued → running → answered/error`), with inline answer + Copy + Retry, and degrades gracefully offline.
+**In-app wiring:** Next room → Council queue → "Connect AI" → paste the relay URL → Save (`state.relay.url`). Ask a question → `queued → running → answered`. The answer renders as a **synthesis card** (the chair's brief) above a collapsible **"N of M answered"** roster of per-seat cards (each with its lane, provider, response time, and Copy). Falls back to the single-answer shape automatically if the relay is an older `/ai`-only build. Degrades gracefully offline.
 
 ---
 
@@ -163,7 +173,7 @@ curl https://kevinos-relay.kevinbigham.workers.dev/
 **Gotchas learned the hard way:**
 - **The app's closure functions are NOT reachable from `preview_eval`.** Only the DOM + `localStorage` are. Test behavior through the DOM, or read/poke `localStorage["kevinos:v1"]`.
 - **`save()` is async** (Promise microtask). If you write state then read `localStorage` in the *same* `preview_eval`, you'll get the OLD value. Re-read in a *separate* eval call.
-- **The relay's CORS lock means the Council will NOT work from the preview server or localhost** — only from the live site `https://kevinbigham.github.io`. To test the real AI round-trip, either test on the live site, or (for client logic) mock `window.fetch` in a `preview_eval`. Don't burn time wondering why the Council errors in preview — it's CORS, by design.
+- **CORS is a *browser* guard, not a server check.** The relay sets `Access-Control-Allow-Origin` to the live site, so a **browser** on any other origin (preview server, localhost) is blocked — for in-browser UI testing, mock `window.fetch` in a `preview_eval` (that's how the v0.11 Council UI was verified). But the Worker does **not** reject by Origin, so a **server-side `curl` POST to `/council` works for real end-to-end testing** with live models — the fastest way to confirm seats answer, no deploy-to-live needed.
 
 ---
 
@@ -173,7 +183,9 @@ curl https://kevinos-relay.kevinbigham.workers.dev/
 - **Claude billing:** Kevin's Anthropic account had $0 credit, so Claude auth *succeeded* but calls failed with "credit balance too low." That's why we run on Gemini's free tier. (The Claude key still works the moment there's credit — just flip `PROVIDER`.)
 - **Finding the Council:** it lives in the **Next** room (top nav), scroll to the bottom — NOT on Home. Kevin looked for it on Home and couldn't find it.
 - **Event handling:** the app uses **event delegation on stable containers** so `innerHTML` re-renders don't drop listeners. Follow that pattern; don't attach listeners to elements that get re-rendered.
-- **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 10`. When you change the state shape, bump `state.v` and handle the migration in `load()`.
+- **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 11`. When you change the state shape, bump `state.v` and handle the migration in `load()`. (v11 added per-question `seats[]` + `synthesis` to `state.council[]`; old single-`answer` items still render via a legacy branch.)
+- **OpenRouter `:free` slugs rotate.** A model that's free today can flip to paid (we hit this — `deepseek/deepseek-chat-v3-0324:free` went paid). The seat just errors with the new slug in the message and the Council carries on. Fix: pull a current free slug from `https://openrouter.ai/api/v1/models` (filter `pricing.prompt=="0"`) into `OPENROUTER_MODEL` + redeploy. (Currently set to `qwen/qwen3-next-80b-a3b-instruct:free`.)
+- **Free-tier seats blip.** Gemini occasionally returns "experiencing high demand"; that seat fails for that one request and the others carry the Council (and Gemini can still chair the synthesis). Expected, not a bug — `Promise.all` with per-seat try/catch isolates each failure.
 
 ---
 
@@ -200,6 +212,7 @@ curl https://kevinos-relay.kevinbigham.workers.dev/
 - Phase 1 — Next room (unified "what do I do next") + offline Council queue — v0.8
 - Phase 1.5 — recurring tasks, share/URL capture, backup nudge, wind-down ritual — v0.9
 - **Phase 2 (first slice) — THE RELAY IS LIVE:** Council wired to real AI through the Worker; review-queue pattern (`queued → answered`) — v0.10
+- **Phase 2 (Council upgrade) — MULTI-MODEL COUNCIL:** `/council` fans one prompt to 5 free seats (Gemini, Cloudflare, Groq, Mistral, OpenRouter) in parallel + a Gemini synthesis chair; app renders the synthesis brief + a collapsible per-seat roster — v0.11. Automates Kevin's "Council of Friends" workflow at $0/mo.
 
 **Next, when Kevin says go (do NOT start unprompted):**
 - **Phase 2b:** Web Push reminders to the installed PWA + email-to-self backstop; move the GitHub PAT off-device to OAuth via the relay.

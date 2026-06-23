@@ -25,6 +25,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **1 — Ultimate To-Do Hub + offline Council bridge** | **Shipped** v0.8 |
 | ✅ | **1.5 — Daily polish** (recurring, share-capture, backup nudge, wind-down) | **Shipped** v0.9 |
 | ✅ | **2 — The Relay** (online AI + review queue) — *first slice LIVE* | **Shipped** v0.10 → relay on Gemini, $0/mo |
+| ✅ | **2 — Multi-model Council** (5-seat fan-out + synthesis chair) | **Shipped** v0.11 → Gemini · Cloudflare · Groq · Mistral · OpenRouter, $0/mo |
 | ⬜ | **3 — Sync** (one live dataset across devices) | Planned |
 | ⬜ | **4 — Calendar / File AI** | Planned |
 | ⬜ | **5 — Email Command Center** | Planned (built last) |
@@ -102,6 +103,15 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 - [x] **Provisioned** *(Kevin)* — free Cloudflare account + AI key; running **Gemini 2.5 Flash** on the free tier (**$0/mo**); both `GEMINI_API_KEY` (active) and `ANTHROPIC_API_KEY` (idle) secrets set; relay URL connected in-app
 - [x] **Online AI in-app** — Council queue wired to `<relay>/ai`: `queued → running → answered/error`, inline answers + Copy + Retry, auto-runs on Ask when connected, fully degrades offline; CORS locked to the Pages origin
 - [x] **Review-queue engine** — first incarnation (the Council `queued → answered` flow); generalizes to calendar/email later
+
+**Shipped & LIVE (v0.11) — Multi-model Council:**
+- [x] **`/council` endpoint** — fans one prompt to every configured seat in parallel (`Promise.all`, 45s per-seat timeout); one slow/failed seat never blocks the rest
+- [x] **5 free seats**, each self-enabling when its credential exists: **Gemini** (chair), **Cloudflare Workers AI** (no key — `[ai]` binding), **Groq**, **Mistral**, **OpenRouter** (wildcard `:free`). All free tiers, **$0/mo**
+- [x] **Synthesis chair** (Gemini) — distills the answers into one brief: Consensus / Split / Recommendation / Watch-fors (runs when ≥2 seats answer)
+- [x] **App UI** — synthesis card + collapsible "N of M answered" roster of per-seat cards (lane, provider, timing, Copy); legacy single-answer items still render; `state.v` → 11
+- [x] **Verified live** end-to-end via server-side `curl /council` (the relay doesn't reject by Origin) — real multi-model answers + synthesis
+- [x] Realizes the **"Council of Friends"** workflow — automated, in-app, $0/mo
+
 - [ ] **Web Push** reminders to the installed PWA + **email-to-self** backstop *(Phase 2b — next)*
 - [ ] Move the **GitHub token off-device** to OAuth via the relay *(Phase 2b — next)*
 
@@ -180,4 +190,6 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Phase 2 first slice is LIVE 🎉** The Council queue talks to real AI through the Cloudflare Worker relay (`https://kevinos-relay.kevinbigham.workers.dev`), running Gemini 2.5 Flash on the free tier — the whole stack (Pages app + Worker + AI) is operational at **$0/mo**, with the API key held only as a server secret and CORS locked to the live site.
 
-**Next up (Phase 2b — only when Kevin says go):** Web Push reminders to the installed PWA + email-to-self backstop, then move the GitHub token off-device to OAuth via the relay. After that, Phase 3 (Supabase sync across devices).
+**Multi-model Council shipped 🎉🎉 (v0.11)** The Council is now a true **council**: one prompt fans out to **5 free seats** (Gemini · Cloudflare · Groq · Mistral · OpenRouter) in parallel, then a Gemini **synthesis chair** distills one decision-ready brief. Each seat self-enables when its key lands on the relay — adding a model is one `wrangler secret put` + redeploy, no app change. Still **$0/mo**. Built from two free-API research reports; realizes Kevin's "Council of Friends" workflow, automated.
+
+**Next up (Phase 2b — only when Kevin says go):** Web Push reminders to the installed PWA + email-to-self backstop, then move the GitHub token off-device to OAuth via the relay. After that, Phase 3 (Supabase sync across devices). Council polish ideas on deck: per-seat lanes (distinct system prompt per friend), progressive streaming as each seat returns, and a "copy all" / save-to-Notes for the synthesis.

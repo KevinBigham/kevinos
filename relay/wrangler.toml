@@ -17,7 +17,7 @@ GEMINI_MODEL = "gemini-2.5-flash"
 CF_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 MISTRAL_MODEL = "mistral-small-latest"
-OPENROUTER_MODEL = "deepseek/deepseek-chat-v3-0324:free"
+OPENROUTER_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free"
 MAX_TOKENS = "1024"
 
 # Keys are secrets, never here. Each Council seat turns on when its secret exists:
