@@ -49,6 +49,15 @@ VAPID_SUBJECT = "https://kevinbigham.github.io/kevinos/"
 #   npx wrangler secret put GITHUB_CLIENT_SECRET
 GITHUB_CLIENT_ID = "Ov23lixf4auBApdAVsRA"
 
+# Email Command Center (Phase 5) — multi-account Gmail via OAuth. The token lives
+# on the relay (refreshable), never in the browser. Client ID is public (here);
+# the client secret is a secret. Both come from a Google Cloud OAuth client (Web
+# application) with redirect URI = https://kevinos-relay.kevinbigham.workers.dev/google/callback
+# and scopes gmail.readonly + gmail.send + userinfo.email (keep the app in Testing
+# mode and add your Gmail accounts as test users):
+#   npx wrangler secret put GOOGLE_CLIENT_SECRET
+GOOGLE_CLIENT_ID = ""
+
 # Keys are secrets, never here. Each Council seat turns on when its secret exists:
 #   npx wrangler secret put GEMINI_API_KEY       # Gemini      (already set)
 #   npx wrangler secret put GROQ_API_KEY         # Groq        https://console.groq.com/keys

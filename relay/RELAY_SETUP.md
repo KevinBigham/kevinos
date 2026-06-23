@@ -178,6 +178,32 @@ The model is **last-write-wins**: the most recent edit wins. **Content** syncs (
 
 The calendar can turn a **photo, a PDF, or pasted text** into events. This rides on your existing Gemini key — **nothing to set up.** In KevinOS → **Calendar** → **✨ Smart add** → paste text or pick a photo/PDF → **Extract events** → approve each proposed event onto your calendar. The relay endpoint is `POST /extract` (Gemini multimodal); `GET /` shows `"extract":true` whenever a `GEMINI_API_KEY` is set. Cost stays **$0** (Gemini free tier).
 
+## Email Command Center (Gmail) — register a Google app once (v0.18)
+
+KevinOS can read your Gmail and send AI-drafted replies you approve. This is a one-time Google Cloud registration (~10 min). It's fiddlier than GitHub, so go slow — every step matters. The code is already built and live; it just needs a Client ID + secret to switch on.
+
+1. Go to **https://console.cloud.google.com** → sign in (any of your Google accounts can own this).
+2. **Create a project:** top bar → project dropdown → **New Project** → name it `KevinOS` → Create → make sure it's selected.
+3. **Enable the Gmail API:** left menu → **APIs & Services → Library** → search **Gmail API** → **Enable**.
+4. **OAuth consent screen:** APIs & Services → **OAuth consent screen** → User type **External** → Create.
+   - App name `KevinOS`; your email for support + developer contact → Save and continue.
+   - **Scopes:** just **Save and continue** (no need to add any here).
+   - **Test users:** **Add users** → add every Gmail address you'll connect (e.g. `Kevin.Bigham@bspowercats.com` + any personal one) → Save.
+   - Leave **Publishing status = Testing**. (Testing mode keeps you off the paid verification/CASA audit — only your listed test-user accounts can connect, which is exactly what you want for a personal tool.)
+5. **Create the OAuth client:** APIs & Services → **Credentials** → **Create credentials → OAuth client ID** → Application type **Web application** → name `KevinOS relay`.
+   - Under **Authorized redirect URIs** → **Add URI** → paste **exactly**:
+     `https://kevinos-relay.kevinbigham.workers.dev/google/callback`
+   - **Create.** A dialog shows your **Client ID** and **Client secret**.
+6. Give me the **Client ID** (it's public — I'll put it in `wrangler.toml`). Set the secret yourself (don't paste it in chat):
+   ```sh
+   cd /Users/kevin/KevinOS/app/relay
+   npx wrangler secret put GOOGLE_CLIENT_SECRET   # paste the client secret at the prompt
+   ```
+   I'll add `GOOGLE_CLIENT_ID` + redeploy. `GET /` then shows `"email":true`.
+7. In KevinOS → **Email** → **Connect Gmail** → pick your account → approve. Google warns "**KevinOS hasn't been verified**" — expected in Testing mode; click **Advanced → Continue** (you're the developer). Connect more accounts with **+ Account**.
+
+Scopes: `gmail.readonly` (read inbox) + `gmail.send` (send the replies you approve) + `userinfo.email` (label accounts). Tokens are held on the relay and **refreshed automatically — never stored on your phone**, and KevinOS **never sends without your explicit approval**. Disconnecting in-app revokes the token on Google. Cost stays **$0** (Gmail API + Gemini free tiers).
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.

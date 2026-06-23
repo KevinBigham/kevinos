@@ -500,6 +500,78 @@ async function ghRevoke(env, token) {
   } catch (e) { /* best-effort */ }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Email Command Center (Phase 5) — multi-account Gmail via OAuth. Tokens live on
+// the relay (refreshable), never in the browser. AI drafts replies; the user
+// approves and the relay sends (gmail.send). Reuses the PUSH KV with a gml: key.
+// ─────────────────────────────────────────────────────────────────────────────
+const GOOGLE_SCOPE = "openid email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send";
+
+function gPage(msg) {
+  return new Response(
+    "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><title>KevinOS · Email</title>" +
+    "<body style='font-family:-apple-system,system-ui,sans-serif;background:#f4efe6;color:#2b2433;display:flex;min-height:88vh;align-items:center;justify-content:center;text-align:center;padding:24px'>" +
+    "<div style='max-width:340px'><div style='font-size:42px;margin-bottom:12px'>✉️</div>" +
+    "<h2 style='margin:0 0 8px;font-weight:600'>" + ghEsc(msg) + "</h2>" +
+    "<p style='color:#6b6477;line-height:1.5'>You can close this tab and return to KevinOS — it’ll pick up automatically.</p></div></body>",
+    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+  );
+}
+async function gmailGetRec(env, session) {
+  if (!env.PUSH || !session) return null;
+  const raw = await env.PUSH.get("gml:" + session);
+  return raw ? JSON.parse(raw) : null;
+}
+async function gmailPutRec(env, session, rec) { await env.PUSH.put("gml:" + session, JSON.stringify(rec)); }
+function gmailFindAccount(rec, account) {
+  if (!rec || !rec.accounts || !rec.accounts.length) return null;
+  if (account) return rec.accounts.find((a) => a.email === account) || null;
+  return rec.accounts[0];
+}
+// A valid access token for the account, refreshing via the refresh_token if expired.
+async function gmailAccessToken(env, acct) {
+  if (acct.access && acct.exp && Date.now() < acct.exp - 60000) return acct.access;
+  const r = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, refresh_token: acct.refresh, grant_type: "refresh_token" }),
+  });
+  const j = await r.json();
+  if (!r.ok || !j.access_token) throw new Error((j && j.error_description) || "token refresh failed");
+  acct.access = j.access_token; acct.exp = Date.now() + (j.expires_in || 3600) * 1000;
+  return acct.access;
+}
+function b64urlEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ""; for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64urlDecodeStr(s) {
+  s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "=";
+  const bin = atob(s); const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function gmailHeader(headers, name) {
+  const h = (headers || []).find((x) => x.name.toLowerCase() === name.toLowerCase());
+  return h ? h.value : "";
+}
+function gmailBodyText(payload) {
+  if (!payload) return "";
+  if (payload.mimeType === "text/plain" && payload.body && payload.body.data) return b64urlDecodeStr(payload.body.data);
+  if (payload.parts) {
+    for (const p of payload.parts) { if (p.mimeType === "text/plain" && p.body && p.body.data) return b64urlDecodeStr(p.body.data); }
+    for (const p of payload.parts) { const t = gmailBodyText(p); if (t) return t; }
+  }
+  if (payload.body && payload.body.data) return b64urlDecodeStr(payload.body.data);
+  return "";
+}
+function gmailApi(token, path, init) {
+  return fetch("https://gmail.googleapis.com/gmail/v1/users/me" + path, {
+    ...(init || {}),
+    headers: { Authorization: "Bearer " + token, ...(init && init.headers) },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const origin = env.ALLOW_ORIGIN || "*";
@@ -510,7 +582,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -761,6 +833,146 @@ export default {
         "ON CONFLICT(id) DO UPDATE SET doc = ?2, updated_at = ?3, rev = ?4, device_id = ?5"
       ).bind(key, docStr, updatedAt, rev, deviceId).run();
       return json({ ok: true, rev, updatedAt }, 200, origin);
+    }
+
+    // ── Email Command Center (Phase 5) — Gmail OAuth + AI drafts + send ──────────
+
+    // Email — start OAuth (one Google account per pass; call again to add another).
+    if (request.method === "GET" && url.pathname === "/google/login") {
+      if (!env.GOOGLE_CLIENT_ID) return gPage("Email isn’t configured on the relay yet.");
+      const session = url.searchParams.get("session") || "";
+      if (!session) return gPage("Missing session — start from KevinOS.");
+      const params = new URLSearchParams({
+        client_id: env.GOOGLE_CLIENT_ID,
+        redirect_uri: url.origin + "/google/callback",
+        response_type: "code",
+        scope: GOOGLE_SCOPE,
+        access_type: "offline",
+        include_granted_scopes: "true",
+        prompt: "consent select_account",
+        state: session,
+      });
+      return Response.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString(), 302);
+    }
+
+    // Email — OAuth callback: exchange the code, fetch the email, upsert the account.
+    if (request.method === "GET" && url.pathname === "/google/callback") {
+      const code = url.searchParams.get("code"), session = url.searchParams.get("state");
+      if (!code || !session) return gPage("Authorization was cancelled or incomplete.");
+      if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.PUSH) return gPage("Email isn’t fully configured on the relay.");
+      try {
+        const tr = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: url.origin + "/google/callback", grant_type: "authorization_code" }),
+        });
+        const tok = await tr.json();
+        if (!tok.access_token) return gPage("Google didn’t return a token (" + ((tok.error_description || tok.error || "unknown") + "") + ").");
+        let email = "";
+        try {
+          const ur = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", { headers: { Authorization: "Bearer " + tok.access_token } });
+          const uj = await ur.json(); email = (uj && uj.email) || "";
+        } catch (e) { /* email is cosmetic-ish */ }
+        const rec = (await gmailGetRec(env, session)) || { accounts: [] };
+        const exp = Date.now() + (tok.expires_in || 3600) * 1000;
+        const existing = rec.accounts.find((a) => a.email === email);
+        if (existing) { existing.access = tok.access_token; existing.exp = exp; if (tok.refresh_token) existing.refresh = tok.refresh_token; }
+        else rec.accounts.push({ email, access: tok.access_token, refresh: tok.refresh_token || "", exp, addedAt: Date.now() });
+        await gmailPutRec(env, session, rec);
+        return gPage(email ? "Connected " + email + " ✓" : "Gmail connected ✓");
+      } catch (e) {
+        return gPage("Couldn’t complete Google sign-in. Please try again.");
+      }
+    }
+
+    // Email — which accounts are connected for this session (the app polls this).
+    if (request.method === "GET" && url.pathname === "/google/status") {
+      const rec = await gmailGetRec(env, url.searchParams.get("session") || "");
+      return json({ accounts: rec && rec.accounts ? rec.accounts.map((a) => ({ email: a.email })) : [] }, 200, origin);
+    }
+
+    // Email — list recent inbox messages for one account.
+    if (request.method === "POST" && url.pathname === "/google/threads") {
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const rec = await gmailGetRec(env, payload && payload.session);
+      const acct = gmailFindAccount(rec, payload && payload.account);
+      if (!acct) return json({ error: "not connected" }, 401, origin);
+      try {
+        const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
+        const lr = await gmailApi(token, "/messages?labelIds=INBOX&maxResults=12");
+        const lj = await lr.json();
+        if (!lr.ok) return json({ error: (lj.error && lj.error.message) || "gmail error" }, 502, origin);
+        const out = [];
+        for (const m of (lj.messages || [])) {
+          const mr = await gmailApi(token, "/messages/" + m.id + "?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date");
+          const mj = await mr.json();
+          if (!mr.ok) continue;
+          const hs = mj.payload && mj.payload.headers;
+          out.push({ id: mj.id, threadId: mj.threadId, from: gmailHeader(hs, "From"), subject: gmailHeader(hs, "Subject"), date: gmailHeader(hs, "Date"), snippet: mj.snippet || "", unread: (mj.labelIds || []).indexOf("UNREAD") >= 0 });
+        }
+        return json({ ok: true, account: acct.email, messages: out }, 200, origin);
+      } catch (e) { return json({ error: (e && e.message) || "threads failed" }, 502, origin); }
+    }
+
+    // Email — AI-draft a reply to a message (returned for review, NOT sent).
+    if (request.method === "POST" && url.pathname === "/google/draft") {
+      if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const rec = await gmailGetRec(env, payload && payload.session);
+      const acct = gmailFindAccount(rec, payload && payload.account);
+      if (!acct) return json({ error: "not connected" }, 401, origin);
+      if (!payload.id) return json({ error: "Missing message id" }, 400, origin);
+      try {
+        const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
+        const mr = await gmailApi(token, "/messages/" + payload.id + "?format=full");
+        const mj = await mr.json();
+        if (!mr.ok) return json({ error: (mj.error && mj.error.message) || "gmail error" }, 502, origin);
+        const hs = mj.payload && mj.payload.headers;
+        const from = gmailHeader(hs, "From"), subject = gmailHeader(hs, "Subject");
+        const msgId = gmailHeader(hs, "Message-ID") || gmailHeader(hs, "Message-Id");
+        const body = gmailBodyText(mj.payload).slice(0, 8000);
+        const sys = "You are " + acct.email + ", writing a reply as this person. Draft a clear, warm, concise reply. Return ONLY the reply body text — no subject line, no email headers, a simple sign-off is fine.";
+        const prompt = "Reply to this email" + (payload.instructions ? " (extra guidance: " + payload.instructions + ")" : "") + ".\n\nFrom: " + from + "\nSubject: " + subject + "\n\n" + body;
+        const draft = await callGemini(env, sys, prompt);
+        return json({ ok: true, to: from, subject: /^re:/i.test(subject) ? subject : ("Re: " + subject), body: draft, threadId: mj.threadId, messageId: msgId }, 200, origin);
+      } catch (e) { return json({ error: (e && e.message) || "draft failed" }, 502, origin); }
+    }
+
+    // Email — send an approved reply (gmail.send). Never reached without a human approve.
+    if (request.method === "POST" && url.pathname === "/google/send") {
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const rec = await gmailGetRec(env, payload && payload.session);
+      const acct = gmailFindAccount(rec, payload && payload.account);
+      if (!acct) return json({ error: "not connected" }, 401, origin);
+      const to = (payload.to || "").toString(), subject = (payload.subject || "").toString(), bodyText = (payload.body || "").toString();
+      if (!to || !bodyText) return json({ error: "Missing recipient or body" }, 400, origin);
+      try {
+        const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
+        const headers = ["From: " + acct.email, "To: " + to, "Subject: " + subject, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8"];
+        if (payload.messageId) { headers.push("In-Reply-To: " + payload.messageId); headers.push("References: " + payload.messageId); }
+        const raw = b64urlEncode(headers.join("\r\n") + "\r\n\r\n" + bodyText);
+        const sr = await gmailApi(token, "/messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw, threadId: payload.threadId || undefined }) });
+        const sj = await sr.json();
+        if (!sr.ok) return json({ error: (sj.error && sj.error.message) || "send failed" }, 502, origin);
+        return json({ ok: true, id: sj.id }, 200, origin);
+      } catch (e) { return json({ error: (e && e.message) || "send failed" }, 502, origin); }
+    }
+
+    // Email — disconnect one account (or all) for a session; revoke on Google.
+    if (request.method === "POST" && url.pathname === "/google/logout") {
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const session = payload && payload.session;
+      if (session && env.PUSH) {
+        const rec = await gmailGetRec(env, session);
+        if (rec && rec.accounts) {
+          const toRevoke = payload.account ? rec.accounts.filter((a) => a.email === payload.account) : rec.accounts;
+          for (const a of toRevoke) { try { await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(a.refresh || a.access), { method: "POST" }); } catch (e) { /* best-effort */ } }
+          if (payload.account) { rec.accounts = rec.accounts.filter((a) => a.email !== payload.account); await gmailPutRec(env, session, rec); }
+          else await env.PUSH.delete("gml:" + session);
+        }
+      }
+      return json({ ok: true }, 200, origin);
     }
 
     return json({ error: "Not found" }, 404, origin);

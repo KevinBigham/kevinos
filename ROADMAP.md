@@ -32,7 +32,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **2b — GitHub OAuth** (token off-device via the relay) | **LIVE** v0.15 → OAuth App registered, relay holds the token, $0/mo |
 | ✅ | **3 — Sync** (one live dataset across devices) | **LIVE** v0.16 → passphrase-linked, Cloudflare D1, $0/mo |
 | ✅ | **4 — Calendar / File AI** (photo/PDF/text → reviewed events) | **LIVE** v0.17 → Gemini multimodal + .ics hardening, $0/mo |
-| ⬜ | **5 — Email Command Center** | Planned (built last) |
+| 🔧 | **5 — Email Command Center** (multi-account Gmail) | **Built** v0.18 → activates on Kevin's one-time Google OAuth registration |
 
 ---
 
@@ -179,18 +179,20 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 ---
 
-## ⬜ Phase 5 — Email Command Center  *(built last, on purpose)*
-**Goal:** Wake up to thoughtful draft replies waiting for one tap of approval.
+## 🔧 Phase 5 — Email Command Center  *(built v0.18 — activates on Kevin's Google registration)*
+**Goal:** Read your inbox in the cockpit; AI drafts a reply; you approve and it sends.
 
-**Ships:**
-- [ ] Connect **multiple Gmail + Outlook** accounts (via relay OAuth)
-- [ ] AI drafts **selectable** replies overnight → review queue
-- [ ] **Never auto-sends** — approval is always a human tap
-- [ ] Unified inbox triage surfaced in the cockpit
+**Built & verified (v0.18) — code shipped, awaiting activation:**
+- [x] **Multi-account Gmail** via relay OAuth (Kevin's choice; Outlook deferred). `/google/login` → consent → `/google/callback` stores **refreshable** tokens in KV keyed by session+email; `/google/status` (poll); the browser holds only a random session + the account emails, **never a token**. Add more accounts by connecting again.
+- [x] **Inbox in the cockpit** — `/google/threads` lists recent INBOX messages (from/subject/snippet/unread) per account, with an account switcher.
+- [x] **AI-drafted replies → review queue** — `/google/draft` reads a message and Gemini writes a reply; it appears as an **editable** card (To + body). **Send on approval** — `/google/send` sends via `gmail.send` (Kevin's choice: full one-tap send) with `In-Reply-To`/`References`/`threadId` so it threads correctly. **Never auto-sends** — every send is a human tap.
+- [x] **Disconnect** revokes the token on Google and forgets it. Reuses the `PUSH` KV (`gml:` prefix). `GET /` health gained `email:bool`.
+- [x] **Verified:** relay deployed + curl-confirmed it **degrades gracefully** until configured (`email:false`, "not configured" page, 401s); app in preview against a mocked Gmail — connect → inbox list → AI draft → edit → approve→send (correct payload incl. threadId/messageId) → disconnect; zero console errors. `state.v` → 18.
 
-**Tech:** relay + review queue + sync, all the earlier phases compounding.
-**Done when:** morning shows a queue of ready drafts; approving one sends it, ignoring one sends nothing.
-**Cost:** AI usage only.
+**Activates** the moment Kevin registers a **Google Cloud OAuth client** (Web app; redirect `…/google/callback`; scopes `gmail.readonly gmail.send userinfo.email`; Testing mode + his accounts as test users) → `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` + redeploy. See `relay/RELAY_SETUP.md`.
+**Tech:** relay + the review-queue primitive + Gemini; all earlier phases compounding.
+**Done when:** ~~morning shows ready drafts; approving one sends it.~~ ✅ (pending activation)
+**Cost:** $0 (Gemini free tier + Gmail API free).
 
 ---
 
@@ -233,4 +235,6 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Calendar / File AI shipped 🎉🎉🎉 (v0.17)** Throw *anything* at the calendar: paste a flyer/email, snap a photo, or drop a PDF → **Gemini reads it** (multimodal, on the relay) → proposed events land in a **review queue** → approve each (editable) → it's on your calendar. Relative dates resolve against today. And the old `.ics` bugs are dead: imports now honor **RRULE / BYDAY / DTEND / EXDATE / UTC**, and exports are **DST-safe (UTC Z)** — Node-verified across 4 timezones. Still **$0/mo**.
 
-**Next up:** **Phase 5 — Email Command Center** (built last, on purpose): multi-account **Gmail** via relay OAuth, AI drafts replies → **review queue** → approve → **sent on approval** (`gmail.send`), never auto-sends. Needs Kevin's one-time Google Cloud OAuth registration (like GitHub).
+**Email Command Center built 🎉🎉🎉🎉 (v0.18)** The last phase. Connect **multiple Gmail accounts**, read your inbox right in KevinOS, and tap **✨ Draft reply** — Gemini writes a reply you can edit, then **Approve & send** fires it through `gmail.send` (threaded correctly), never without your tap. Tokens live on the relay, never on the device. Code shipped + verified end-to-end (relay graceful-degrade curl + a full mocked-Gmail preview run). It **activates the moment Kevin registers a Google Cloud OAuth client** (see `relay/RELAY_SETUP.md`) — the one manual step, exactly like GitHub.
+
+**Phases 0 → 5 are now all built.** Once the Google OAuth client is registered, KevinOS is the full vision: a calm cockpit for tasks, calendar, notes, projects, GitHub, **and email** — local-first, synced across devices, AI that proposes and waits for your approval, every secret on the relay and none on your phone.

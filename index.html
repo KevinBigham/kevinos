@@ -395,6 +395,7 @@
           <button class="tab" type="button" data-room="tasks">Tasks</button>
           <button class="tab" type="button" data-room="calendar">Calendar</button>
           <button class="tab" type="button" data-room="notes">Notes</button>
+          <button class="tab" type="button" data-room="email">Email</button>
         </div>
       </div>
       <div class="nav-sub">
@@ -593,6 +594,11 @@
       <div id="ghView"></div>
     </div>
 
+    <!-- EMAIL -->
+    <div class="room" id="room-email">
+      <div id="emailView"></div>
+    </div>
+
         <div class="room" id="room-prompts">
       <div class="sec-head"><p class="section-label">New prompt</p></div>
       <div class="add-row"><input id="promptInput" class="capture-input" type="text" placeholder="Title — e.g. Council synthesis" autocomplete="off" aria-label="New prompt" /><button id="promptAddBtn" class="add-btn" type="button">Add</button></div>
@@ -622,7 +628,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.17 · Daily + Next + Workspace + GitHub · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.18 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -680,7 +686,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
   var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={};
@@ -1080,7 +1086,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,v:1};
   var _syncPushT=null,_syncBusy=false;
   function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
   function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
@@ -2170,7 +2176,7 @@
     editingId=null;editingProjId=null;editingBuildId=null;editingBriefId=null;editingLinkId=null;editingPromptId=null;editingNoteId=null;
     var tabs=document.querySelectorAll("#nav .tab");
     for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle("active",tabs[i].dataset.room===r);
-    ["home","next","tasks","calendar","projects","studio","briefs","prompts","launchpad","notes","github"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
+    ["home","next","tasks","calendar","projects","studio","briefs","prompts","launchpad","notes","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
     if(r==="home")renderHome();
     else if(r==="next")renderNext();
     else if(r==="tasks")renderTasks();
@@ -2182,6 +2188,7 @@
     else if(r==="prompts")renderPrompts();
     else if(r==="notes")renderNotes();
     else if(r==="github")ghSync(false);
+    else if(r==="email")emailEnter();
     try{window.scrollTo(0,0);}catch(e){}
   }
   function seedDefaults(){
@@ -2230,6 +2237,8 @@
   $("fileInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)handleFile(f);e.target.value="";});
   $("smartCap").addEventListener("click",handleSmartClick);
   $("smartFile").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)smartPickFile(f);e.target.value="";});
+  $("emailView").addEventListener("click",handleEmailClick);
+  $("emailView").addEventListener("change",function(e){if(e.target&&e.target.hasAttribute("data-em-acct")){state.email.active=e.target.value;save();emailThreads=[];loadThreads(true);}});
   $("exportBtn").addEventListener("click",exportICS);
   $("claudeBtn").addEventListener("click",copyForClaude);
   $("addEvToggle").addEventListener("click",function(){var p=$("addEvPanel");p.classList.toggle("open");if(p.classList.contains("open")){$("evDate").value=calSel;$("evTitle").focus();}});
@@ -2270,6 +2279,138 @@
   $("noteViewToggle").addEventListener("click",function(e){var b=e.target.closest("[data-nview]");if(!b)return;noteView=b.dataset.nview;var btns=$("noteViewToggle").querySelectorAll(".vt-btn");for(var i=0;i<btns.length;i++)btns[i].classList.toggle("active",btns[i].dataset.nview===noteView);renderNoteList();});
   $("ghView").addEventListener("click",handleGithubClick);
   $("ghView").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="ghTokenInput"){e.preventDefault();ghConnect();}});
+
+  /* ---------- Email Command Center (v0.18) ---------- */
+  var emailThreads=[], emailDrafts={}, emailLoading=false, emailError="", emailSending={};
+  function emailCfg(){if(!state.email)state.email={session:"",accounts:[],active:""};return state.email;}
+  function emailOn(){var e=state.email;return !!(e&&e.accounts&&e.accounts.length);}
+  function emailActive(){var e=emailCfg();return e.active||(e.accounts[0]||"");}
+  function emailEnter(){renderEmail();if(emailOn()&&!emailThreads.length&&!emailLoading)loadThreads(false);}
+  function emailOAuthStart(){
+    var base=relayBase();
+    if(!base){emailError="Connect the relay first (Next → Connect AI).";renderEmail();return;}
+    var e=emailCfg();if(!e.session)e.session=uid()+uid()+uid();
+    e.pendingOAuth=true;emailError="";save();
+    try{window.open(base+"/google/login?session="+encodeURIComponent(e.session),"_blank");}catch(x){}
+    renderEmail();emailOAuthPoll(0);
+  }
+  function emailOAuthPoll(n){
+    var e=state.email||{};if(!e.session||!e.pendingOAuth)return;
+    var base=relayBase();if(!base)return;var before=(e.accounts||[]).length;
+    fetch(base+"/google/status?session="+encodeURIComponent(e.session)).then(function(r){return r.json();}).then(function(j){
+      if(!state.email||!state.email.pendingOAuth)return;
+      var accts=(j&&j.accounts)?j.accounts.map(function(a){return a.email;}):[];
+      if(accts.length>before){state.email.accounts=accts;if(!state.email.active)state.email.active=accts[accts.length-1];state.email.pendingOAuth=false;emailError="";save();emailThreads=[];loadThreads(true);return;}
+      if(n<60)setTimeout(function(){emailOAuthPoll(n+1);},2500);
+      else{state.email.pendingOAuth=false;emailError="Timed out waiting for Google. Try again.";save();renderEmail();}
+    }).catch(function(){if(n<60)setTimeout(function(){emailOAuthPoll(n+1);},2500);});
+  }
+  function loadThreads(force){
+    if(!emailOn())return;var base=relayBase();if(!base)return;if(emailLoading&&!force)return;
+    emailLoading=true;emailError="";renderEmail();
+    fetch(base+"/google/threads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:emailActive()})}).then(function(r){return r.json();}).then(function(j){
+      emailLoading=false;
+      if(!j||!j.ok){emailError=(j&&j.error)||"Couldn’t load mail.";renderEmail();return;}
+      emailThreads=j.messages||[];renderEmail();
+    }).catch(function(){emailLoading=false;emailError="Couldn’t reach the relay.";renderEmail();});
+  }
+  function draftReply(id){
+    var base=relayBase();if(!base)return;
+    emailDrafts[id]={loading:true};renderEmail();
+    fetch(base+"/google/draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:emailActive(),id:id})}).then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.ok){delete emailDrafts[id];toast((j&&j.error)?("Draft failed: "+j.error):"Couldn’t draft a reply.");renderEmail();return;}
+      emailDrafts[id]={to:j.to,subject:j.subject,body:j.body,threadId:j.threadId,messageId:j.messageId};renderEmail();
+    }).catch(function(){delete emailDrafts[id];toast("Couldn’t reach the relay.");renderEmail();});
+  }
+  function readDraftCard(id){
+    var card=document.querySelector('[data-dcard="'+id+'"]');if(!card)return null;
+    var t=card.querySelector('[data-df="to"]'),b=card.querySelector('[data-df="body"]');
+    return {to:t?t.value:"",body:b?b.value:""};
+  }
+  function sendReply(id){
+    var d=emailDrafts[id];if(!d||d.loading)return;
+    var ed=readDraftCard(id)||{};var to=(ed.to||d.to||"").trim(),body=(ed.body||d.body||"").trim();
+    if(!to||!body){toast("Need a recipient and a message.");return;}
+    if(emailSending[id])return;emailSending[id]=true;renderEmail();
+    fetch(relayBase()+"/google/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:emailActive(),to:to,subject:d.subject||"",body:body,threadId:d.threadId,messageId:d.messageId})}).then(function(r){return r.json();}).then(function(j){
+      emailSending[id]=false;
+      if(!j||!j.ok){toast((j&&j.error)?("Send failed: "+j.error):"Couldn’t send.");renderEmail();return;}
+      delete emailDrafts[id];toast("Sent ✓");renderEmail();
+    }).catch(function(){emailSending[id]=false;toast("Couldn’t reach the relay.");renderEmail();});
+  }
+  function discardDraft(id){delete emailDrafts[id];renderEmail();}
+  function emailDisconnect(account){
+    var base=relayBase(),e=emailCfg();
+    if(e.session&&base)fetch(base+"/google/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:e.session,account:account||undefined})}).catch(function(){});
+    if(account){e.accounts=(e.accounts||[]).filter(function(a){return a!==account;});if(e.active===account)e.active=e.accounts[0]||"";if(!e.accounts.length){e.session="";e.pendingOAuth=false;}}
+    else{state.email={session:"",accounts:[],active:""};}
+    emailThreads=[];emailDrafts={};save();renderEmail();
+  }
+  function emailFromName(from){var m=(from||"").match(/^\s*"?([^"<]*?)"?\s*</);var nm=m?m[1].trim():(from||"");return nm||from||"(unknown)";}
+  function emailConnectHTML(){
+    var relayWarn=relayOn()?"":'<p class="hint"><strong>Connect the relay first</strong> — Next → Connect AI — then come back here.</p>';
+    var err=emailError?'<p class="gh-err">'+escapeHtml(emailError)+'</p>':"";
+    return '<div class="sec-head"><p class="section-label">Email Command Center</p></div>'+
+      '<div class="gh-connect"><p class="gh-lead">Connect Gmail and KevinOS drafts your replies for you. AI writes a reply to anything in your inbox; you read it, tweak it, and send with one tap. <strong>Nothing sends without your approval.</strong></p>'+err+
+      '<div class="edit-actions" style="margin-top:16px"><button class="add-btn" type="button" data-em="connect">Connect Gmail ↗</button></div>'+
+      '<p class="hint">Connect more than one account — work and personal. Your Google sign-in is held on the relay, <strong>never on this device</strong>.</p>'+relayWarn+'</div>';
+  }
+  function emailWaitingHTML(){
+    return '<div class="sec-head"><p class="section-label">Email Command Center</p></div>'+
+      '<div class="gh-connect"><p class="gh-lead">Waiting for Google… approve <strong>KevinOS</strong> in the tab that just opened, then come back here.</p>'+
+      (emailError?'<p class="gh-err">'+escapeHtml(emailError)+'</p>':'<p class="empty" style="margin-top:8px">Checking every couple seconds…</p>')+
+      '<div class="edit-actions"><button class="add-btn" type="button" data-em="checkoauth">I’ve authorized — check now</button><button class="btn-soft" type="button" data-em="cancel">Cancel</button></div>'+
+      '<p class="hint">No Google tab opened? <button class="linklike" type="button" data-em="reopen">Open it again ↗</button></p></div>';
+  }
+  function emailDraftHTML(id){
+    var d=emailDrafts[id];if(!d)return"";
+    if(d.loading)return '<div class="cq-seat pending" style="margin-top:8px"><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
+    var sending=!!emailSending[id];
+    return '<div data-dcard="'+id+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px">'+
+      '<div class="field" style="margin-bottom:6px"><label>To</label><input class="inp" data-df="to" value="'+escapeHtml(d.to||"")+'"></div>'+
+      '<div class="field" style="margin-bottom:6px"><label>'+escapeHtml(d.subject||"")+'</label><textarea class="inp" data-df="body" rows="6" style="width:100%;resize:vertical">'+escapeHtml(d.body||"")+'</textarea></div>'+
+      '<div style="display:flex;gap:8px"><button class="add-btn" type="button" data-em="send" data-id="'+id+'"'+(sending?" disabled":"")+'>'+(sending?"Sending…":"Approve & send")+'</button><button class="btn-ghost" type="button" data-em="discard" data-id="'+id+'">Discard</button></div></div>';
+  }
+  function renderEmail(){
+    var box=$("emailView");if(!box)return;var e=state.email||{};
+    if(!emailOn()&&!(e.session&&e.pendingOAuth)){box.innerHTML=emailConnectHTML();return;}
+    if(e.pendingOAuth&&!emailOn()){box.innerHTML=emailWaitingHTML();return;}
+    var accs=e.accounts||[],active=emailActive();
+    var head='<div class="sec-head"><p class="section-label">Email</p><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">';
+    if(accs.length>1){head+='<select class="inp" data-em-acct style="width:auto">';accs.forEach(function(a){head+='<option value="'+escapeHtml(a)+'"'+(a===active?" selected":"")+">"+escapeHtml(a)+"</option>";});head+="</select>";}
+    else if(accs.length===1)head+='<span class="cq-prov">'+escapeHtml(active)+'</span>';
+    head+='<button class="btn-soft" type="button" data-em="add">+ Account</button><button class="btn-soft" type="button" data-em="refresh">Refresh</button><button class="btn-soft" type="button" data-em="disconnect">Disconnect</button></div></div>';
+    var body="";
+    if(emailLoading)body='<p class="empty">Loading your inbox…</p>';
+    else if(emailError)body='<p class="gh-err">'+escapeHtml(emailError)+' <button class="linklike" type="button" data-em="refresh">Try again</button></p>';
+    else if(!emailThreads.length)body='<p class="empty">Inbox is clear. 🎉</p>';
+    else{
+      body='<div class="rows">';
+      emailThreads.forEach(function(m){
+        body+='<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)">'+
+          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(m.from))+'</strong>'+(m.unread?'<span class="cq-pill" style="background:#5B3B8C;color:#fff">new</span>':'')+'</div>'+
+          '<div>'+escapeHtml(m.subject||"(no subject)")+'</div>'+
+          '<div class="hint" style="margin:2px 0 6px">'+escapeHtml((m.snippet||"").slice(0,140))+'</div>'+
+          (emailDrafts[m.id]?emailDraftHTML(m.id):'<button class="btn-soft" type="button" data-em="draft" data-id="'+m.id+'">✨ Draft reply</button>')+
+        '</div>';
+      });
+      body+='</div>';
+    }
+    box.innerHTML=head+body;
+  }
+  function handleEmailClick(ev){
+    var a=ev.target.closest("[data-em]");if(!a)return;
+    var act=a.getAttribute("data-em"),id=a.getAttribute("data-id");
+    if(act==="connect"||act==="add")emailOAuthStart();
+    else if(act==="checkoauth")emailOAuthPoll(0);
+    else if(act==="reopen"){var b=relayBase();if(b&&state.email&&state.email.session){try{window.open(b+"/google/login?session="+encodeURIComponent(state.email.session),"_blank");}catch(x){}}}
+    else if(act==="cancel")emailDisconnect(null);
+    else if(act==="refresh")loadThreads(true);
+    else if(act==="draft")draftReply(id);
+    else if(act==="send")sendReply(id);
+    else if(act==="discard")discardDraft(id);
+    else if(act==="disconnect"){if(window.confirm("Disconnect "+(emailActive()||"Gmail")+"? The sign-in is revoked on Google and removed from the relay."))emailDisconnect(emailActive());}
+  }
 
   /* ---------- backup & PWA (v0.6) ---------- */
   function exportBackup(){
@@ -2365,16 +2506,18 @@
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
       if(saved.push&&typeof saved.push==="object")state.push=saved.push;
       if(saved.sync&&typeof saved.sync==="object")state.sync=saved.sync;
+      if(saved.email&&typeof saved.email==="object")state.email=saved.email;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=17;
+    state.v=18;
     var sharedMsg=ingestShared();
     renderHome();
     save();
     if(state.push&&state.push.enabled)syncReminders();
     renderSync();if(syncOn())syncPull();
     if(state.github&&state.github.session&&state.github.pendingOAuth&&!state.github.cache)ghOAuthPoll(0);
+    if(state.email&&state.email.session&&state.email.pendingOAuth)emailOAuthPoll(0);
     if(sharedMsg)toast(sharedMsg);
   });
 })();
