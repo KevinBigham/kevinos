@@ -32,7 +32,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **2b — GitHub OAuth** (token off-device via the relay) | **LIVE** v0.15 → OAuth App registered, relay holds the token, $0/mo |
 | ✅ | **3 — Sync** (one live dataset across devices) | **LIVE** v0.16 → passphrase-linked, Cloudflare D1, $0/mo |
 | ✅ | **4 — Calendar / File AI** (photo/PDF/text → reviewed events) | **LIVE** v0.17 → Gemini multimodal + .ics hardening, $0/mo |
-| 🔧 | **5 — Email Command Center** (multi-account Gmail) | **Built** v0.18 → activates on Kevin's one-time Google OAuth registration |
+| ✅ | **5 — Email Command Center** (multi-account Gmail) | **LIVE** v0.18 → Google OAuth client registered, relay holds the token, $0/mo |
 
 ---
 
@@ -179,7 +179,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 ---
 
-## 🔧 Phase 5 — Email Command Center  *(built v0.18 — activates on Kevin's Google registration)*
+## ✅ Phase 5 — Email Command Center  *(LIVE — v0.18, Google OAuth client registered 2026-06-23)*
 **Goal:** Read your inbox in the cockpit; AI drafts a reply; you approve and it sends.
 
 **Built & verified (v0.18) — code shipped, awaiting activation:**
@@ -246,5 +246,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 **Sync hardened 🛠️ (v0.21)** Fixed a real cross-device bug: an event added on the phone didn't appear on the Mac. Root cause — sync ordering compared **wall-clock `updatedAt` across devices**, so any clock skew silently blocked propagation (and the loser's edit could be wiped on reconcile). Now ordering is **server-authoritative**: the relay accepts a push only when its `baseRev` matches the stored `rev` (a server-incremented counter — no client clock anywhere), stamps `updated_at` itself for display, and supports `force` for the "upload this device" path. On conflict the app **merges losslessly** (union by id — never overwrite) and re-pushes so both devices converge to the same superset. Added a **link code** (first 6 chars of the passphrase hash) to the sync footer so a passphrase mismatch is visible at a glance. Verified: relay curl suite (clock-skew immunity, stale→merge→retry, force, back-compat), an 11-case Node merge/convergence test, and a preview run reproducing the exact phone↔Mac case (Owen + the Mac's task both survive, converge at rev 2, zero console errors). `state.v` → 21.
 
 **Sync pairing fixed 🤝 (v0.22)** Real-world follow-up: Kevin's two devices showed **different link codes** (`7c85fe` vs `eb8513`) — i.e. different passphrases, two separate vaults — because (a) the iOS passphrase field wasn't blocking **auto-capitalize/autocorrect**, so the typed phrase was silently altered, and (b) the "link code" readout was mistaken for an input. Fixes: the passphrase input now sets `autocapitalize="none" autocorrect="off"`; **linking two devices now MERGES both** (union by id, via the v0.21 `mergeRemoteDoc`) instead of the old replace/overwrite `confirm()` — so pairing can never delete half your data, regardless of which device you start from; clearer copy that the code is a *check*, not a thing you type. Verified in preview (phone-with-event links to cloud-holding-Mac-data → both survive, converge at rev 2, zero errors). `state.v` → 22, SW cache `kevinos-v0_22`.
+
+**Email Command Center LIVE 🎉🏁 (2026-06-23)** Kevin registered the Google Cloud OAuth client (Web app, Testing mode, redirect `…/google/callback`); `GOOGLE_CLIENT_ID` set in `wrangler.toml` + `GOOGLE_CLIENT_SECRET` set as a Worker secret (piped straight from the downloaded `client_secret_*.json` — never shown) + redeployed → relay health now reads **`email:true`**. **This completes the entire roadmap (Phases 0 → 5) — every relay flag green: push · github · sync · extract · email, all at $0/mo.** KevinOS is now the full vision: a calm cockpit for tasks, calendar, notes, projects, GitHub, and email — local-first, synced across devices, AI that proposes and waits for approval, every secret on the relay and none on the phone.
 
 **On deck (only on Kevin's go):** overnight email drafting, unified multi-account inbox triage, Outlook, and a relay-side brief (generated fresh at 8am server-side from the synced D1 data).

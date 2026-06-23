@@ -56,7 +56,7 @@ GITHUB_CLIENT_ID = "Ov23lixf4auBApdAVsRA"
 # and scopes gmail.readonly + gmail.send + userinfo.email (keep the app in Testing
 # mode and add your Gmail accounts as test users):
 #   npx wrangler secret put GOOGLE_CLIENT_SECRET
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "434623225035-17c7gc0u0u8enhq3snu7st00l5i44kht.apps.googleusercontent.com"
 
 # Keys are secrets, never here. Each Council seat turns on when its secret exists:
 #   npx wrangler secret put GEMINI_API_KEY       # Gemini      (already set)
