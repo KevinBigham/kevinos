@@ -22,7 +22,7 @@ const DEFAULTS = {
   cfModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   groqModel: "llama-3.3-70b-versatile",
   mistralModel: "mistral-small-latest",
-  openrouterModel: "qwen/qwen3-next-80b-a3b-instruct:free",
+  openrouterModel: "qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-31b-it:free",
   maxTokens: 1024,
   seatTimeoutMs: 45000,
 };
@@ -111,15 +111,20 @@ async function callOpenAICompatible(opts) {
   messages.push({ role: "user", content: opts.prompt });
   const headers = { "content-type": "application/json", authorization: "Bearer " + opts.key };
   if (opts.extraHeaders) Object.assign(headers, opts.extraHeaders);
-  const r = await fetch(opts.url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ model: opts.model, max_tokens: opts.maxTokens, messages }),
-  });
+  const body = { max_tokens: opts.maxTokens, messages };
+  if (opts.models && opts.models.length > 1) body.models = opts.models; // OpenRouter fallback routing
+  else body.model = opts.model || (opts.models && opts.models[0]);
+  const r = await fetch(opts.url, { method: "POST", headers, body: JSON.stringify(body) });
   const data = await r.json();
   if (!r.ok) {
-    const msg = (data.error && (data.error.message || data.error)) || opts.name + " error " + r.status;
-    throw new Error(typeof msg === "string" ? msg : opts.name + " error " + r.status);
+    let msg = (data.error && (data.error.message || data.error)) || opts.name + " error " + r.status;
+    if (typeof msg !== "string") msg = opts.name + " error " + r.status;
+    const meta = data.error && data.error.metadata;
+    if (meta && (meta.raw || meta.provider_name)) {
+      const raw = typeof meta.raw === "string" ? meta.raw : JSON.stringify(meta.raw);
+      msg += " — " + (meta.provider_name ? meta.provider_name + ": " : "") + raw;
+    }
+    throw new Error(msg);
   }
   const choice = (data.choices || [])[0];
   return (((choice && choice.message && choice.message.content) || "") + "").trim();
@@ -173,14 +178,16 @@ function councilSeats(env) {
           system, prompt, maxTokens: maxTokens(env),
         }),
     });
-  if (env.OPENROUTER_API_KEY)
+  if (env.OPENROUTER_API_KEY) {
+    const orModels = (env.OPENROUTER_MODEL || DEFAULTS.openrouterModel)
+      .split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3); // OpenRouter caps the fallback array at 3
     seats.push({
       id: "openrouter", label: "OpenRouter", lane: "Wildcard", provider: "openrouter",
-      model: env.OPENROUTER_MODEL || DEFAULTS.openrouterModel,
+      model: orModels[0],
       run: (system, prompt) =>
         callOpenAICompatible({
           name: "OpenRouter", url: "https://openrouter.ai/api/v1/chat/completions",
-          key: env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || DEFAULTS.openrouterModel,
+          key: env.OPENROUTER_API_KEY, models: orModels, model: orModels[0],
           system, prompt, maxTokens: maxTokens(env),
           extraHeaders: {
             "HTTP-Referer": env.ALLOW_ORIGIN || "https://kevinbigham.github.io",
@@ -188,6 +195,7 @@ function councilSeats(env) {
           },
         }),
     });
+  }
   return seats;
 }
 

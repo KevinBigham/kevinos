@@ -144,7 +144,7 @@ npx wrangler deploy
   - `cloudflare` — Llama 3.3 70B on Workers AI (free, **no key** — just the `[ai]` binding)
   - `groq` — Llama 3.3 70B Versatile (free)
   - `mistral` — Mistral Small (free mode)
-  - `openrouter` — wildcard `:free` model (currently `qwen/qwen3-next-80b-a3b-instruct:free`)
+  - `openrouter` — wildcard, **fallback chain** of free models (Qwen3-Next-80B → Llama-3.3-70B → Gemma-4; OpenRouter routes to the first available)
 - **Single-model endpoint (`/ai`)** still uses `PROVIDER` (currently `gemini`); **`/council` ignores `PROVIDER`** and always uses every seat.
 - **Secrets set (encrypted, server-side only):** `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, plus `ANTHROPIC_API_KEY` (idle — the fallback chair / a `/ai` option). The Cloudflare seat needs **no** secret. Set/rotate with `npx wrangler secret put <NAME>`.
 - **CORS:** `ALLOW_ORIGIN = "https://kevinbigham.github.io"` (browser guard only — see §7).
@@ -184,7 +184,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - **Finding the Council:** it lives in the **Next** room (top nav), scroll to the bottom — NOT on Home. Kevin looked for it on Home and couldn't find it.
 - **Event handling:** the app uses **event delegation on stable containers** so `innerHTML` re-renders don't drop listeners. Follow that pattern; don't attach listeners to elements that get re-rendered.
 - **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 11`. When you change the state shape, bump `state.v` and handle the migration in `load()`. (v11 added per-question `seats[]` + `synthesis` to `state.council[]`; old single-`answer` items still render via a legacy branch.)
-- **OpenRouter `:free` slugs rotate.** A model that's free today can flip to paid (we hit this — `deepseek/deepseek-chat-v3-0324:free` went paid). The seat just errors with the new slug in the message and the Council carries on. Fix: pull a current free slug from `https://openrouter.ai/api/v1/models` (filter `pricing.prompt=="0"`) into `OPENROUTER_MODEL` + redeploy. (Currently set to `qwen/qwen3-next-80b-a3b-instruct:free`.)
+- **OpenRouter free models rotate AND rate-limit.** Free slugs flip to paid (`deepseek/deepseek-chat-v3-0324:free` did) and free endpoints get "rate-limited upstream" under load. Fix is baked in: `OPENROUTER_MODEL` is a **comma-separated fallback chain** (≤3 entries — OpenRouter rejects 4+) sent as the `models` array, so OpenRouter routes to the first available. Currently `qwen3-next-80b → llama-3.3-70b → gemma-4`. `callOpenAICompatible` now also surfaces the upstream `metadata.raw`/`provider_name` so errors aren't masked as a generic "Provider returned error." Refresh slugs from `https://openrouter.ai/api/v1/models` (filter `pricing.prompt=="0"`) + redeploy.
 - **Free-tier seats blip.** Gemini occasionally returns "experiencing high demand"; that seat fails for that one request and the others carry the Council (and Gemini can still chair the synthesis). Expected, not a bug — `Promise.all` with per-seat try/catch isolates each failure.
 
 ---

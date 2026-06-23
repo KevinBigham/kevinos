@@ -17,7 +17,7 @@ GEMINI_MODEL = "gemini-2.5-flash"
 CF_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 MISTRAL_MODEL = "mistral-small-latest"
-OPENROUTER_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free"
+OPENROUTER_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-31b-it:free"
 MAX_TOKENS = "1024"
 
 # Keys are secrets, never here. Each Council seat turns on when its secret exists:
@@ -26,5 +26,6 @@ MAX_TOKENS = "1024"
 #   npx wrangler secret put MISTRAL_API_KEY      # Mistral     https://console.mistral.ai/api-keys
 #   npx wrangler secret put OPENROUTER_API_KEY   # OpenRouter  https://openrouter.ai/keys
 # The Cloudflare seat needs no key — just the [ai] binding above.
-# Tip: copy a current free model slug from https://openrouter.ai/models?max_price=0
-# into OPENROUTER_MODEL if the default ever 404s.
+# OPENROUTER_MODEL is a comma-separated fallback chain — OpenRouter routes to the
+# first available model, skipping rate-limited/paid ones. Add current free slugs
+# from https://openrouter.ai/models?max_price=0
