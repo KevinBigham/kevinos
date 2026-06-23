@@ -27,6 +27,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **2 — The Relay** (online AI + review queue) — *first slice LIVE* | **Shipped** v0.10 → relay on Gemini, $0/mo |
 | ✅ | **2 — Multi-model Council** (5-seat fan-out + synthesis chair) | **Shipped** v0.11 → Gemini · Cloudflare · Groq · Mistral · OpenRouter, $0/mo |
 | ✅ | **2 — Council depth** (per-seat lanes + save-to-Notes + auto-run on connect) | **Shipped** v0.12 → grounded · tactical · research · open-model · devil's-advocate, $0/mo |
+| ✅ | **2 — Council live streaming** (per-seat cards fill in as each model returns) | **Shipped** v0.13 → NDJSON stream, ES5 reader, $0/mo |
 | ⬜ | **3 — Sync** (one live dataset across devices) | Planned |
 | ⬜ | **4 — Calendar / File AI** | Planned |
 | ⬜ | **5 — Email Command Center** | Planned (built last) |
@@ -119,6 +120,12 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 - [x] **Auto-run on connect** — offline-queued questions fire automatically the moment the relay connects (fulfils the UI's existing promise); `state.v` → 12
 - [x] **Verified** — live `curl /council` (divergent lane answers + lane-aware synthesis) **and** browser preview against a mocked relay (Save-to-Notes + auto-run, no console errors)
 
+**Shipped & LIVE (v0.13) — Council live streaming:**
+- [x] **Streaming `/council`** — opt-in `stream:true` returns an **NDJSON** stream (`start` → `seat`×N in completion order → `synthesis` → `done`) so seats arrive the instant each model returns; the default non-streaming JSON shape is kept for `curl`/back-compat. Refactored seat-running into a shared `runSeat()` used by both paths
+- [x] **Live per-seat fill-in** — the app reads the stream with a small ES5 reader (`response.body.getReader()` + `TextDecoder`, line-buffered); each pending seat shows a "thinking" pulse, then swaps to its answer under a live **"N of M answered · live"** counter, settling into the synthesis card when `done`. Falls back to a one-shot parse if the browser lacks a streaming body, and to the legacy `/ai` shape on an old relay
+- [x] **No persisted shape change** (`state.v` → 13) — streaming uses transient `streaming`/`pending` flags cleared before `save()`
+- [x] **Verified** — live `curl -N` proved staggered delivery (start 0.05s → Groq 0.36s → rest 0.99s → done 1.10s); browser preview drove a manual-emit NDJSON mock through every state (5 thinking cards → progressive fill → synthesis → Save-to-Notes captured the streamed data), zero console errors
+
 - [ ] **Web Push** reminders to the installed PWA + **email-to-self** backstop *(Phase 2b — next)*
 - [ ] Move the **GitHub token off-device** to OAuth via the relay *(Phase 2b — next)*
 
@@ -201,4 +208,6 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Council depth shipped 🎉🎉🎉 (v0.12)** The council now genuinely *diverges*: each seat answers from a **distinct lane** — Gemini grounded, Groq fast-tactical, Mistral research, Cloudflare open-model wildcard, OpenRouter **devil's advocate** — and the chair synthesizes lane-aware. Any session **saves to Notes** in one tap, and offline-queued questions **auto-run the moment the relay connects**. Verified live (5/5 seats split on the same question) + in-browser. This is Kevin's "distinct assignment per friend" rule, fully automated.
 
-**Next up (Phase 2b — only when Kevin says go):** Web Push reminders to the installed PWA + email-to-self backstop, then move the GitHub token off-device to OAuth via the relay. After that, Phase 3 (Supabase sync across devices). Remaining Council polish on deck: **progressive streaming** (per-seat cards fill as each model returns, instead of all-at-once) — the last of the three v0.12 polish ideas, and the one worth doing next for the Council.
+**Council live streaming shipped 🎉🎉🎉🎉 (v0.13)** The Council now answers *in front of you*: ask, and the five seats appear as "thinking" cards that **fill in one by one the instant each model returns** — fastest-first — under a live "N of M answered" counter, then settle into the synthesis. Built on a `stream:true` **NDJSON** endpoint and a tiny ES5 stream reader; the non-streaming JSON path stays for `curl`/back-compat. Curl-verified the stagger (Groq back in 0.36s, the rest by ~1s); preview-verified every UI state with zero console errors. Still **$0/mo**. **This completes the three-idea Council polish arc** (lanes → save-to-Notes → streaming) — the Council-of-Friends workflow is now fully realized in-app.
+
+**Next up (only when Kevin says go):** **Phase 2b** — Web Push reminders to the installed PWA + email-to-self backstop, then move the GitHub token off-device to OAuth via the relay. After that, **Phase 3** (Supabase sync across devices). The Council itself is feature-complete for now; further Council work would be net-new ideas, not pending polish.

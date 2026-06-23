@@ -234,6 +234,64 @@ async function synthesize(env, prompt, answered) {
   }
 }
 
+// Run a single seat with its lane role prepended, timed, never throwing.
+async function runSeat(seat, system, prompt) {
+  const t0 = Date.now();
+  const seatSystem = seat.role ? system + "\n\n" + seat.role : system;
+  const base = { id: seat.id, label: seat.label, lane: seat.lane, provider: seat.provider, model: seat.model };
+  try {
+    const text = await withTimeout(seat.run(seatSystem, prompt), DEFAULTS.seatTimeoutMs, seat.label);
+    return { ...base, ok: !!text, text: text || "", ms: Date.now() - t0, error: text ? "" : "Empty response" };
+  } catch (err) {
+    return { ...base, ok: false, text: "", ms: Date.now() - t0, error: (err && err.message) || "failed" };
+  }
+}
+
+// Streaming Council — emit one NDJSON line per event so the UI fills seats in
+// as each model returns, instead of waiting for the whole panel.
+//   {type:"start", asked, seats:[{id,label,lane,provider,model}]}
+//   {type:"seat",  seat:{...}}        (one per seat, in completion order)
+//   {type:"synthesis", synthesis}     (once all seats are in, if requested)
+//   {type:"done",  asked, answered}
+function streamCouncil(env, seats, system, prompt, wantSynth, origin) {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (obj) => controller.enqueue(enc.encode(JSON.stringify(obj) + "\n"));
+      try {
+        send({
+          type: "start", asked: seats.length,
+          seats: seats.map((s) => ({ id: s.id, label: s.label, lane: s.lane, provider: s.provider, model: s.model })),
+        });
+        const results = [];
+        await Promise.all(
+          seats.map(async (seat) => {
+            const r = await runSeat(seat, system, prompt);
+            results.push(r);
+            send({ type: "seat", seat: r });
+          })
+        );
+        const answered = results.filter((r) => r.ok);
+        if (wantSynth) send({ type: "synthesis", synthesis: await synthesize(env, prompt, answered) });
+        send({ type: "done", asked: results.length, answered: answered.length });
+      } catch (e) {
+        send({ type: "error", error: (e && e.message) || "stream failed" });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/x-ndjson",
+      "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
+      ...cors(origin),
+    },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const origin = env.ALLOW_ORIGIN || "*";
@@ -258,29 +316,15 @@ export default {
       const prompt = ((payload && payload.prompt) || "").toString().trim();
       const system = ((payload && payload.system) || COUNCIL_SYSTEM).toString();
       const wantSynth = !payload || payload.synthesize !== false;
+      const wantStream = !!(payload && payload.stream);
       if (!prompt) return json({ error: "Missing prompt" }, 400, origin);
 
       const seats = councilSeats(env);
       if (!seats.length) return json({ error: "No Council seats configured on the relay" }, 500, origin);
 
-      const results = await Promise.all(
-        seats.map(async (seat) => {
-          const t0 = Date.now();
-          const seatSystem = seat.role ? system + "\n\n" + seat.role : system;
-          try {
-            const text = await withTimeout(seat.run(seatSystem, prompt), DEFAULTS.seatTimeoutMs, seat.label);
-            return {
-              id: seat.id, label: seat.label, lane: seat.lane, provider: seat.provider, model: seat.model,
-              ok: !!text, text: text || "", ms: Date.now() - t0, error: text ? "" : "Empty response",
-            };
-          } catch (err) {
-            return {
-              id: seat.id, label: seat.label, lane: seat.lane, provider: seat.provider, model: seat.model,
-              ok: false, text: "", ms: Date.now() - t0, error: (err && err.message) || "failed",
-            };
-          }
-        })
-      );
+      if (wantStream) return streamCouncil(env, seats, system, prompt, wantSynth, origin);
+
+      const results = await Promise.all(seats.map((seat) => runSeat(seat, system, prompt)));
 
       const answered = results.filter((r) => r.ok);
       const synthesis = wantSynth ? await synthesize(env, prompt, answered) : null;

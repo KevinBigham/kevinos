@@ -8,9 +8,9 @@
 
 KevinOS is Kevin's **personal life operating system** — a calm daily cockpit (tasks, calendar, notes, projects, GitHub, reference) as an installable PWA. It is **live, installed on his phone, and fully working**.
 
-- **App:** `v0.12`, live at **https://kevinbigham.github.io/kevinos/** (GitHub Pages, public repo `KevinBigham/kevinos`).
-- **Backend ("the relay"):** a Cloudflare Worker, **live** at **https://kevinos-relay.kevinbigham.workers.dev**. It holds every AI key as a server secret and powers the in-app **Council**. As of v0.12 the Council is **multi-model with per-seat lanes**: one prompt fans out to **5 free seats** (Gemini, Cloudflare Workers AI, Groq, Mistral, OpenRouter) in parallel — each answering from a distinct assigned role (grounded · fast tactical · research · open-model · devil's advocate) — then a **synthesis chair** (Gemini) combines them into one decision-ready brief, which Kevin can save to Notes. Source is in `relay/` in this same repo.
-- **Whole stack is operational at $0/mo.** Phases 0 → 2 shipped, including the v0.12 Council (multi-model, per-seat lanes, save-to-Notes).
+- **App:** `v0.13`, live at **https://kevinbigham.github.io/kevinos/** (GitHub Pages, public repo `KevinBigham/kevinos`).
+- **Backend ("the relay"):** a Cloudflare Worker, **live** at **https://kevinos-relay.kevinbigham.workers.dev**. It holds every AI key as a server secret and powers the in-app **Council**. As of v0.12 the Council is **multi-model with per-seat lanes**: one prompt fans out to **5 free seats** (Gemini, Cloudflare Workers AI, Groq, Mistral, OpenRouter) in parallel — each answering from a distinct assigned role (grounded · fast tactical · research · open-model · devil's advocate). As of **v0.13** the answers **stream back live** — per-seat cards fill in the instant each model returns (NDJSON stream), instead of the whole panel appearing at once — then a **synthesis chair** (Gemini) combines them into one decision-ready brief, which Kevin can save to Notes. Source is in `relay/` in this same repo.
+- **Whole stack is operational at $0/mo.** Phases 0 → 2 shipped, including the v0.13 Council (multi-model, per-seat lanes, live streaming, save-to-Notes).
 - **The single most important rule:** the app's JavaScript is **ES5-style on purpose** (see §2). Do not introduce arrow functions, template literals, `async/await`, `const`/`let`, or any dependency into the app. The Worker (`relay/`) is exempt — it's modern ES modules.
 
 If you only remember two things: **(1) keep the app ES5-style and dependency-free; (2) the AI key lives ONLY on the Worker as a secret — never in the browser, the repo, or his phone.**
@@ -83,9 +83,9 @@ Everything is in ONE public repo (`github.com/KevinBigham/kevinos`). A fresh `gi
 ```
 /Users/kevin/KevinOS/                ← local parent folder (NOT in git)
 ├── app/                             ← THE GIT REPO → github.com/KevinBigham/kevinos (PUBLIC)
-│   ├── index.html                   ← THE APP (v0.12, ~1850 lines, ES5)
+│   ├── index.html                   ← THE APP (v0.13, ~1940 lines, ES5)
 │   ├── manifest.json                ← PWA manifest (+ share_target)
-│   ├── sw.js                        ← service worker (CACHE = "kevinos-v0_11")
+│   ├── sw.js                        ← service worker (CACHE = "kevinos-v0_13")
 │   ├── icon-192.png, icon-512.png, .nojekyll
 │   ├── README.md
 │   ├── ROADMAP.md                   ← the full phased build plan (current)
@@ -110,7 +110,7 @@ Note: the three historical archives live one level **up** from the repo and are 
 
 ### Deploy the app (GitHub Pages)
 1. Edit files in `/Users/kevin/KevinOS/app/` (repo root).
-2. **Bump the service-worker cache** in `sw.js` every release: `var CACHE = "kevinos-v0_11";` (increment). This is what forces clients to pull the new version — skip it and users get stale cached code.
+2. **Bump the service-worker cache** in `sw.js` every release: `var CACHE = "kevinos-v0_13";` (increment). This is what forces clients to pull the new version — skip it and users get stale cached code.
 3. Bump the version footer string in `index.html` and `state.v` if the state shape changed.
 4. Commit + push:
    ```
@@ -153,7 +153,10 @@ npx wrangler deploy
 
 **Endpoints:**
 - `GET /` → health `{ ok, service, provider, seats:[…] }` (seats = currently-live roster)
-- `POST /council` with `{ prompt, system?, synthesize? }` → `{ seats:[{id,label,lane,provider,model,ok,text,ms,error}], synthesis:{ok,provider,text}|null, asked, answered }`. Fans out in parallel with a **45s per-seat timeout**; one slow/failed seat never blocks the rest; synthesis runs when ≥2 seats answer.
+- `POST /council` with `{ prompt, system?, synthesize?, stream? }`:
+  - **Default** (no `stream`) → one JSON object `{ seats:[{id,label,lane,provider,model,ok,text,ms,error}], synthesis:{ok,provider,text}|null, asked, answered }`.
+  - **`stream:true`** (v0.13) → an **NDJSON stream** (`Content-Type: application/x-ndjson`), one JSON object per line, emitted as events happen: `{type:"start",asked,seats:[{id,label,lane,provider,model}]}` immediately, then `{type:"seat",seat:{…}}` per seat **in completion order**, then `{type:"synthesis",synthesis}`, then `{type:"done",asked,answered}`. This is what powers the live per-seat fill-in. The app uses this mode; a plain `curl` without `stream` still gets the single-object form (and `curl -N … -d '{…,"stream":true}'` prints each line as it arrives — the fastest way to *see* the stagger).
+  - Either way it fans out in parallel with a **45s per-seat timeout**; one slow/failed seat never blocks the rest; synthesis runs when ≥2 seats answer.
 - `POST /ai` with `{ prompt, system? }` → `{ text, provider }` (single model, back-compat)
 
 **Quick live test (works from anywhere — the relay doesn't reject by Origin):**
@@ -163,7 +166,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
   -H "Content-Type: application/json" -d '{"prompt":"one-sentence test"}'
 ```
 
-**In-app wiring:** Next room → Council queue → "Connect AI" → paste the relay URL → Save (`state.relay.url`). Ask a question → `queued → running → answered`. The answer renders as a **synthesis card** (the chair's brief) above a collapsible **"N of M answered"** roster of per-seat cards (each with its lane, provider, response time, and Copy). Falls back to the single-answer shape automatically if the relay is an older `/ai`-only build. Degrades gracefully offline.
+**In-app wiring:** Next room → Council queue → "Connect AI" → paste the relay URL → Save (`state.relay.url`). Ask a question → `queued → running → answered`. **While running (v0.13) the per-seat cards stream in live:** each seat shows a "thinking" pulse, then fills with its answer the instant that model returns, under a live **"N of M answered · live"** counter. When the stream finishes it settles into a **synthesis card** (the chair's brief) above a collapsible **"N of M answered"** roster of per-seat cards (each with its lane, provider, response time, and Copy). Falls back to a one-shot render if the browser lacks a streaming body, and to the single-answer `/ai` shape if the relay is an older build. Degrades gracefully offline.
 
 ---
 
@@ -175,6 +178,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - **The app's closure functions are NOT reachable from `preview_eval`.** Only the DOM + `localStorage` are. Test behavior through the DOM, or read/poke `localStorage["kevinos:v1"]`.
 - **`save()` is async** (Promise microtask). If you write state then read `localStorage` in the *same* `preview_eval`, you'll get the OLD value. Re-read in a *separate* eval call.
 - **CORS is a *browser* guard, not a server check.** The relay sets `Access-Control-Allow-Origin` to the live site, so a **browser** on any other origin (preview server, localhost) is blocked — for in-browser UI testing, mock `window.fetch` in a `preview_eval` (that's how the v0.11 Council UI was verified). But the Worker does **not** reject by Origin, so a **server-side `curl` POST to `/council` works for real end-to-end testing** with live models — the fastest way to confirm seats answer, no deploy-to-live needed.
+- **Verifying the streaming UI (v0.13):** the mock must return `new Response(new ReadableStream({start(c){…}}), {headers:{"Content-Type":"application/x-ndjson"}})`. Preview tool-calls cost ~5–7s each, which overshoots any `setTimeout`-paced stream — so drive it with a **manual-emit** controller: stash the stream's `controller` on `window`, expose `window.__emit()` that enqueues the next NDJSON line on demand, and step through `start → seat… → synthesis → done` one `preview_eval` at a time, screenshotting between. Note enqueue is async (the app's reader resolves next tick) — emit in one call, assert/screenshot in the next.
 
 ---
 
@@ -184,7 +188,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - **Claude billing:** Kevin's Anthropic account had $0 credit, so Claude auth *succeeded* but calls failed with "credit balance too low." That's why we run on Gemini's free tier. (The Claude key still works the moment there's credit — just flip `PROVIDER`.)
 - **Finding the Council:** it lives in the **Next** room (top nav), scroll to the bottom — NOT on Home. Kevin looked for it on Home and couldn't find it.
 - **Event handling:** the app uses **event delegation on stable containers** so `innerHTML` re-renders don't drop listeners. Follow that pattern; don't attach listeners to elements that get re-rendered.
-- **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 12`. When you change the state shape, bump `state.v` and handle the migration in `load()`. (v11 added per-question `seats[]` + `synthesis` to `state.council[]`; old single-`answer` items still render via a legacy branch. v12 added no new shape — "Save to Notes" writes a Council session into `state.notes` as an ordinary note.)
+- **State persistence:** `window.storage` (Claude host) → `localStorage` → in-memory fallback. `STORE_KEY = "kevinos:v1"`. Current `state.v = 13`. When you change the state shape, bump `state.v` and handle the migration in `load()`. (v11 added per-question `seats[]` + `synthesis` to `state.council[]`; old single-`answer` items still render via a legacy branch. v12 added no new shape — "Save to Notes" writes a Council session into `state.notes` as an ordinary note. v13 added no persisted shape — live streaming uses **transient** `streaming` (on the council item) + `pending` (on placeholder seats) flags that are cleared before any `save()`, so an interrupted stream never persists a stuck "running" item.)
 - **OpenRouter free models rotate AND rate-limit.** Free slugs flip to paid (`deepseek/deepseek-chat-v3-0324:free` did) and free endpoints get "rate-limited upstream" under load. Fix is baked in: `OPENROUTER_MODEL` is a **comma-separated fallback chain** (≤3 entries — OpenRouter rejects 4+) sent as the `models` array, so OpenRouter routes to the first available. Currently `qwen3-next-80b → llama-3.3-70b → gemma-4`. `callOpenAICompatible` now also surfaces the upstream `metadata.raw`/`provider_name` so errors aren't masked as a generic "Provider returned error." Refresh slugs from `https://openrouter.ai/api/v1/models` (filter `pricing.prompt=="0"`) + redeploy.
 - **Free-tier seats blip.** Gemini occasionally returns "experiencing high demand"; that seat fails for that one request and the others carry the Council (and Gemini can still chair the synthesis). Expected, not a bug — `Promise.all` with per-seat try/catch isolates each failure.
 
@@ -215,6 +219,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
 - **Phase 2 (first slice) — THE RELAY IS LIVE:** Council wired to real AI through the Worker; review-queue pattern (`queued → answered`) — v0.10
 - **Phase 2 (Council upgrade) — MULTI-MODEL COUNCIL:** `/council` fans one prompt to 5 free seats (Gemini, Cloudflare, Groq, Mistral, OpenRouter) in parallel + a Gemini synthesis chair; app renders the synthesis brief + a collapsible per-seat roster — v0.11. Automates Kevin's "Council of Friends" workflow at $0/mo.
 - **Phase 2 (Council depth) — PER-SEAT LANES + SAVE-TO-NOTES:** each seat answers from a distinct lane (grounded / fast tactical / research / open-model / devil's advocate); synthesis is lane-aware; any Council session saves into Notes; offline-queued questions auto-run the moment the relay connects — v0.12.
+- **Phase 2 (Council polish) — LIVE STREAMING:** `/council` gained a `stream:true` **NDJSON** mode (`start` → `seat`×N in completion order → `synthesis` → `done`); the app reads it with a small ES5 stream reader (`response.body.getReader()` + `TextDecoder`, line-buffered) and fills each per-seat card the instant that model returns — a "thinking" pulse per pending seat under a live **"N of M answered · live"** counter, settling into the synthesis when done. Curl-verified staggered delivery; non-streaming path kept for back-compat — v0.13. The Council-of-Friends loop is now fully realized.
 
 **Next, when Kevin says go (do NOT start unprompted):**
 - **Phase 2b:** Web Push reminders to the installed PWA + email-to-self backstop; move the GitHub PAT off-device to OAuth via the relay.
