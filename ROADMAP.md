@@ -241,4 +241,6 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Council → action shipped 🎉 (v0.19)** Post-roadmap polish: an answered Council card now has **✨ Make tasks** — one tap sends the verdict to the relay's new `/actions` endpoint (Gemini), which decomposes it into a checklist of concrete, area-tagged next-action tasks; approve them (editable) straight onto your task list, pinned to today. Thinking → doing, closed. Still **$0/mo**.
 
-**On deck (only on Kevin's go):** the **smart AI morning brief** (8am push → an AI cockpit summary of tasks + calendar + one focus), overnight email drafting, unified multi-account inbox triage, Outlook.
+**Smart morning brief shipped 🎉 (v0.20)** The **Next** room now opens with an **AI-written daily cockpit** — the date, a warm 2–4 sentence brief of your day, and where to start (written once a day, cached, with a clean deterministic fallback when AI's off). And the **8am push** got smart: instead of "3 things need you today," it now reads like *"3 to-dos · 2 events. 9:00 AM Team practice. Top: Finish the Q3 lesson plan"* — the specific day, summarized. Still **$0/mo**.
+
+**On deck (only on Kevin's go):** overnight email drafting, unified multi-account inbox triage, Outlook, and a relay-side brief (generated fresh at 8am server-side from the synced D1 data).
