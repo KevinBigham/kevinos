@@ -176,7 +176,7 @@ The model is **last-write-wins**: the most recent edit wins. **Content** syncs (
 
 ## Calendar / File AI — already set up (v0.17)
 
-The calendar can turn a **photo, a PDF, or pasted text** into events. This rides on your existing Gemini key — **nothing to set up.** In KevinOS → **Calendar** → **✨ Smart add** → paste text or pick a photo/PDF → **Extract events** → approve each proposed event onto your calendar. The relay endpoint is `POST /extract` (Gemini multimodal); `GET /` shows `"extract":true` whenever a `GEMINI_API_KEY` is set. Cost stays **$0** (Gemini free tier).
+The calendar can turn a **photo, a PDF, or pasted text** into events. This rides on your existing Gemini key — **nothing to set up.** In KevinOS → **Calendar** → **✨ Smart add** → paste text or pick a photo/PDF → **Extract events** → approve each proposed event onto your calendar. The relay endpoint is `POST /extract` (Gemini multimodal); `GET /` shows `"extract":true` whenever a `GEMINI_API_KEY` is set. Cost stays **$0** (Gemini free tier). The **Council → action** feature (Next → Council → **✨ Make tasks**, which turns a verdict into a checklist of tasks) rides the same key via `POST /actions` — also nothing to set up.
 
 ## Email Command Center (Gmail) — register a Google app once (v0.18)
 

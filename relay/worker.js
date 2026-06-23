@@ -347,6 +347,39 @@ async function extractEvents(env, payload) {
 }
 function normHM(s) { const p = s.toString().split(":"); return (p[0].length < 2 ? "0" + p[0] : p[0]) + ":" + p[1].slice(0, 2); }
 
+// Council → action (Phase post-5): decompose a decision/notes blob into concrete
+// next-action tasks, each tagged with a life area. Same Gemini-JSON shape as /extract.
+async function extractActions(env, payload) {
+  if (!env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set on the relay");
+  const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
+  const areas = (Array.isArray(payload.areas) && payload.areas.length) ? payload.areas.slice(0, 12) : ["Work", "Coaching", "Teaching", "Personal", "Ana", "Inbox"];
+  const instr =
+    "Turn the following decision, notes, or discussion into a short list of concrete next-step tasks for Kevin to act on. " +
+    "Each task is ONE clear action that starts with a verb and is small enough to finish in a single sitting. At most 8 tasks; fewer if that's all that's warranted. " +
+    "Assign each an area from this list: " + areas.join(", ") + ' (use "Inbox" if unsure). ' +
+    'Return ONLY a JSON array: [{"text":string,"area":string}]. No commentary.';
+  const text = (payload.text || "").toString().slice(0, 12000);
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
+  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: instr + "\n\n---\n" + text }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2 } }) });
+  const data = await r.json();
+  if (!r.ok) throw new Error((data.error && data.error.message) || "Gemini error " + r.status);
+  const cand = (data.candidates || [])[0];
+  const txt = (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
+  let arr = null;
+  try { arr = JSON.parse(txt); } catch (e) { const a = txt.indexOf("["), b = txt.lastIndexOf("]"); if (a >= 0 && b > a) { try { arr = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { arr = null; } } }
+  if (!Array.isArray(arr)) throw new Error("Could not parse tasks");
+  const okAreas = {}; areas.forEach((a) => { okAreas[a] = 1; });
+  const out = [];
+  for (const t of arr.slice(0, 8)) {
+    const txt2 = ((t && t.text) || "").toString().trim().slice(0, 200);
+    if (!txt2) continue;
+    let area = ((t && t.area) || "Inbox").toString().trim();
+    if (!okAreas[area]) area = "Inbox";
+    out.push({ text: txt2, area });
+  }
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Web Push (Phase 2b) — VAPID + RFC 8291 aes128gcm encryption, all in WebCrypto.
 // The app computes its reminder set (morning brief + per-task due) and syncs it
@@ -649,6 +682,19 @@ export default {
         return json({ ok: true, events }, 200, origin);
       } catch (e) {
         return json({ error: (e && e.message) || "extract failed" }, 502, origin);
+      }
+    }
+
+    // Council → action — turn a decision/notes blob into next-action tasks.
+    if (request.method === "POST" && url.pathname === "/actions") {
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      if (!payload || !payload.text) return json({ error: "Provide text to turn into tasks" }, 400, origin);
+      try {
+        const tasks = await extractActions(env, payload);
+        return json({ ok: true, tasks }, 200, origin);
+      } catch (e) {
+        return json({ error: (e && e.message) || "actions failed" }, 502, origin);
       }
     }
 

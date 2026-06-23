@@ -628,7 +628,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.18 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.18 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · Council → action (turn a verdict into reviewed tasks), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -689,7 +689,7 @@
   var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
-  var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={};
+  var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={};
   var projFilter="All", projView="status", editingProjId=null;
   var editingBuildId=null;
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
@@ -1225,7 +1225,7 @@
   }
   function councilAnswerHTML(q,on){
     if((!q.seats||!q.seats.length)&&q.answer){
-      return '<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-legacy="'+q.id+'">'+copySvg()+'Copy</button><button class="linklike" type="button" data-council-save="'+q.id+'">Save to Notes</button><span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>';
+      return '<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-legacy="'+q.id+'">'+copySvg()+'Copy</button><button class="linklike" type="button" data-council-save="'+q.id+'">Save to Notes</button>'+(on?'<button class="linklike" type="button" data-council-tasks="'+q.id+'">✨ Make tasks</button>':'')+'<span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>'+councilTasksHTML(q);
     }
     var h="",hasSynth=q.synthesis&&q.synthesis.ok&&q.synthesis.text;
     if(hasSynth){
@@ -1240,7 +1240,8 @@
       h+='</div>';
     }
     h+='</div>';
-    h+='<div class="cq-arow"><button class="linklike" type="button" data-council-save="'+q.id+'">Save to Notes</button>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Ask again</button>':'')+'</div>';
+    h+='<div class="cq-arow"><button class="linklike" type="button" data-council-save="'+q.id+'">Save to Notes</button>'+(on?'<button class="linklike" type="button" data-council-tasks="'+q.id+'">✨ Make tasks</button>':'')+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Ask again</button>':'')+'</div>';
+    h+=councilTasksHTML(q);
     return h;
   }
   function runCouncil(id){
@@ -1351,6 +1352,39 @@
     state.notes.unshift({id:uid(),title:"Council · "+q.text,para:"Resource",area:"Inbox",tags:"council",body:councilToText(q),createdAt:Date.now()});
     save();toast("Saved to Notes");
   }
+  function makeCouncilTasks(id){
+    var base=relayBase();if(!base){toast("Connect AI (the relay) first.");return;}
+    var q=findCouncil(id);if(!q)return;
+    councilTasks[id]={loading:true};renderNext();
+    fetch(base+"/actions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:councilToText(q),areas:AREAS.map(function(a){return a.key;})})}).then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.ok||!j.tasks||!j.tasks.length){delete councilTasks[id];toast((j&&j.error)?("Couldn’t make tasks: "+j.error):"No clear tasks found.");renderNext();return;}
+      councilTasks[id]=j.tasks.map(function(t){return {text:t.text,area:t.area||"Inbox",keep:true};});renderNext();
+    }).catch(function(){delete councilTasks[id];toast("Couldn’t reach the relay.");renderNext();});
+  }
+  function councilTasksHTML(q){
+    var ts=councilTasks[q.id];if(!ts)return"";
+    if(ts.loading)return '<div class="cq-seat pending" style="margin-top:8px"><div class="cq-seat-head"><span class="cq-seat-label">Making tasks…</span></div><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
+    var h='<div data-ctasks="'+q.id+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px"><p class="section-label" style="margin-bottom:6px">Proposed next actions</p>';
+    ts.forEach(function(t,i){
+      h+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><input type="checkbox" data-ctf="keep" data-i="'+i+'"'+(t.keep?" checked":"")+'><input class="inp" data-ctf="text" data-i="'+i+'" value="'+escapeHtml(t.text)+'" style="flex:1;min-width:80px"><select class="inp" data-ctf="area" data-i="'+i+'" style="width:auto">'+pendAreaOpts(t.area)+'</select></div>';
+    });
+    h+='<div style="display:flex;gap:8px;margin-top:4px"><button class="add-btn" type="button" data-council-addtasks="'+q.id+'">Add to Tasks</button><button class="btn-ghost" type="button" data-council-canceltasks="'+q.id+'">Cancel</button></div></div>';
+    return h;
+  }
+  function addCouncilTasks(id){
+    var box=document.querySelector('[data-ctasks="'+id+'"]');if(!box)return;
+    var rows=box.querySelectorAll('[data-ctf="text"]'),n=0,i;
+    for(i=0;i<rows.length;i++){
+      var idx=rows[i].getAttribute("data-i");
+      var keep=box.querySelector('[data-ctf="keep"][data-i="'+idx+'"]');
+      if(keep&&!keep.checked)continue;
+      var text=(rows[i].value||"").trim();if(!text)continue;
+      var areaSel=box.querySelector('[data-ctf="area"][data-i="'+idx+'"]');
+      state.items.unshift({id:uid(),text:text,area:(areaSel?areaSel.value:"Inbox"),today:true,done:false,due:null,dueTime:"",projectId:null,repeat:"",createdAt:Date.now()});
+      n++;
+    }
+    delete councilTasks[id];save();renderNext();renderHome();toast(n?("Added "+n+" task"+(n===1?"":"s")+" to today."):"No tasks selected.");
+  }
   function runQueuedCouncil(){if(isArr(state.council))state.council.forEach(function(q){if(q.status==="queued"||q.status==="error")runCouncil(q.id);});}
   function addCouncil(){
     var inp=$("councilInput");if(!inp)return;var t=(inp.value||"").trim();if(!t)return;
@@ -1377,6 +1411,9 @@
     var cseat=e.target.closest("[data-cpy-seat]");if(cseat){var qq=findCouncil(cseat.getAttribute("data-cpy-seat")),si=parseInt(cseat.getAttribute("data-seat"),10);if(qq&&qq.seats&&qq.seats[si]&&qq.seats[si].text){copyText(qq.seats[si].text);flashCopied(cseat);}return;}
     var cleg=e.target.closest("[data-cpy-legacy]");if(cleg){var ql=findCouncil(cleg.getAttribute("data-cpy-legacy"));if(ql&&ql.answer){copyText(ql.answer);flashCopied(cleg);}return;}
     var csav=e.target.closest("[data-council-save]");if(csav){saveCouncilToNotes(csav.getAttribute("data-council-save"));flashCopied(csav,"Saved ✓");return;}
+    var ctk=e.target.closest("[data-council-tasks]");if(ctk){makeCouncilTasks(ctk.getAttribute("data-council-tasks"));return;}
+    var cadt=e.target.closest("[data-council-addtasks]");if(cadt){addCouncilTasks(cadt.getAttribute("data-council-addtasks"));return;}
+    var ccnt=e.target.closest("[data-council-canceltasks]");if(ccnt){delete councilTasks[ccnt.getAttribute("data-council-canceltasks")];renderNext();return;}
     var cdel=e.target.closest("[data-council-del]");if(cdel){var id=cdel.getAttribute("data-council-del");state.council=state.council.filter(function(x){return x.id!==id;});renderNext();save();return;}
     var gob=e.target.closest("[data-go]");if(gob){go(gob.getAttribute("data-go"));return;}
     var act=e.target.closest("[data-action]");if(act){var it=findItem(act.dataset.id);if(it&&act.dataset.action==="done"){it.done=!it.done;if(it.done){it.today=false;rollRecurring(it);}renderNext();renderHome();save();}return;}
@@ -2510,7 +2547,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=18;
+    state.v=19;
     var sharedMsg=ingestShared();
     renderHome();
     save();
