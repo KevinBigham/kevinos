@@ -618,6 +618,15 @@ function gmailApi(token, path, init) {
     headers: { Authorization: "Bearer " + token, ...(init && init.headers) },
   });
 }
+// Smart-inbox bucket from Gmail's own category labels (free — Gmail already
+// classified): primary = real mail that may need you; fyi = updates/receipts;
+// noise = promotions/social. The app groups the inbox by this.
+function gmailCategory(labelIds) {
+  const L = labelIds || [];
+  if (L.indexOf("CATEGORY_PROMOTIONS") >= 0 || L.indexOf("CATEGORY_SOCIAL") >= 0) return "noise";
+  if (L.indexOf("CATEGORY_UPDATES") >= 0 || L.indexOf("CATEGORY_FORUMS") >= 0) return "fyi";
+  return "primary";
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Proactive Brief 2.0 — the relay writes the morning brief FRESH at send time
@@ -1113,7 +1122,7 @@ export default {
           const mj = await mr.json();
           if (!mr.ok) continue;
           const hs = mj.payload && mj.payload.headers;
-          out.push({ id: mj.id, threadId: mj.threadId, from: gmailHeader(hs, "From"), subject: gmailHeader(hs, "Subject"), date: gmailHeader(hs, "Date"), snippet: mj.snippet || "", unread: (mj.labelIds || []).indexOf("UNREAD") >= 0 });
+          out.push({ id: mj.id, threadId: mj.threadId, from: gmailHeader(hs, "From"), subject: gmailHeader(hs, "Subject"), date: gmailHeader(hs, "Date"), snippet: mj.snippet || "", unread: (mj.labelIds || []).indexOf("UNREAD") >= 0, category: gmailCategory(mj.labelIds) });
         }
         return json({ ok: true, account: acct.email, messages: out }, 200, origin);
       } catch (e) { return json({ error: (e && e.message) || "threads failed" }, 502, origin); }

@@ -628,7 +628,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.24 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.25 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -2406,7 +2406,7 @@
   $("ghView").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="ghTokenInput"){e.preventDefault();ghConnect();}});
 
   /* ---------- Email Command Center (v0.18) ---------- */
-  var emailThreads=[], emailDrafts={}, emailLoading=false, emailError="", emailSending={}, emailOvernight=[], emailDrafting=false;
+  var emailThreads=[], emailDrafts={}, emailLoading=false, emailError="", emailSending={}, emailOvernight=[], emailDrafting=false, emailGroupsOpen={fyi:false,noise:false};
   function emailCfg(){if(!state.email)state.email={session:"",accounts:[],active:""};return state.email;}
   function emailOn(){var e=state.email;return !!(e&&e.accounts&&e.accounts.length);}
   function emailActive(){var e=emailCfg();return e.active||(e.accounts[0]||"");}
@@ -2428,7 +2428,7 @@
   }
   function overnightRows(){
     var have={};emailThreads.forEach(function(m){have[m.id]=true;});
-    var out=[];emailOvernight.forEach(function(d){if(!have[d.id])out.push({id:d.id,threadId:d.threadId,from:d.from||d.to,subject:d.subject||"",snippet:d.snippet||"",unread:true});});
+    var out=[];emailOvernight.forEach(function(d){if(!have[d.id])out.push({id:d.id,threadId:d.threadId,from:d.from||d.to,subject:d.subject||"",snippet:d.snippet||"",unread:true,category:"primary"});});
     return out;
   }
   function clearOvernight(id){var base=relayBase();if(base&&state.email&&state.email.session)fetch(base+"/google/overnight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,remove:id})}).catch(function(){});emailOvernight=emailOvernight.filter(function(d){return d.id!==id;});}
@@ -2518,6 +2518,22 @@
       '<div class="field" style="margin-bottom:6px"><label>'+escapeHtml(d.subject||"")+'</label><textarea class="inp" data-df="body" rows="6" style="width:100%;resize:vertical">'+escapeHtml(d.body||"")+'</textarea></div>'+
       '<div style="display:flex;gap:8px"><button class="add-btn" type="button" data-em="send" data-id="'+id+'"'+(sending?" disabled":"")+'>'+(sending?"Sending…":"Approve & send")+'</button><button class="btn-ghost" type="button" data-em="discard" data-id="'+id+'">Discard</button></div></div>';
   }
+  function emailRowHTML(m){
+    return '<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(m.from))+'</strong>'+(m.unread?'<span class="cq-pill" style="background:#5B3B8C;color:#fff">new</span>':'')+'</div>'+
+      '<div>'+escapeHtml(m.subject||"(no subject)")+'</div>'+
+      '<div class="hint" style="margin:2px 0 6px">'+escapeHtml((m.snippet||"").slice(0,140))+'</div>'+
+      (emailDrafts[m.id]?emailDraftHTML(m.id):'<button class="btn-soft" type="button" data-em="draft" data-id="'+m.id+'">✨ Draft reply</button>')+
+    '</div>';
+  }
+  function emailGroupHTML(label,rows,key,alwaysOpen){
+    if(!rows.length)return"";
+    var open=alwaysOpen||emailGroupsOpen[key],unread=0,i;
+    for(i=0;i<rows.length;i++)if(rows[i].unread)unread++;
+    var h='<div class="sec-head" style="margin-top:12px"><p class="section-label">'+label+' · '+rows.length+(unread?' ('+unread+' new)':'')+'</p>'+(alwaysOpen?'':'<button class="sec-link" type="button" data-em="grp" data-id="'+key+'">'+(open?"Hide":"Show")+'</button>')+'</div>';
+    if(open){h+='<div class="rows">';for(i=0;i<rows.length;i++)h+=emailRowHTML(rows[i]);h+='</div>';}
+    return h;
+  }
   function renderEmail(){
     var box=$("emailView");if(!box)return;var e=state.email||{};
     if(!emailOn()&&!(e.session&&e.pendingOAuth)){box.innerHTML=emailConnectHTML();return;}
@@ -2530,18 +2546,18 @@
     var body="";
     if(emailLoading)body='<p class="empty">Loading your inbox…</p>';
     else if(emailError)body='<p class="gh-err">'+escapeHtml(emailError)+' <button class="linklike" type="button" data-em="refresh">Try again</button></p>';
-    else if(!overnightRows().length&&!emailThreads.length)body='<p class="empty">Inbox is clear. 🎉</p>';
     else{
-      body='<div class="rows">';
-      overnightRows().concat(emailThreads).forEach(function(m){
-        body+='<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)">'+
-          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(m.from))+'</strong>'+(m.unread?'<span class="cq-pill" style="background:#5B3B8C;color:#fff">new</span>':'')+'</div>'+
-          '<div>'+escapeHtml(m.subject||"(no subject)")+'</div>'+
-          '<div class="hint" style="margin:2px 0 6px">'+escapeHtml((m.snippet||"").slice(0,140))+'</div>'+
-          (emailDrafts[m.id]?emailDraftHTML(m.id):'<button class="btn-soft" type="button" data-em="draft" data-id="'+m.id+'">✨ Draft reply</button>')+
-        '</div>';
-      });
-      body+='</div>';
+      var rows=overnightRows().concat(emailThreads);
+      if(!rows.length)body='<p class="empty">Inbox is clear. 🎉</p>';
+      else{
+        // Smart inbox — Gmail's own categories sort real mail to the top, noise away.
+        var groups={primary:[],fyi:[],noise:[]};
+        rows.forEach(function(m){var c=m.category||"primary";(groups[c]||groups.primary).push(m);});
+        [groups.primary,groups.fyi,groups.noise].forEach(function(g){g.sort(function(a,b){return (b.unread?1:0)-(a.unread?1:0);});});
+        body=(groups.primary.length?emailGroupHTML("📌 Needs you",groups.primary,"primary",true):'<p class="empty" style="margin-top:8px">Nothing needs a reply right now. 🎉</p>')+
+          emailGroupHTML("📰 FYI",groups.fyi,"fyi",false)+
+          emailGroupHTML("🔕 Noise",groups.noise,"noise",false);
+      }
     }
     box.innerHTML=head+body;
   }
@@ -2554,6 +2570,7 @@
     else if(act==="cancel")emailDisconnect(null);
     else if(act==="refresh")loadThreads(true);
     else if(act==="draftall")fetchOvernight(true);
+    else if(act==="grp"){emailGroupsOpen[id]=!emailGroupsOpen[id];renderEmail();}
     else if(act==="draft")draftReply(id);
     else if(act==="send")sendReply(id);
     else if(act==="discard")discardDraft(id);
@@ -2659,7 +2676,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=24;
+    state.v=25;
     var sharedMsg=ingestShared();
     renderHome();
     save();
