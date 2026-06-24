@@ -496,6 +496,9 @@ async function firePush(env) {
           // Generate the brief FRESH right now (synced tasks/events + live inbox),
           // not the static body the app synced days ago. Falls back to r.body.
           try { body = await buildServerBrief(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
+        } else if (r.gen === "weekly") {
+          // Sunday-evening weekly review, written fresh from the synced week.
+          try { body = await buildWeeklyReview(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
         } else if (r.gen === "draft") {
           // Pre-draft replies to real overnight mail; notify only if there are any.
           try {
@@ -627,6 +630,25 @@ function gmailCategory(labelIds) {
   if (L.indexOf("CATEGORY_UPDATES") >= 0 || L.indexOf("CATEGORY_FORUMS") >= 0) return "fyi";
   return "primary";
 }
+// Recent inbox messages for ONE account, each tagged with its account, a parsed
+// timestamp (for merging across accounts), and its smart-inbox category. Shared
+// by the single-account view and the unified (all-account) inbox.
+async function gmailInbox(env, acct, max) {
+  const token = await gmailAccessToken(env, acct);
+  const lr = await gmailApi(token, "/messages?labelIds=INBOX&maxResults=" + (max || 12));
+  const lj = await lr.json();
+  if (!lr.ok) throw new Error((lj.error && lj.error.message) || "gmail error");
+  const out = [];
+  for (const m of (lj.messages || [])) {
+    const mr = await gmailApi(token, "/messages/" + m.id + "?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date");
+    const mj = await mr.json();
+    if (!mr.ok) continue;
+    const hs = mj.payload && mj.payload.headers;
+    const dateStr = gmailHeader(hs, "Date");
+    out.push({ id: mj.id, threadId: mj.threadId, account: acct.email, from: gmailHeader(hs, "From"), subject: gmailHeader(hs, "Subject"), date: dateStr, ts: Date.parse(dateStr) || (Number(mj.internalDate) || 0), snippet: mj.snippet || "", unread: (mj.labelIds || []).indexOf("UNREAD") >= 0, category: gmailCategory(mj.labelIds) });
+  }
+  return out;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Proactive Brief 2.0 — the relay writes the morning brief FRESH at send time
@@ -704,6 +726,72 @@ async function buildServerBrief(env, opts) {
   try {
     const text = await callGemini(env, system, "Here is my day. Write my morning brief.\n\n" + lines.join("\n"));
     return text && text.trim() ? text.trim().slice(0, 350) : fallback;
+  } catch (e) { return fallback; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Weekly review — a Sunday-evening "here's your week" brief, built from the same
+// synced doc as the morning brief. Forward-looking: the next 7 days of events +
+// open priorities (overdue first) + builds in flight, so Kevin starts the week
+// oriented. Used by POST /weekly and by firePush (Sunday) via buildWeeklyReview.
+// ─────────────────────────────────────────────────────────────────────────────
+function addDaysKey(k, n) {
+  const p = String(k).split("-");
+  const d = new Date(Date.UTC(Number(p[0]) || 1970, (Number(p[1]) || 1) - 1, (Number(p[2]) || 1) + n));
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0"), dd = String(d.getUTCDate()).padStart(2, "0");
+  return d.getUTCFullYear() + "-" + mm + "-" + dd;
+}
+function weeklyDigest(doc, D) {
+  const items = Array.isArray(doc && doc.items) ? doc.items : [];
+  const events = Array.isArray(doc && doc.events) ? doc.events : [];
+  const builds = Array.isArray(doc && doc.builds) ? doc.builds : [];
+  const end = D ? addDaysKey(D, 7) : "9999-99-99";
+  const open = items.filter((i) => i && !i.done);
+  const overdue = D ? open.filter((i) => i.due && i.due < D) : [];
+  const dueWeek = open.filter((i) => i.due && (!D || i.due >= D) && i.due <= end);
+  dueWeek.sort((a, b) => { const ad = a.due || "9999", bd = b.due || "9999"; return ad < bd ? -1 : ad > bd ? 1 : 0; });
+  const evs = events.filter((e) => e && e.date && (!D || e.date >= D) && e.date <= end)
+    .sort((a, b) => ((a.date + (a.time || "99:99")) < (b.date + (b.time || "99:99")) ? -1 : 1));
+  const active = builds.filter((b) => b && (b.stage === "Idea" || b.stage === "Building" || b.stage === "Testing"));
+  return { nOpen: open.length, overdue: overdue.slice(0, 12), nOverdue: overdue.length, nEvents: evs.length, events: evs.slice(0, 12), dueWeek: dueWeek.slice(0, 12), builds: active.slice(0, 8) };
+}
+function weeklyDigestText(wd, D) {
+  const L = [];
+  if (D) L.push("Week starting: " + D);
+  L.push("Open tasks: " + wd.nOpen + (wd.nOverdue ? " (" + wd.nOverdue + " overdue)" : ""));
+  if (wd.overdue.length) { L.push("", "Overdue (clear these first):"); wd.overdue.forEach((t) => L.push("- " + (t.due || "") + " " + (t.text || "(untitled)") + (t.area && t.area !== "Inbox" ? " [" + t.area + "]" : ""))); }
+  L.push("", "Due this week (" + wd.dueWeek.length + "):");
+  if (wd.dueWeek.length) wd.dueWeek.forEach((t) => L.push("- " + (t.due || "") + " " + (t.text || "(untitled)") + (t.area && t.area !== "Inbox" ? " [" + t.area + "]" : ""))); else L.push("- none");
+  L.push("", "Events this week (" + wd.nEvents + "):");
+  if (wd.events.length) wd.events.forEach((e) => L.push("- " + (e.date || "") + " " + (e.time ? e.time : "all day") + " " + (e.title || "(untitled)"))); else L.push("- none");
+  if (wd.builds.length) { L.push("", "In the studio:"); wd.builds.forEach((b) => L.push("- " + (b.name || "(untitled)") + " [" + (b.stage || "") + "]" + (b.next ? " → " + b.next : ""))); }
+  return L.join("\n");
+}
+async function buildWeeklyReview(env, opts) {
+  const fallback = (opts.fallback || "").toString();
+  if (!env.GEMINI_API_KEY) return fallback;
+  // 1) Week context: prefer app-supplied context; else read the synced D1 doc.
+  let context = (opts.context || "").toString();
+  if (!context && opts.syncKey && /^[a-f0-9]{16,128}$/.test(opts.syncKey) && env.SYNC) {
+    try {
+      const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(opts.syncKey).first();
+      if (row && row.doc) context = weeklyDigestText(weeklyDigest(JSON.parse(row.doc), opts.dateKey), opts.dateKey);
+    } catch (e) { /* fall through to whatever we have */ }
+  }
+  // 2) Live inbox peek (optional).
+  let inbox = null;
+  if (opts.emailSession) { try { inbox = await briefInbox(env, opts.emailSession); } catch (e) { inbox = null; } }
+  if (!context && !inbox) return fallback;
+  const lines = [];
+  if (context) lines.push(context);
+  if (inbox) {
+    lines.push("", "Inbox: " + inbox.unread + " unread");
+    inbox.subjects.forEach((s) => lines.push("- from " + (s.from || "?") + ": " + (s.subject || "(no subject)")));
+  }
+  const system = "You are Kevin's calm assistant inside KevinOS. It's Sunday evening. Write a SHORT weekly review — 3 to 5 sentences, warm and grounding — that orients him to the week ahead: the big rocks on the calendar, which priorities to protect time for, anything overdue to clear first, and one thing worth teeing up tonight. Plain text. No lists, no preamble, no greeting line, no sign-off.";
+  try {
+    const text = await callGemini(env, system, "Here is my week ahead. Write my Sunday weekly review.\n\n" + lines.join("\n"));
+    return text && text.trim() ? text.trim().slice(0, 520) : fallback;
   } catch (e) { return fallback; }
 }
 
@@ -1049,6 +1137,22 @@ export default {
       return json({ ok: true, text }, 200, origin);
     }
 
+    // Weekly review — a Sunday-evening "here's your week" brief from the synced
+    // doc + a live inbox peek. The app's weekly card calls this; the Sunday push
+    // calls buildWeeklyReview directly inside firePush.
+    if (request.method === "POST" && url.pathname === "/weekly") {
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const text = await buildWeeklyReview(env, {
+        syncKey: (payload && payload.syncKey) || "",
+        emailSession: (payload && payload.emailSession) || "",
+        dateKey: (payload && payload.dateKey) || "",
+        context: (payload && payload.context) || "",
+        fallback: (payload && payload.fallback) || "",
+      });
+      return json({ ok: true, text }, 200, origin);
+    }
+
     // ── Email Command Center (Phase 5) — Gmail OAuth + AI drafts + send ──────────
 
     // Email — start OAuth (one Google account per pass; call again to add another).
@@ -1104,28 +1208,52 @@ export default {
       return json({ accounts: rec && rec.accounts ? rec.accounts.map((a) => ({ email: a.email })) : [] }, 200, origin);
     }
 
-    // Email — list recent inbox messages for one account.
+    // Email — recent inbox messages for one account, or ALL accounts merged into
+    // one stream (unified inbox) when payload.all is set. Every message carries
+    // its own account so the app can badge it and draft/triage on the right one.
     if (request.method === "POST" && url.pathname === "/google/threads") {
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const rec = await gmailGetRec(env, payload && payload.session);
+      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+      try {
+        let messages = [];
+        if (payload && payload.all) {
+          const per = Math.max(5, Math.floor(24 / rec.accounts.length));
+          for (const a of rec.accounts) { try { messages = messages.concat(await gmailInbox(env, a, per)); } catch (e) { /* skip one account, keep the rest */ } }
+          messages.sort((x, y) => (y.ts || 0) - (x.ts || 0));
+          messages = messages.slice(0, 30);
+        } else {
+          const acct = gmailFindAccount(rec, payload && payload.account);
+          if (!acct) return json({ error: "not connected" }, 401, origin);
+          messages = await gmailInbox(env, acct, 12);
+        }
+        await gmailPutRec(env, payload.session, rec);
+        return json({ ok: true, unified: !!(payload && payload.all), accounts: rec.accounts.map((a) => a.email), messages }, 200, origin);
+      } catch (e) { return json({ error: (e && e.message) || "threads failed" }, 502, origin); }
+    }
+
+    // Email — triage one message: archive (remove INBOX) and/or mark read
+    // (remove UNREAD). The change lands in Gmail itself, so it's instantly
+    // consistent across every device — phone, web, and the unified inbox.
+    if (request.method === "POST" && url.pathname === "/google/modify") {
       if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
       let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
       const rec = await gmailGetRec(env, payload && payload.session);
       const acct = gmailFindAccount(rec, payload && payload.account);
       if (!acct) return json({ error: "not connected" }, 401, origin);
+      if (!payload.id) return json({ error: "Missing message id" }, 400, origin);
+      const remove = [];
+      if (payload.archive) remove.push("INBOX");
+      if (payload.archive || payload.read) remove.push("UNREAD");
+      if (!remove.length) return json({ error: "Nothing to change" }, 400, origin);
       try {
         const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
-        const lr = await gmailApi(token, "/messages?labelIds=INBOX&maxResults=12");
-        const lj = await lr.json();
-        if (!lr.ok) return json({ error: (lj.error && lj.error.message) || "gmail error" }, 502, origin);
-        const out = [];
-        for (const m of (lj.messages || [])) {
-          const mr = await gmailApi(token, "/messages/" + m.id + "?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date");
-          const mj = await mr.json();
-          if (!mr.ok) continue;
-          const hs = mj.payload && mj.payload.headers;
-          out.push({ id: mj.id, threadId: mj.threadId, from: gmailHeader(hs, "From"), subject: gmailHeader(hs, "Subject"), date: gmailHeader(hs, "Date"), snippet: mj.snippet || "", unread: (mj.labelIds || []).indexOf("UNREAD") >= 0, category: gmailCategory(mj.labelIds) });
-        }
-        return json({ ok: true, account: acct.email, messages: out }, 200, origin);
-      } catch (e) { return json({ error: (e && e.message) || "threads failed" }, 502, origin); }
+        const mr = await gmailApi(token, "/messages/" + payload.id + "/modify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ removeLabelIds: remove }) });
+        const mj = await mr.json();
+        if (!mr.ok) return json({ error: (mj.error && mj.error.message) || "modify failed" }, 502, origin);
+        return json({ ok: true, id: payload.id, labelIds: mj.labelIds || [] }, 200, origin);
+      } catch (e) { return json({ error: (e && e.message) || "modify failed" }, 502, origin); }
     }
 
     // Email — AI-draft a reply to a message (returned for review, NOT sent).

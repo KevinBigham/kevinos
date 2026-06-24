@@ -628,7 +628,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.25 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.26 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -686,10 +686,10 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},brief:{date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
-  var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={}, briefBusy=false;
+  var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={}, briefBusy=false, weeklyBusy=false;
   var projFilter="All", projView="status", editingProjId=null;
   var editingBuildId=null;
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
@@ -979,6 +979,55 @@
     }).catch(function(){briefBusy=false;state.brief={date:dk,text:""};persist();renderNext();});
   }
   function maybeAutoBrief(){if(room!=="next"||!relayOn()||briefBusy)return;if(state.brief&&state.brief.date===todayKey())return;generateBrief(false);}
+  /* ---------- weekly review (v0.26) — a Sunday "here's your week" brief ---------- */
+  function weekStartKey(dk){var p=keyToParts(dk),d=new Date(p.y,p.m,p.d);return addDaysKey(dk,-d.getDay());}
+  function weekDigestApp(dk){
+    var end=addDaysKey(dk,7);
+    var open=state.items.filter(function(i){return !i.done;});
+    var overdue=open.filter(function(i){return i.due&&i.due<dk;}).sort(nextDueSort);
+    var dueWeek=open.filter(function(i){return i.due&&i.due>=dk&&i.due<=end;}).sort(nextDueSort);
+    var evs=state.events.filter(function(e){return e.date&&e.date>=dk&&e.date<=end;}).slice().sort(function(a,b){return (a.date+(a.time||"99:99"))<(b.date+(b.time||"99:99"))?-1:1;});
+    var builds=state.builds.filter(function(b){return b.stage==="Idea"||b.stage==="Building"||b.stage==="Testing";});
+    return {nOpen:open.length,overdue:overdue,dueWeek:dueWeek,events:evs,builds:builds};
+  }
+  function weeklyContextText(dk){
+    var w=weekDigestApp(dk),L=["Week starting: "+dk];
+    L.push("Open tasks: "+w.nOpen+(w.overdue.length?" ("+w.overdue.length+" overdue)":""));
+    if(w.overdue.length){L.push("","Overdue (clear first):");w.overdue.slice(0,12).forEach(function(t){L.push("- "+(t.due||"")+" "+t.text+(t.area&&t.area!=="Inbox"?" ["+t.area+"]":""));});}
+    L.push("","Due this week ("+w.dueWeek.length+"):");
+    if(w.dueWeek.length)w.dueWeek.slice(0,12).forEach(function(t){L.push("- "+(t.due||"")+" "+t.text+(t.area&&t.area!=="Inbox"?" ["+t.area+"]":""));});else L.push("- none");
+    L.push("","Events this week ("+w.events.length+"):");
+    if(w.events.length)w.events.slice(0,12).forEach(function(e){L.push("- "+(e.date||"")+" "+(e.time?fmtTime(e.time):"all day")+" "+(e.title||"(untitled)"));});else L.push("- none");
+    if(w.builds.length){L.push("","In the studio:");w.builds.slice(0,8).forEach(function(b){L.push("- "+(b.name||"")+" ["+(b.stage||"")+"]"+(b.next?" → "+b.next:""));});}
+    return L.join("\n");
+  }
+  function weeklyBodyShort(dk){
+    var w=weekDigestApp(dk);
+    if(!w.dueWeek.length&&!w.events.length&&!w.overdue.length)return "A clear week ahead — nothing scheduled yet. A good time to plan.";
+    var s=w.events.length+(w.events.length===1?" event":" events")+" · "+w.dueWeek.length+(w.dueWeek.length===1?" task":" tasks")+" due this week";
+    if(w.overdue.length)s+=" · "+w.overdue.length+" overdue";
+    return s;
+  }
+  function weeklyCardHTML(){
+    var wkText=(state.weekly&&state.weekly.text)||"";
+    if(!wkText&&!weeklyBusy&&!relayOn())return"";
+    var inner;
+    if(weeklyBusy)inner='<span class="cq-prov">writing your weekly review…</span>';
+    else if(wkText)inner='<div>'+escapeHtml(wkText)+'</div>';
+    else inner='<div>'+escapeHtml(weeklyBodyShort(todayKey()))+'</div>';
+    return '<div class="brief-card" style="background:linear-gradient(135deg,rgba(184,144,31,.13),rgba(58,44,89,.10));border-radius:14px;padding:14px;margin:2px 0 14px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><strong>🗓️ Your week</strong>'+(relayOn()?'<button class="linklike" type="button" data-weekly-refresh="1">↻</button>':'')+'</div>'+inner+'</div>';
+  }
+  function generateWeekly(force){
+    var base=relayBase();if(!base)return;
+    var dk=todayKey(),wk=weekStartKey(dk);
+    var es=(state.email&&state.email.session&&state.email.accounts&&state.email.accounts.length)?state.email.session:"";
+    if(weeklyBusy)return;weeklyBusy=true;renderNext();
+    var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    fetch(base+"/weekly",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({emailSession:es,dateKey:dk,tz:tz,context:weeklyContextText(dk),fallback:weeklyBodyShort(dk)})}).then(function(r){return r.json();}).then(function(j){
+      weeklyBusy=false;state.weekly={weekKey:wk,date:dk,text:(j&&j.text)?j.text:""};persist();renderNext();
+    }).catch(function(){weeklyBusy=false;state.weekly={weekKey:wk,date:dk,text:""};persist();renderNext();});
+  }
+  function maybeAutoWeekly(){if(room!=="next"||!relayOn()||weeklyBusy)return;if(state.weekly&&state.weekly.weekKey===weekStartKey(todayKey()))return;generateWeekly(false);}
   function renderNext(){
     var box=$("nextView");if(!box)return;
     var tk=todayKey(),wk=addDaysKey(tk,7);
@@ -999,6 +1048,7 @@
       '<div class="sec-head"><p class="section-label">Next</p><button class="sec-link" type="button" data-go="tasks">Manage tasks →</button></div>'+
       hero+
       briefCardHTML()+
+      weeklyCardHTML()+
       '<div class="capture-row"><input id="nextInput" class="capture-input" type="text" placeholder="Capture the next thing…" autocomplete="off" aria-label="Capture a task"><button class="add-btn" type="button" data-next-add="1">Add</button></div>'+
       '<div class="chips">'+nextChipsHTML()+'</div>'+
       '<hr class="surface-line">';
@@ -1064,6 +1114,7 @@
   function fmtHour(h){return fmtTime(pad(h)+":00");}
   function briefHourOpts(){var h=(state.push&&state.push.hour)||8,o="",i;for(i=6;i<=11;i++){o+='<option value="'+i+'"'+(i===h?" selected":"")+">"+fmtHour(i)+"</option>";}return o;}
   function morningBriefTimes(hour,count){var out=[],now=new Date(),i;var first=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hour,0,0,0);if(first.getTime()<=now.getTime())first=new Date(first.getTime()+86400000);for(i=0;i<count;i++)out.push(first.getTime()+i*86400000);return out;}
+  function nextDowTime(dow,hour){var now=new Date();var add=((dow-now.getDay())+7)%7;var t=new Date(now.getFullYear(),now.getMonth(),now.getDate()+add,hour,0,0,0);if(t.getTime()<=now.getTime())t=new Date(t.getTime()+7*86400000);return t.getTime();}
   function taskDueEpoch(it){if(!it.due||!it.dueTime)return 0;var p=keyToParts(it.due),tp=String(it.dueTime).split(":");return new Date(p.y,p.m,p.d,parseInt(tp[0],10)||0,parseInt(tp[1],10)||0,0,0).getTime();}
   function buildReminders(){
     var out=[],i,url="https://kevinbigham.github.io/kevinos/";
@@ -1078,6 +1129,9 @@
     // gen:"draft" → ~1h before the brief, the relay pre-writes replies to real
     // unread mail and pushes "N replies ready" (only fires when email's connected).
     if(es){var dt=morningBriefTimes(Math.max(hour-1,5),7);for(i=0;i<dt.length;i++)out.push({id:"draft-"+i,fireAt:dt[i],title:"📝 Replies drafted",body:"Overnight replies are ready.",url:url,tag:"kevinos-drafts",gen:"draft",emailSession:es});}
+    // gen:"weekly" → Sunday 5pm, a "here's your week" review written fresh from
+    // the synced week. Schedule the next 4 Sundays so it survives a quiet week.
+    for(i=0;i<4;i++){var wst=nextDowTime(0,17)+i*7*86400000,wkk=dateKey(new Date(wst));out.push({id:"weekly-"+i,fireAt:wst,title:"🗓️ Your week ahead",body:weeklyBodyShort(wkk),url:url,tag:"kevinos-weekly",gen:"weekly",syncKey:sk,emailSession:es,dateKey:wkk,tz:tz});}
     var now=Date.now();
     state.items.forEach(function(it){if(it.done||!it.due||!it.dueTime)return;var fa=taskDueEpoch(it);if(fa>now)out.push({id:"task-"+it.id,fireAt:fa,title:"Task due",body:it.text,url:url,tag:"kevinos-task-"+it.id});});
     return out;
@@ -1144,7 +1198,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,brief:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,brief:1,weekly:1,v:1};
   var _syncPushT=null,_syncBusy=false;
   function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
   function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
@@ -1486,6 +1540,7 @@
     if(e.target.closest("[data-openwind]")){openWind();return;}
     if(e.target.closest("[data-next-add]")){addNextTask();return;}
     if(e.target.closest("[data-brief-refresh]")){generateBrief(true);return;}
+    if(e.target.closest("[data-weekly-refresh]")){generateWeekly(true);return;}
     if(e.target.closest("[data-council-add]")){addCouncil();return;}
     if(e.target.closest("[data-push-toggle]")){enablePush();return;}
     if(e.target.closest("[data-push-test]")){testPush();return;}
@@ -2303,7 +2358,7 @@
     for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle("active",tabs[i].dataset.room===r);
     ["home","next","tasks","calendar","projects","studio","briefs","prompts","launchpad","notes","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
     if(r==="home")renderHome();
-    else if(r==="next"){renderNext();maybeAutoBrief();}
+    else if(r==="next"){renderNext();maybeAutoBrief();maybeAutoWeekly();}
     else if(r==="tasks")renderTasks();
     else if(r==="calendar")renderCalendar();
     else if(r==="projects")renderProjects();
@@ -2406,11 +2461,68 @@
   $("ghView").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="ghTokenInput"){e.preventDefault();ghConnect();}});
 
   /* ---------- Email Command Center (v0.18) ---------- */
-  var emailThreads=[], emailDrafts={}, emailLoading=false, emailError="", emailSending={}, emailOvernight=[], emailDrafting=false, emailGroupsOpen={fyi:false,noise:false};
+  var emailThreads=[], emailDrafts={}, emailLoading=false, emailError="", emailSending={}, emailOvernight=[], emailDrafting=false, emailGroupsOpen={fyi:false,noise:false,snoozed:false}, emailSnoozeOpen="";
+  var UNIFIED="__all__";
   function emailCfg(){if(!state.email)state.email={session:"",accounts:[],active:""};return state.email;}
   function emailOn(){var e=state.email;return !!(e&&e.accounts&&e.accounts.length);}
   function emailActive(){var e=emailCfg();return e.active||(e.accounts[0]||"");}
-  function emailEnter(){renderEmail();if(emailOn()){if(!emailThreads.length&&!emailLoading)loadThreads(false);fetchOvernight(false);}}
+  function isUnified(){return emailActive()===UNIFIED;}
+  function acctShort(a){a=(a||"").toString();var i=a.indexOf("@");return i>0?a.slice(0,i):a;}
+  // In unified mode each message carries its own account; draft/triage/send must
+  // act on THAT account, not the (UNIFIED) selector. Fall back to the real account.
+  function acctForId(id){
+    var i;for(i=0;i<emailThreads.length;i++)if(emailThreads[i].id===id&&emailThreads[i].account)return emailThreads[i].account;
+    for(i=0;i<emailOvernight.length;i++)if(emailOvernight[i].id===id&&emailOvernight[i].account)return emailOvernight[i].account;
+    if(emailDrafts[id]&&emailDrafts[id].account)return emailDrafts[id].account;
+    var a=emailActive();return a===UNIFIED?((state.email&&state.email.accounts&&state.email.accounts[0])||""):a;
+  }
+  function findRow(id){var i,o;for(i=0;i<emailThreads.length;i++)if(emailThreads[i].id===id)return emailThreads[i];o=overnightRows();for(i=0;i<o.length;i++)if(o[i].id===id)return o[i];return null;}
+  /* ---------- triage: archive (server) + snooze (device-local) ---------- */
+  function archiveMsg(id){
+    var base=relayBase();if(!base)return;var ac=acctForId(id);
+    emailThreads=emailThreads.filter(function(m){return m.id!==id;});
+    emailOvernight=emailOvernight.filter(function(d){return d.id!==id;});
+    if(emailDrafts[id]&&emailDrafts[id].overnight)clearOvernight(id);
+    delete emailDrafts[id];if(emailSnoozeOpen===id)emailSnoozeOpen="";renderEmail();
+    fetch(base+"/google/modify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:ac,id:id,archive:true})}).then(function(r){return r.json();}).then(function(j){
+      toast((j&&j.ok)?"Archived ✓":((j&&j.error)?("Archive failed: "+j.error):"Couldn’t archive."));
+    }).catch(function(){toast("Couldn’t reach the relay.");});
+  }
+  function snoozeTime(when){
+    var now=new Date();
+    if(when==="3h")return now.getTime()+3*3600000;
+    if(when==="tom")return new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,8,0,0,0).getTime();
+    var add=((6-now.getDay())+7)%7;if(add===0)add=7; // upcoming Saturday 8am
+    return new Date(now.getFullYear(),now.getMonth(),now.getDate()+add,8,0,0,0).getTime();
+  }
+  function snoozeLabel(when){return when==="3h"?"for 3 hours.":when==="tom"?"until tomorrow.":"until the weekend.";}
+  function snoozeUntilLabel(ts){var d=new Date(ts),now=new Date();var t=fmtTime(pad(d.getHours())+":"+pad(d.getMinutes()));var same=d.toDateString()===now.toDateString();return "until "+(same?"":DAYS[d.getDay()].slice(0,3)+" ")+t;}
+  function snoozeMsg(id,when){
+    var row=findRow(id);if(!row){emailSnoozeOpen="";renderEmail();return;}
+    var sn=(state.email.snoozed=state.email.snoozed||{});
+    sn[id]={wakeAt:snoozeTime(when),account:row.account||acctForId(id),from:row.from,subject:row.subject,snippet:row.snippet,unread:!!row.unread,category:row.category||"primary",threadId:row.threadId};
+    if(emailDrafts[id]&&emailDrafts[id].overnight)clearOvernight(id);
+    delete emailDrafts[id];emailSnoozeOpen="";save();renderEmail();toast("Snoozed "+snoozeLabel(when));
+  }
+  function isSnoozed(id){var sn=(state.email&&state.email.snoozed)||{};return !!(sn[id]&&(sn[id].wakeAt||0)>Date.now());}
+  function rowFromSnooze(id,w){return {id:id,threadId:w.threadId,account:w.account,from:w.from,subject:w.subject,snippet:w.snippet,unread:!!w.unread,category:w.category||"primary"};}
+  function pruneSnoozed(){
+    var sn=(state.email&&state.email.snoozed)||{};var now=Date.now(),woke=[],k,changed=false;
+    for(k in sn){if(sn.hasOwnProperty(k)&&(sn[k].wakeAt||0)<=now){woke.push({id:k,w:sn[k]});delete sn[k];changed=true;}}
+    if(woke.length){var have={};emailThreads.forEach(function(m){have[m.id]=true;});woke.forEach(function(x){if(!have[x.id])emailThreads.unshift(rowFromSnooze(x.id,x.w));});}
+    if(changed)save();
+    return woke.length;
+  }
+  function snoozedRows(){var sn=(state.email&&state.email.snoozed)||{};var now=Date.now(),out=[],k;for(k in sn){if(sn.hasOwnProperty(k)&&(sn[k].wakeAt||0)>now)out.push({id:k,w:sn[k]});}out.sort(function(a,b){return a.w.wakeAt-b.w.wakeAt;});return out;}
+  function wakeSnooze(id){var sn=(state.email&&state.email.snoozed)||{};var w=sn[id];if(!w)return;delete sn[id];var have={};emailThreads.forEach(function(m){have[m.id]=true;});if(!have[id])emailThreads.unshift(rowFromSnooze(id,w));save();renderEmail();}
+  function snoozedGroupHTML(){
+    var rows=snoozedRows();if(!rows.length)return"";
+    var open=emailGroupsOpen.snoozed;
+    var h='<div class="sec-head" style="margin-top:12px"><p class="section-label">💤 Snoozed · '+rows.length+'</p><button class="sec-link" type="button" data-em="grp" data-id="snoozed">'+(open?"Hide":"Show")+'</button></div>';
+    if(open){h+='<div class="rows">';rows.forEach(function(r){h+='<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(r.w.from))+'</strong><span class="hint">'+escapeHtml(snoozeUntilLabel(r.w.wakeAt))+'</span></div><div>'+escapeHtml(r.w.subject||"(no subject)")+'</div><button class="btn-soft" type="button" data-em="wake" data-id="'+r.id+'">Wake now</button></div>';});h+='</div>';}
+    return h;
+  }
+  function emailEnter(){pruneSnoozed();renderEmail();if(emailOn()){if(!emailThreads.length&&!emailLoading)loadThreads(false);fetchOvernight(false);}}
   // Overnight auto-drafts: the relay pre-writes replies to real unread mail (nightly
   // via cron, or on-demand here). They render as the same review cards via emailDrafts.
   function fetchOvernight(generate){
@@ -2428,7 +2540,7 @@
   }
   function overnightRows(){
     var have={};emailThreads.forEach(function(m){have[m.id]=true;});
-    var out=[];emailOvernight.forEach(function(d){if(!have[d.id])out.push({id:d.id,threadId:d.threadId,from:d.from||d.to,subject:d.subject||"",snippet:d.snippet||"",unread:true,category:"primary"});});
+    var out=[];emailOvernight.forEach(function(d){if(!have[d.id])out.push({id:d.id,threadId:d.threadId,account:d.account,from:d.from||d.to,subject:d.subject||"",snippet:d.snippet||"",unread:true,category:"primary"});});
     return out;
   }
   function clearOvernight(id){var base=relayBase();if(base&&state.email&&state.email.session)fetch(base+"/google/overnight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,remove:id})}).catch(function(){});emailOvernight=emailOvernight.filter(function(d){return d.id!==id;});}
@@ -2446,7 +2558,7 @@
     fetch(base+"/google/status?session="+encodeURIComponent(e.session)).then(function(r){return r.json();}).then(function(j){
       if(!state.email||!state.email.pendingOAuth)return;
       var accts=(j&&j.accounts)?j.accounts.map(function(a){return a.email;}):[];
-      if(accts.length>before){state.email.accounts=accts;if(!state.email.active)state.email.active=accts[accts.length-1];state.email.pendingOAuth=false;emailError="";save();emailThreads=[];loadThreads(true);return;}
+      if(accts.length>before){state.email.accounts=accts;state.email.active=(accts.length>1?UNIFIED:accts[accts.length-1]);state.email.pendingOAuth=false;emailError="";save();emailThreads=[];loadThreads(true);return;}
       if(n<60)setTimeout(function(){emailOAuthPoll(n+1);},2500);
       else{state.email.pendingOAuth=false;emailError="Timed out waiting for Google. Try again.";save();renderEmail();}
     }).catch(function(){if(n<60)setTimeout(function(){emailOAuthPoll(n+1);},2500);});
@@ -2454,18 +2566,19 @@
   function loadThreads(force){
     if(!emailOn())return;var base=relayBase();if(!base)return;if(emailLoading&&!force)return;
     emailLoading=true;emailError="";renderEmail();
-    fetch(base+"/google/threads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:emailActive()})}).then(function(r){return r.json();}).then(function(j){
+    var bd=isUnified()?{session:state.email.session,all:true}:{session:state.email.session,account:emailActive()};
+    fetch(base+"/google/threads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(bd)}).then(function(r){return r.json();}).then(function(j){
       emailLoading=false;
       if(!j||!j.ok){emailError=(j&&j.error)||"Couldn’t load mail.";renderEmail();return;}
-      emailThreads=j.messages||[];renderEmail();
+      emailThreads=j.messages||[];pruneSnoozed();renderEmail();
     }).catch(function(){emailLoading=false;emailError="Couldn’t reach the relay.";renderEmail();});
   }
   function draftReply(id){
-    var base=relayBase();if(!base)return;
+    var base=relayBase();if(!base)return;var ac=acctForId(id);
     emailDrafts[id]={loading:true};renderEmail();
-    fetch(base+"/google/draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:emailActive(),id:id})}).then(function(r){return r.json();}).then(function(j){
+    fetch(base+"/google/draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:ac,id:id})}).then(function(r){return r.json();}).then(function(j){
       if(!j||!j.ok){delete emailDrafts[id];toast((j&&j.error)?("Draft failed: "+j.error):"Couldn’t draft a reply.");renderEmail();return;}
-      emailDrafts[id]={to:j.to,subject:j.subject,body:j.body,threadId:j.threadId,messageId:j.messageId};renderEmail();
+      emailDrafts[id]={to:j.to,subject:j.subject,body:j.body,threadId:j.threadId,messageId:j.messageId,account:ac};renderEmail();
     }).catch(function(){delete emailDrafts[id];toast("Couldn’t reach the relay.");renderEmail();});
   }
   function readDraftCard(id){
@@ -2478,7 +2591,7 @@
     var ed=readDraftCard(id)||{};var to=(ed.to||d.to||"").trim(),body=(ed.body||d.body||"").trim();
     if(!to||!body){toast("Need a recipient and a message.");return;}
     if(emailSending[id])return;emailSending[id]=true;renderEmail();
-    fetch(relayBase()+"/google/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:emailActive(),to:to,subject:d.subject||"",body:body,threadId:d.threadId,messageId:d.messageId})}).then(function(r){return r.json();}).then(function(j){
+    fetch(relayBase()+"/google/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:(d.account||acctForId(id)),to:to,subject:d.subject||"",body:body,threadId:d.threadId,messageId:d.messageId})}).then(function(r){return r.json();}).then(function(j){
       emailSending[id]=false;
       if(!j||!j.ok){toast((j&&j.error)?("Send failed: "+j.error):"Couldn’t send.");renderEmail();return;}
       if(d.overnight)clearOvernight(id);delete emailDrafts[id];toast("Sent ✓");renderEmail();
@@ -2519,11 +2632,17 @@
       '<div style="display:flex;gap:8px"><button class="add-btn" type="button" data-em="send" data-id="'+id+'"'+(sending?" disabled":"")+'>'+(sending?"Sending…":"Approve & send")+'</button><button class="btn-ghost" type="button" data-em="discard" data-id="'+id+'">Discard</button></div></div>';
   }
   function emailRowHTML(m){
+    var badge=(isUnified()&&m.account)?'<span class="cq-pill" style="background:rgba(91,59,140,.12);color:#5B3B8C">'+escapeHtml(acctShort(m.account))+'</span>':'';
+    var tags=badge+(m.unread?'<span class="cq-pill" style="background:#5B3B8C;color:#fff">new</span>':'');
+    var actions;
+    if(emailDrafts[m.id])actions=emailDraftHTML(m.id);
+    else if(emailSnoozeOpen===m.id)actions='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px"><span class="hint">💤 Snooze:</span><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+m.id+'" data-when="3h">3 hours</button><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+m.id+'" data-when="tom">Tomorrow</button><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+m.id+'" data-when="wknd">Weekend</button><button class="btn-ghost" type="button" data-em="snoozecancel" data-id="'+m.id+'">✕</button></div>';
+    else actions='<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-soft" type="button" data-em="draft" data-id="'+m.id+'">✨ Draft reply</button><button class="btn-soft" type="button" data-em="archive" data-id="'+m.id+'">✓ Archive</button><button class="btn-soft" type="button" data-em="snooze" data-id="'+m.id+'">💤 Snooze</button></div>';
     return '<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)">'+
-      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(m.from))+'</strong>'+(m.unread?'<span class="cq-pill" style="background:#5B3B8C;color:#fff">new</span>':'')+'</div>'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(m.from))+'</strong><span style="display:flex;gap:6px;align-items:center">'+tags+'</span></div>'+
       '<div>'+escapeHtml(m.subject||"(no subject)")+'</div>'+
       '<div class="hint" style="margin:2px 0 6px">'+escapeHtml((m.snippet||"").slice(0,140))+'</div>'+
-      (emailDrafts[m.id]?emailDraftHTML(m.id):'<button class="btn-soft" type="button" data-em="draft" data-id="'+m.id+'">✨ Draft reply</button>')+
+      actions+
     '</div>';
   }
   function emailGroupHTML(label,rows,key,alwaysOpen){
@@ -2540,15 +2659,16 @@
     if(e.pendingOAuth&&!emailOn()){box.innerHTML=emailWaitingHTML();return;}
     var accs=e.accounts||[],active=emailActive();
     var head='<div class="sec-head"><p class="section-label">Email</p><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">';
-    if(accs.length>1){head+='<select class="inp" data-em-acct style="width:auto">';accs.forEach(function(a){head+='<option value="'+escapeHtml(a)+'"'+(a===active?" selected":"")+">"+escapeHtml(a)+"</option>";});head+="</select>";}
+    if(accs.length>1){head+='<select class="inp" data-em-acct style="width:auto"><option value="'+UNIFIED+'"'+(active===UNIFIED?" selected":"")+'>📥 All inboxes</option>';accs.forEach(function(a){head+='<option value="'+escapeHtml(a)+'"'+(a===active?" selected":"")+">"+escapeHtml(a)+"</option>";});head+="</select>";}
     else if(accs.length===1)head+='<span class="cq-prov">'+escapeHtml(active)+'</span>';
     head+='<button class="btn-soft" type="button" data-em="add">+ Account</button><button class="btn-soft" type="button" data-em="draftall"'+(emailDrafting?' disabled':'')+'>'+(emailDrafting?"Drafting…":"✨ Draft all")+'</button><button class="btn-soft" type="button" data-em="refresh">Refresh</button><button class="btn-soft" type="button" data-em="disconnect">Disconnect</button></div></div>';
     var body="";
     if(emailLoading)body='<p class="empty">Loading your inbox…</p>';
     else if(emailError)body='<p class="gh-err">'+escapeHtml(emailError)+' <button class="linklike" type="button" data-em="refresh">Try again</button></p>';
     else{
-      var rows=overnightRows().concat(emailThreads);
-      if(!rows.length)body='<p class="empty">Inbox is clear. 🎉</p>';
+      var rows=overnightRows().concat(emailThreads).filter(function(m){return !isSnoozed(m.id);});
+      var snz=snoozedGroupHTML();
+      if(!rows.length)body=(snz?'<p class="empty" style="margin-top:8px">Inbox is clear — nothing live right now. 🎉</p>':'<p class="empty">Inbox is clear. 🎉</p>')+snz;
       else{
         // Smart inbox — Gmail's own categories sort real mail to the top, noise away.
         var groups={primary:[],fyi:[],noise:[]};
@@ -2556,7 +2676,7 @@
         [groups.primary,groups.fyi,groups.noise].forEach(function(g){g.sort(function(a,b){return (b.unread?1:0)-(a.unread?1:0);});});
         body=(groups.primary.length?emailGroupHTML("📌 Needs you",groups.primary,"primary",true):'<p class="empty" style="margin-top:8px">Nothing needs a reply right now. 🎉</p>')+
           emailGroupHTML("📰 FYI",groups.fyi,"fyi",false)+
-          emailGroupHTML("🔕 Noise",groups.noise,"noise",false);
+          emailGroupHTML("🔕 Noise",groups.noise,"noise",false)+snz;
       }
     }
     box.innerHTML=head+body;
@@ -2574,7 +2694,15 @@
     else if(act==="draft")draftReply(id);
     else if(act==="send")sendReply(id);
     else if(act==="discard")discardDraft(id);
-    else if(act==="disconnect"){if(window.confirm("Disconnect "+(emailActive()||"Gmail")+"? The sign-in is revoked on Google and removed from the relay."))emailDisconnect(emailActive());}
+    else if(act==="archive")archiveMsg(id);
+    else if(act==="snooze"){emailSnoozeOpen=id;renderEmail();}
+    else if(act==="snoozeset")snoozeMsg(id,a.getAttribute("data-when"));
+    else if(act==="snoozecancel"){emailSnoozeOpen="";renderEmail();}
+    else if(act==="wake")wakeSnooze(id);
+    else if(act==="disconnect"){
+      if(isUnified()){if(window.confirm("Disconnect ALL Gmail accounts? Every sign-in is revoked on Google and removed from the relay."))emailDisconnect(null);}
+      else if(window.confirm("Disconnect "+(emailActive()||"Gmail")+"? The sign-in is revoked on Google and removed from the relay."))emailDisconnect(emailActive());
+    }
   }
 
   /* ---------- backup & PWA (v0.6) ---------- */
@@ -2673,10 +2801,11 @@
       if(saved.sync&&typeof saved.sync==="object")state.sync=saved.sync;
       if(saved.email&&typeof saved.email==="object")state.email=saved.email;
       if(saved.brief&&typeof saved.brief==="object")state.brief=saved.brief;
+      if(saved.weekly&&typeof saved.weekly==="object")state.weekly=saved.weekly;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=25;
+    state.v=26;
     var sharedMsg=ingestShared();
     renderHome();
     save();
