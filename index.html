@@ -628,7 +628,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.22 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · Council → action (turn a verdict into reviewed tasks) · AI morning brief (a written daily cockpit + smart 8am push), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.23 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -969,10 +969,12 @@
   function generateBrief(force){
     var base=relayBase();if(!base)return;
     var dk=todayKey(),d=dayDigest(dk);
-    if(!force&&!d.nTasks&&!d.nEvents){state.brief={date:dk,text:""};persist();renderNext();return;}
+    var es=(state.email&&state.email.session&&state.email.accounts&&state.email.accounts.length)?state.email.session:"";
+    if(!force&&!d.nTasks&&!d.nEvents&&!es){state.brief={date:dk,text:""};persist();renderNext();return;}
     if(briefBusy)return;briefBusy=true;renderNext();
-    var sys="You are Kevin's calm daily assistant inside KevinOS. Write a SHORT morning brief — 2 to 4 sentences, warm but efficient — that orients him to his day and gently suggests where to start. Plain text, no lists, no preamble, no sign-off.";
-    fetch(base+"/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:sys,prompt:"Here is my day. Write my morning brief.\n\n"+briefContextText(dk)})}).then(function(r){return r.json();}).then(function(j){
+    var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    // /brief folds in a live inbox peek too — the relay writes it and the 8am push reuses the same engine.
+    fetch(base+"/brief",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({emailSession:es,dateKey:dk,tz:tz,context:briefContextText(dk),fallback:briefBodyShort(dk)})}).then(function(r){return r.json();}).then(function(j){
       briefBusy=false;state.brief={date:dk,text:(j&&j.text)?j.text:""};persist();renderNext();
     }).catch(function(){briefBusy=false;state.brief={date:dk,text:""};persist();renderNext();});
   }
@@ -1065,8 +1067,14 @@
   function taskDueEpoch(it){if(!it.due||!it.dueTime)return 0;var p=keyToParts(it.due),tp=String(it.dueTime).split(":");return new Date(p.y,p.m,p.d,parseInt(tp[0],10)||0,parseInt(tp[1],10)||0,0,0).getTime();}
   function buildReminders(){
     var out=[],i,url="https://kevinbigham.github.io/kevinos/";
-    var hour=(state.push&&state.push.hour)||8,times=morningBriefTimes(hour,3);
-    for(i=0;i<times.length;i++){var dkB=dateKey(new Date(times[i]));out.push({id:"brief-"+i,fireAt:times[i],title:"Good morning, Kevin ☀️",body:briefBodyShort(dkB),url:url,tag:"kevinos-brief"});}
+    var hour=(state.push&&state.push.hour)||8,times=morningBriefTimes(hour,7);
+    var sk=(state.sync&&state.sync.on&&state.sync.key)?state.sync.key:"";
+    var es=(state.email&&state.email.session&&state.email.accounts&&state.email.accounts.length)?state.email.session:"";
+    var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    // gen:"brief" → the relay re-writes the body FRESH at 8am from synced data +
+    // live inbox (so it's smart even if the app's been closed for days); body is
+    // the deterministic fallback if generation fails.
+    for(i=0;i<times.length;i++){var dkB=dateKey(new Date(times[i]));out.push({id:"brief-"+i,fireAt:times[i],title:"Good morning, Kevin ☀️",body:briefBodyShort(dkB),url:url,tag:"kevinos-brief",gen:"brief",syncKey:sk,emailSession:es,dateKey:dkB,tz:tz});}
     var now=Date.now();
     state.items.forEach(function(it){if(it.done||!it.due||!it.dueTime)return;var fa=taskDueEpoch(it);if(fa>now)out.push({id:"task-"+it.id,fireAt:fa,title:"Task due",body:it.text,url:url,tag:"kevinos-task-"+it.id});});
     return out;
@@ -2625,7 +2633,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=22;
+    state.v=23;
     var sharedMsg=ingestShared();
     renderHome();
     save();

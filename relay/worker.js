@@ -491,7 +491,13 @@ async function firePush(env) {
     if (future.length !== all.length) { rec.reminders = future; await env.PUSH.put(k.name, JSON.stringify(rec)); }
     for (const r of due) {
       try {
-        const res = await sendPush(rec.subscription, { title: r.title, body: r.body, url: r.url, tag: r.tag }, env, 86400);
+        let body = r.body;
+        if (r.gen === "brief") {
+          // Generate the brief FRESH right now (synced tasks/events + live inbox),
+          // not the static body the app synced days ago. Falls back to r.body.
+          try { body = await buildServerBrief(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
+        }
+        const res = await sendPush(rec.subscription, { title: r.title, body: body, url: r.url, tag: r.tag }, env, 86400);
         if (res.status === 404 || res.status === 410) { await env.PUSH.delete(k.name); break; }
       } catch (e) { /* drop on failure — a missed reminder beats a stuck queue */ }
     }
@@ -603,6 +609,85 @@ function gmailApi(token, path, init) {
     ...(init || {}),
     headers: { Authorization: "Bearer " + token, ...(init && init.headers) },
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proactive Brief 2.0 — the relay writes the morning brief FRESH at send time
+// (cron) from the user's synced data + a live inbox peek, so it's smart even when
+// the app is closed. Used by POST /brief (app card + tests) and by firePush (8am).
+// ─────────────────────────────────────────────────────────────────────────────
+function briefDigest(doc, D) {
+  const items = Array.isArray(doc && doc.items) ? doc.items : [];
+  const events = Array.isArray(doc && doc.events) ? doc.events : [];
+  const tasks = items.filter((i) => i && !i.done && (i.due === D || i.today === true || (i.due && i.due < D)));
+  tasks.sort((a, b) => { const ad = a.due || "9999-99-99", bd = b.due || "9999-99-99"; return ad < bd ? -1 : ad > bd ? 1 : 0; });
+  const overdue = items.filter((i) => i && !i.done && i.due && i.due < D).length;
+  const evs = events.filter((e) => e && e.date === D).sort((a, b) => ((a.time || "99:99") < (b.time || "99:99") ? -1 : 1));
+  return { nTasks: tasks.length, nEvents: evs.length, overdue, tasks: tasks.slice(0, 12), events: evs.slice(0, 12) };
+}
+function briefDigestText(dg, D) {
+  const L = [];
+  if (D) L.push("Date: " + D);
+  if (dg.overdue) L.push("Overdue tasks: " + dg.overdue);
+  L.push("Tasks today (" + dg.nTasks + "):");
+  if (dg.tasks.length) dg.tasks.forEach((t) => L.push("- " + (t.text || "(untitled)") + (t.area && t.area !== "Inbox" ? " [" + t.area + "]" : "")));
+  else L.push("- none");
+  L.push("Events today (" + dg.nEvents + "):");
+  if (dg.events.length) dg.events.forEach((e) => L.push("- " + (e.time ? e.time : "all day") + " " + (e.title || "(untitled)")));
+  else L.push("- none");
+  return L.join("\n");
+}
+// Lightweight inbox peek: unread count + a few real subjects/senders across accounts.
+async function briefInbox(env, session) {
+  const rec = await gmailGetRec(env, session);
+  if (!rec || !rec.accounts || !rec.accounts.length) return null;
+  let unread = 0; const subjects = [];
+  for (const acct of rec.accounts) {
+    try {
+      const token = await gmailAccessToken(env, acct);
+      const r = await gmailApi(token, "/messages?q=" + encodeURIComponent("is:unread in:inbox") + "&maxResults=5");
+      const j = await r.json();
+      const ids = j.messages || [];
+      unread += typeof j.resultSizeEstimate === "number" ? j.resultSizeEstimate : ids.length;
+      for (const m of ids.slice(0, 3)) {
+        try {
+          const mr = await gmailApi(token, "/messages/" + m.id + "?format=metadata&metadataHeaders=Subject&metadataHeaders=From");
+          const mj = await mr.json();
+          const hs = (mj.payload && mj.payload.headers) || [];
+          subjects.push({ from: gmailHeader(hs, "From"), subject: gmailHeader(hs, "Subject") });
+        } catch (e) { /* skip one message */ }
+      }
+    } catch (e) { /* skip one account */ }
+  }
+  try { await gmailPutRec(env, session, rec); } catch (e) { /* persist refreshed tokens, best-effort */ }
+  return { unread, subjects };
+}
+async function buildServerBrief(env, opts) {
+  const fallback = (opts.fallback || "").toString();
+  if (!env.GEMINI_API_KEY) return fallback;
+  // 1) Day context: prefer app-supplied context; else read the synced D1 doc.
+  let context = (opts.context || "").toString();
+  if (!context && opts.syncKey && /^[a-f0-9]{16,128}$/.test(opts.syncKey) && env.SYNC) {
+    try {
+      const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(opts.syncKey).first();
+      if (row && row.doc) context = briefDigestText(briefDigest(JSON.parse(row.doc), opts.dateKey), opts.dateKey);
+    } catch (e) { /* fall through to whatever we have */ }
+  }
+  // 2) Live inbox peek (optional).
+  let inbox = null;
+  if (opts.emailSession) { try { inbox = await briefInbox(env, opts.emailSession); } catch (e) { inbox = null; } }
+  if (!context && !inbox) return fallback;
+  const lines = [];
+  if (context) lines.push(context);
+  if (inbox) {
+    lines.push("", "Inbox: " + inbox.unread + " unread");
+    inbox.subjects.forEach((s) => lines.push("- from " + (s.from || "?") + ": " + (s.subject || "(no subject)")));
+  }
+  const system = "You are Kevin's calm daily assistant inside KevinOS. Write a SHORT morning brief — 2 to 4 sentences, warm but efficient — orienting him to his day: what's on the calendar, what to tackle first, and whether any emails truly need a human reply (call out real personal or business emails by sender; ignore marketing/newsletters). Plain text. No lists, no preamble, no greeting line, no sign-off.";
+  try {
+    const text = await callGemini(env, system, "Here is my day. Write my morning brief.\n\n" + lines.join("\n"));
+    return text && text.trim() ? text.trim().slice(0, 350) : fallback;
+  } catch (e) { return fallback; }
 }
 
 export default {
@@ -888,6 +973,22 @@ export default {
         "ON CONFLICT(id) DO UPDATE SET doc = ?2, updated_at = ?3, rev = ?4, device_id = ?5"
       ).bind(key, docStr, updatedAt, rev, deviceId).run();
       return json({ ok: true, rev, updatedAt }, 200, origin);
+    }
+
+    // Proactive Brief 2.0 — write a fresh morning brief from synced day context
+    // (or the D1 sync doc) + a live inbox peek. The app's brief card calls this;
+    // the 8am push calls buildServerBrief directly inside firePush.
+    if (request.method === "POST" && url.pathname === "/brief") {
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const text = await buildServerBrief(env, {
+        syncKey: (payload && payload.syncKey) || "",
+        emailSession: (payload && payload.emailSession) || "",
+        dateKey: (payload && payload.dateKey) || "",
+        context: (payload && payload.context) || "",
+        fallback: (payload && payload.fallback) || "",
+      });
+      return json({ ok: true, text }, 200, origin);
     }
 
     // ── Email Command Center (Phase 5) — Gmail OAuth + AI drafts + send ──────────
