@@ -491,13 +491,21 @@ async function firePush(env) {
     if (future.length !== all.length) { rec.reminders = future; await env.PUSH.put(k.name, JSON.stringify(rec)); }
     for (const r of due) {
       try {
-        let body = r.body;
+        let body = r.body, title = r.title, skip = false;
         if (r.gen === "brief") {
           // Generate the brief FRESH right now (synced tasks/events + live inbox),
           // not the static body the app synced days ago. Falls back to r.body.
           try { body = await buildServerBrief(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
+        } else if (r.gen === "draft") {
+          // Pre-draft replies to real overnight mail; notify only if there are any.
+          try {
+            const dr = await generateOvernightDrafts(env, r.emailSession, 5);
+            if (!dr.count) skip = true;
+            else { title = "📝 Replies drafted"; body = dr.count + (dr.count === 1 ? " reply is" : " replies are") + " ready to review & send in KevinOS."; }
+          } catch (e) { skip = true; }
         }
-        const res = await sendPush(rec.subscription, { title: r.title, body: body, url: r.url, tag: r.tag }, env, 86400);
+        if (skip) continue;
+        const res = await sendPush(rec.subscription, { title: title, body: body, url: r.url, tag: r.tag }, env, 86400);
         if (res.status === 404 || res.status === 410) { await env.PUSH.delete(k.name); break; }
       } catch (e) { /* drop on failure — a missed reminder beats a stuck queue */ }
     }
@@ -688,6 +696,47 @@ async function buildServerBrief(env, opts) {
     const text = await callGemini(env, system, "Here is my day. Write my morning brief.\n\n" + lines.join("\n"));
     return text && text.trim() ? text.trim().slice(0, 350) : fallback;
   } catch (e) { return fallback; }
+}
+
+// Overnight auto-drafts — for each REAL unread inbox message (Gmail's primary
+// category, not from me), Gemini pre-writes a reply (or returns SKIP for things
+// that need none). Stored in KV (gdraft:<session>) for the app to review & send
+// in the morning. NEVER sends. Cap bounds cost/time.
+async function generateOvernightDrafts(env, session, max) {
+  if (!env.GEMINI_API_KEY || !env.PUSH || !session) return { count: 0, drafts: [] };
+  const rec = await gmailGetRec(env, session);
+  if (!rec || !rec.accounts || !rec.accounts.length) return { count: 0, drafts: [] };
+  const cap = max || 5;
+  const drafts = [];
+  for (const acct of rec.accounts) {
+    if (drafts.length >= cap) break;
+    try {
+      const token = await gmailAccessToken(env, acct);
+      const q = "is:unread in:inbox category:primary -from:me";
+      const lr = await gmailApi(token, "/messages?q=" + encodeURIComponent(q) + "&maxResults=" + cap);
+      const lj = await lr.json();
+      if (!lr.ok) continue;
+      for (const m of (lj.messages || [])) {
+        if (drafts.length >= cap) break;
+        try {
+          const mr = await gmailApi(token, "/messages/" + m.id + "?format=full");
+          const mj = await mr.json();
+          if (!mr.ok) continue;
+          const hs = mj.payload && mj.payload.headers;
+          const from = gmailHeader(hs, "From"), subject = gmailHeader(hs, "Subject");
+          const msgId = gmailHeader(hs, "Message-ID") || gmailHeader(hs, "Message-Id");
+          const bodyText = gmailBodyText(mj.payload).slice(0, 8000);
+          const sys = "You are " + acct.email + ", writing a reply as this person. Draft a clear, warm, concise reply. Return ONLY the reply body text — no subject line, no email headers, a simple sign-off is fine. If the email is marketing, automated, a receipt, or clearly needs no reply, return exactly the single word SKIP.";
+          const draft = (await callGemini(env, sys, "Reply to this email.\n\nFrom: " + from + "\nSubject: " + subject + "\n\n" + bodyText)).trim();
+          if (!draft || /^skip\.?$/i.test(draft)) continue;
+          drafts.push({ id: m.id, account: acct.email, from, to: from, subject: /^re:/i.test(subject) ? subject : ("Re: " + subject), body: draft, threadId: mj.threadId, messageId: msgId, snippet: mj.snippet || "" });
+        } catch (e) { /* skip one message */ }
+      }
+      await gmailPutRec(env, session, rec);
+    } catch (e) { /* skip one account */ }
+  }
+  await env.PUSH.put("gdraft:" + session, JSON.stringify({ drafts, generatedAt: Date.now() }));
+  return { count: drafts.length, drafts };
 }
 
 export default {
@@ -1092,6 +1141,29 @@ export default {
         const draft = await callGemini(env, sys, prompt);
         return json({ ok: true, to: from, subject: /^re:/i.test(subject) ? subject : ("Re: " + subject), body: draft, threadId: mj.threadId, messageId: msgId }, 200, origin);
       } catch (e) { return json({ error: (e && e.message) || "draft failed" }, 502, origin); }
+    }
+
+    // Email — overnight auto-drafts: generate (or list/remove) AI replies to real
+    // unread mail. The app shows them as review cards; cron pre-runs this nightly.
+    if (request.method === "POST" && url.pathname === "/google/overnight") {
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const session = payload && payload.session;
+      if (!session) return json({ error: "Missing session" }, 400, origin);
+      if (payload.remove) {
+        const raw = await env.PUSH.get("gdraft:" + session);
+        const cur = raw ? JSON.parse(raw) : { drafts: [] };
+        cur.drafts = (cur.drafts || []).filter((d) => d.id !== payload.remove && d.messageId !== payload.remove);
+        await env.PUSH.put("gdraft:" + session, JSON.stringify(cur));
+        return json({ ok: true, drafts: cur.drafts }, 200, origin);
+      }
+      if (payload.generate) {
+        const r = await generateOvernightDrafts(env, session, 5);
+        return json({ ok: true, count: r.count, drafts: r.drafts }, 200, origin);
+      }
+      const raw = await env.PUSH.get("gdraft:" + session);
+      const cur = raw ? JSON.parse(raw) : { drafts: [], generatedAt: 0 };
+      return json({ ok: true, drafts: cur.drafts || [], generatedAt: cur.generatedAt || 0 }, 200, origin);
     }
 
     // Email — send an approved reply (gmail.send). Never reached without a human approve.

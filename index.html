@@ -628,7 +628,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.23 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.24 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -1075,6 +1075,9 @@
     // live inbox (so it's smart even if the app's been closed for days); body is
     // the deterministic fallback if generation fails.
     for(i=0;i<times.length;i++){var dkB=dateKey(new Date(times[i]));out.push({id:"brief-"+i,fireAt:times[i],title:"Good morning, Kevin ☀️",body:briefBodyShort(dkB),url:url,tag:"kevinos-brief",gen:"brief",syncKey:sk,emailSession:es,dateKey:dkB,tz:tz});}
+    // gen:"draft" → ~1h before the brief, the relay pre-writes replies to real
+    // unread mail and pushes "N replies ready" (only fires when email's connected).
+    if(es){var dt=morningBriefTimes(Math.max(hour-1,5),7);for(i=0;i<dt.length;i++)out.push({id:"draft-"+i,fireAt:dt[i],title:"📝 Replies drafted",body:"Overnight replies are ready.",url:url,tag:"kevinos-drafts",gen:"draft",emailSession:es});}
     var now=Date.now();
     state.items.forEach(function(it){if(it.done||!it.due||!it.dueTime)return;var fa=taskDueEpoch(it);if(fa>now)out.push({id:"task-"+it.id,fireAt:fa,title:"Task due",body:it.text,url:url,tag:"kevinos-task-"+it.id});});
     return out;
@@ -2403,11 +2406,32 @@
   $("ghView").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="ghTokenInput"){e.preventDefault();ghConnect();}});
 
   /* ---------- Email Command Center (v0.18) ---------- */
-  var emailThreads=[], emailDrafts={}, emailLoading=false, emailError="", emailSending={};
+  var emailThreads=[], emailDrafts={}, emailLoading=false, emailError="", emailSending={}, emailOvernight=[], emailDrafting=false;
   function emailCfg(){if(!state.email)state.email={session:"",accounts:[],active:""};return state.email;}
   function emailOn(){var e=state.email;return !!(e&&e.accounts&&e.accounts.length);}
   function emailActive(){var e=emailCfg();return e.active||(e.accounts[0]||"");}
-  function emailEnter(){renderEmail();if(emailOn()&&!emailThreads.length&&!emailLoading)loadThreads(false);}
+  function emailEnter(){renderEmail();if(emailOn()){if(!emailThreads.length&&!emailLoading)loadThreads(false);fetchOvernight(false);}}
+  // Overnight auto-drafts: the relay pre-writes replies to real unread mail (nightly
+  // via cron, or on-demand here). They render as the same review cards via emailDrafts.
+  function fetchOvernight(generate){
+    var base=relayBase();if(!base||!emailOn())return;
+    if(generate){emailDrafting=true;renderEmail();}
+    fetch(base+"/google/overnight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,generate:!!generate})}).then(function(r){return r.json();}).then(function(j){
+      emailDrafting=false;
+      if(j&&j.ok&&isArr(j.drafts)){
+        emailOvernight=j.drafts;
+        j.drafts.forEach(function(d){if(!emailDrafts[d.id]||emailDrafts[d.id].overnight)emailDrafts[d.id]={to:d.to,subject:d.subject,body:d.body,threadId:d.threadId,messageId:d.messageId,overnight:true};});
+        if(generate)toast(j.drafts.length?(j.drafts.length+" repl"+(j.drafts.length===1?"y":"ies")+" drafted ✓"):"Nothing needed a reply — inbox’s calm. 🎉");
+      }
+      renderEmail();
+    }).catch(function(){emailDrafting=false;if(generate)toast("Couldn’t reach the relay.");renderEmail();});
+  }
+  function overnightRows(){
+    var have={};emailThreads.forEach(function(m){have[m.id]=true;});
+    var out=[];emailOvernight.forEach(function(d){if(!have[d.id])out.push({id:d.id,threadId:d.threadId,from:d.from||d.to,subject:d.subject||"",snippet:d.snippet||"",unread:true});});
+    return out;
+  }
+  function clearOvernight(id){var base=relayBase();if(base&&state.email&&state.email.session)fetch(base+"/google/overnight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,remove:id})}).catch(function(){});emailOvernight=emailOvernight.filter(function(d){return d.id!==id;});}
   function emailOAuthStart(){
     var base=relayBase();
     if(!base){emailError="Connect the relay first (Next → Connect AI).";renderEmail();return;}
@@ -2457,16 +2481,16 @@
     fetch(relayBase()+"/google/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:emailActive(),to:to,subject:d.subject||"",body:body,threadId:d.threadId,messageId:d.messageId})}).then(function(r){return r.json();}).then(function(j){
       emailSending[id]=false;
       if(!j||!j.ok){toast((j&&j.error)?("Send failed: "+j.error):"Couldn’t send.");renderEmail();return;}
-      delete emailDrafts[id];toast("Sent ✓");renderEmail();
+      if(d.overnight)clearOvernight(id);delete emailDrafts[id];toast("Sent ✓");renderEmail();
     }).catch(function(){emailSending[id]=false;toast("Couldn’t reach the relay.");renderEmail();});
   }
-  function discardDraft(id){delete emailDrafts[id];renderEmail();}
+  function discardDraft(id){if(emailDrafts[id]&&emailDrafts[id].overnight)clearOvernight(id);delete emailDrafts[id];renderEmail();}
   function emailDisconnect(account){
     var base=relayBase(),e=emailCfg();
     if(e.session&&base)fetch(base+"/google/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:e.session,account:account||undefined})}).catch(function(){});
     if(account){e.accounts=(e.accounts||[]).filter(function(a){return a!==account;});if(e.active===account)e.active=e.accounts[0]||"";if(!e.accounts.length){e.session="";e.pendingOAuth=false;}}
     else{state.email={session:"",accounts:[],active:""};}
-    emailThreads=[];emailDrafts={};save();renderEmail();
+    emailThreads=[];emailDrafts={};emailOvernight=[];save();renderEmail();
   }
   function emailFromName(from){var m=(from||"").match(/^\s*"?([^"<]*?)"?\s*</);var nm=m?m[1].trim():(from||"");return nm||from||"(unknown)";}
   function emailConnectHTML(){
@@ -2489,6 +2513,7 @@
     if(d.loading)return '<div class="cq-seat pending" style="margin-top:8px"><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
     var sending=!!emailSending[id];
     return '<div data-dcard="'+id+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px">'+
+      (d.overnight?'<div class="hint" style="margin-bottom:6px;color:#5B3B8C">📝 Drafted overnight — review &amp; send</div>':'')+
       '<div class="field" style="margin-bottom:6px"><label>To</label><input class="inp" data-df="to" value="'+escapeHtml(d.to||"")+'"></div>'+
       '<div class="field" style="margin-bottom:6px"><label>'+escapeHtml(d.subject||"")+'</label><textarea class="inp" data-df="body" rows="6" style="width:100%;resize:vertical">'+escapeHtml(d.body||"")+'</textarea></div>'+
       '<div style="display:flex;gap:8px"><button class="add-btn" type="button" data-em="send" data-id="'+id+'"'+(sending?" disabled":"")+'>'+(sending?"Sending…":"Approve & send")+'</button><button class="btn-ghost" type="button" data-em="discard" data-id="'+id+'">Discard</button></div></div>';
@@ -2501,14 +2526,14 @@
     var head='<div class="sec-head"><p class="section-label">Email</p><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">';
     if(accs.length>1){head+='<select class="inp" data-em-acct style="width:auto">';accs.forEach(function(a){head+='<option value="'+escapeHtml(a)+'"'+(a===active?" selected":"")+">"+escapeHtml(a)+"</option>";});head+="</select>";}
     else if(accs.length===1)head+='<span class="cq-prov">'+escapeHtml(active)+'</span>';
-    head+='<button class="btn-soft" type="button" data-em="add">+ Account</button><button class="btn-soft" type="button" data-em="refresh">Refresh</button><button class="btn-soft" type="button" data-em="disconnect">Disconnect</button></div></div>';
+    head+='<button class="btn-soft" type="button" data-em="add">+ Account</button><button class="btn-soft" type="button" data-em="draftall"'+(emailDrafting?' disabled':'')+'>'+(emailDrafting?"Drafting…":"✨ Draft all")+'</button><button class="btn-soft" type="button" data-em="refresh">Refresh</button><button class="btn-soft" type="button" data-em="disconnect">Disconnect</button></div></div>';
     var body="";
     if(emailLoading)body='<p class="empty">Loading your inbox…</p>';
     else if(emailError)body='<p class="gh-err">'+escapeHtml(emailError)+' <button class="linklike" type="button" data-em="refresh">Try again</button></p>';
-    else if(!emailThreads.length)body='<p class="empty">Inbox is clear. 🎉</p>';
+    else if(!overnightRows().length&&!emailThreads.length)body='<p class="empty">Inbox is clear. 🎉</p>';
     else{
       body='<div class="rows">';
-      emailThreads.forEach(function(m){
+      overnightRows().concat(emailThreads).forEach(function(m){
         body+='<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)">'+
           '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(m.from))+'</strong>'+(m.unread?'<span class="cq-pill" style="background:#5B3B8C;color:#fff">new</span>':'')+'</div>'+
           '<div>'+escapeHtml(m.subject||"(no subject)")+'</div>'+
@@ -2528,6 +2553,7 @@
     else if(act==="reopen"){var b=relayBase();if(b&&state.email&&state.email.session){try{window.open(b+"/google/login?session="+encodeURIComponent(state.email.session),"_blank");}catch(x){}}}
     else if(act==="cancel")emailDisconnect(null);
     else if(act==="refresh")loadThreads(true);
+    else if(act==="draftall")fetchOvernight(true);
     else if(act==="draft")draftReply(id);
     else if(act==="send")sendReply(id);
     else if(act==="discard")discardDraft(id);
@@ -2633,7 +2659,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=23;
+    state.v=24;
     var sharedMsg=ingestShared();
     renderHome();
     save();
