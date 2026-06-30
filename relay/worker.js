@@ -885,6 +885,86 @@ async function gmailInbox(env, acct, max) {
   }
   return out;
 }
+async function gmailInboxFull(env, acct, max) {
+  const token = await gmailAccessToken(env, acct);
+  const lr = await gmailApi(token, "/messages?labelIds=INBOX&maxResults=" + (max || 20));
+  const lj = await lr.json();
+  if (!lr.ok) throw new Error((lj.error && lj.error.message) || "gmail error");
+  const out = [];
+  for (const m of (lj.messages || [])) {
+    try {
+      const mr = await gmailApi(token, "/messages/" + m.id + "?format=full");
+      const mj = await mr.json();
+      if (!mr.ok) continue;
+      const hs = mj.payload && mj.payload.headers;
+      const body = (gmailBodyText(mj.payload) || "").slice(0, 1500);
+      out.push({
+        id: mj.id,
+        account: acct.email,
+        from: gmailHeader(hs, "From"),
+        subject: gmailHeader(hs, "Subject"),
+        date: gmailHeader(hs, "Date"),
+        snippet: mj.snippet || "",
+        body,
+      });
+    } catch (e) { /* skip one message */ }
+  }
+  return out;
+}
+const SPEND_CATS = ["Groceries", "Dining", "Shopping", "Transport", "Travel", "Bills", "Subscriptions", "Entertainment", "Health", "Other"];
+const RECEIPT_RE = /receipt|order\s*(confirmation|confirmed|#|number)|your order|invoice|payment\s*(received|confirmation)|thanks for your (order|purchase)|total[:\s$]/i;
+async function parseSpendBatch(env, batch) {
+  const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
+  const system = "You are a precise receipt parser for a personal finance tracker. You are given several emails, each with an ID, sender, subject, date, and body text. Some are purchase receipts or order confirmations; some are not. For each email that is clearly a completed purchase with a charged amount, output one record. Ignore shipping notices with no price, marketing, statements, balance alerts, and anything that is not a single concrete charge. Never invent an amount. Categorize each charge into exactly one of: Groceries, Dining, Shopping, Transport, Travel, Bills, Subscriptions, Entertainment, Health, Other.";
+  let userPrompt = 'Extract purchase charges from these emails. Return ONLY a JSON array, no prose. Each element: {"id": the email id you were given, "merchant": store or service name, "amount": number (no currency symbol), "currency": ISO code like "USD", "date": "YYYY-MM-DD" derived from the email date, "category": one of [Groceries, Dining, Shopping, Transport, Travel, Bills, Subscriptions, Entertainment, Health, Other]}. Skip any email that is not a concrete completed charge. If there are no charges, return [].\n\nEMAILS:\n';
+  for (const m of batch) {
+    userPrompt += "--- id: " + m.id + " | from: " + m.from + " | date: " + m.date + " | subject: " + m.subject + " ---\n" + m.body + "\n\n";
+  }
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      systemInstruction: { parts: [{ text: system }] },
+      generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
+    }),
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error((data.error && data.error.message) || "Gemini error " + r.status);
+  const cand = (data.candidates || [])[0];
+  const txt = (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
+  let arr = null;
+  try { arr = JSON.parse(txt); } catch (e) { const a = txt.indexOf("["), b = txt.lastIndexOf("]"); if (a >= 0 && b > a) { try { arr = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { arr = null; } } }
+  if (!Array.isArray(arr)) throw new Error("Could not parse spend records");
+  return arr;
+}
+function normalizeSpendRecords(raw, candidates) {
+  const allowed = {}; SPEND_CATS.forEach((c) => { allowed[c] = 1; });
+  const ids = {}; candidates.forEach((m) => { ids[m.id] = 1; });
+  const seen = {};
+  const out = [];
+  for (const rec of raw) {
+    const msgId = ((rec && rec.id) || "").toString();
+    if (!ids[msgId] || seen[msgId]) continue;
+    const amount = Number(rec && rec.amount);
+    if (!isFinite(amount) || amount <= 0) continue;
+    const date = ((rec && rec.date) || "").toString();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    let category = ((rec && rec.category) || "Other").toString();
+    if (!allowed[category]) category = "Other";
+    out.push({
+      msgId,
+      merchant: ((rec && rec.merchant) || "").toString().slice(0, 80),
+      amount,
+      currency: ((rec && rec.currency) || "USD").toString().toUpperCase().slice(0, 3),
+      date,
+      category,
+    });
+    seen[msgId] = 1;
+  }
+  return out;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Proactive Brief 2.0 — the relay writes the morning brief FRESH at send time
@@ -1015,6 +1095,7 @@ function weeklyDigest(doc, D) {
   const items = Array.isArray(doc && doc.items) ? doc.items : [];
   const events = Array.isArray(doc && doc.events) ? doc.events : [];
   const builds = Array.isArray(doc && doc.builds) ? doc.builds : [];
+  const spend = Array.isArray(doc && doc.spend) ? doc.spend : [];
   const end = D ? addDaysKey(D, 7) : "9999-99-99";
   const open = items.filter((i) => i && !i.done);
   const overdue = D ? open.filter((i) => i.due && i.due < D) : [];
@@ -1023,7 +1104,14 @@ function weeklyDigest(doc, D) {
   const evs = events.filter((e) => e && e.date && (!D || e.date >= D) && e.date <= end)
     .sort((a, b) => ((a.date + (a.time || "99:99")) < (b.date + (b.time || "99:99")) ? -1 : 1));
   const active = builds.filter((b) => b && (b.stage === "Idea" || b.stage === "Building" || b.stage === "Testing"));
-  return { nOpen: open.length, overdue: overdue.slice(0, 12), nOverdue: overdue.length, nEvents: evs.length, events: evs.slice(0, 12), dueWeek: dueWeek.slice(0, 12), builds: active.slice(0, 8) };
+  let wkStart = D;
+  if (D) { const dd = new Date(D + "T00:00:00Z"); wkStart = addDaysKey(D, -dd.getUTCDay()); }
+  const weekSpend = spend.filter((s) => s && typeof s.amount === "number" && s.amount > 0 && s.date && (!wkStart || s.date >= wkStart));
+  let spendTotal = 0; const byCat = {};
+  weekSpend.forEach((s) => { const c = s.category || "Other"; spendTotal += s.amount; byCat[c] = (byCat[c] || 0) + s.amount; });
+  let spendTop = ""; let topV = 0;
+  Object.keys(byCat).forEach((c) => { if (byCat[c] > topV) { topV = byCat[c]; spendTop = c; } });
+  return { nOpen: open.length, overdue: overdue.slice(0, 12), nOverdue: overdue.length, nEvents: evs.length, events: evs.slice(0, 12), dueWeek: dueWeek.slice(0, 12), builds: active.slice(0, 8), spendTotal, spendTop };
 }
 function weeklyDigestText(wd, D) {
   const L = [];
@@ -1035,6 +1123,7 @@ function weeklyDigestText(wd, D) {
   L.push("", "Events this week (" + wd.nEvents + "):");
   if (wd.events.length) wd.events.forEach((e) => L.push("- " + (e.date || "") + " " + (e.time ? e.time : "all day") + " " + (e.title || "(untitled)"))); else L.push("- none");
   if (wd.builds.length) { L.push("", "In the studio:"); wd.builds.forEach((b) => L.push("- " + (b.name || "(untitled)") + " [" + (b.stage || "") + "]" + (b.next ? " → " + b.next : ""))); }
+  if (wd.spendTotal > 0) L.push("", "Spending this week: ~$" + Math.round(wd.spendTotal) + (wd.spendTop ? " (mostly " + wd.spendTop + ")" : "") + ".");
   return L.join("\n");
 }
 async function buildWeeklyReview(env, opts) {
@@ -1058,7 +1147,7 @@ async function buildWeeklyReview(env, opts) {
     lines.push("", "Inbox: " + inbox.unread + " unread");
     inbox.subjects.forEach((s) => lines.push("- from " + (s.from || "?") + ": " + (s.subject || "(no subject)")));
   }
-  const system = "You are Kevin's calm assistant inside KevinOS. It's Sunday evening. Write a SHORT weekly review — 3 to 5 sentences, warm and grounding — that orients him to the week ahead: the big rocks on the calendar, which priorities to protect time for, anything overdue to clear first, and one thing worth teeing up tonight. Plain text. No lists, no preamble, no greeting line, no sign-off.";
+  const system = "You are Kevin's calm assistant inside KevinOS. It's Sunday evening. Write a SHORT weekly review — 3 to 5 sentences, warm and grounding — that orients him to the week ahead: the big rocks on the calendar, which priorities to protect time for, anything overdue to clear first, and one thing worth teeing up tonight. If there is spending data, mention the rough weekly spend total and the top category in one short clause. Plain text. No lists, no preamble, no greeting line, no sign-off.";
   try {
     const text = await callGemini(env, system, "Here is my week ahead. Write my Sunday weekly review.\n\n" + lines.join("\n"));
     return text && text.trim() ? text.trim().slice(0, 520) : fallback;
@@ -1116,7 +1205,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID, peopleEnrich: !!env.GOOGLE_CLIENT_ID }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID, peopleEnrich: !!env.GOOGLE_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -1445,6 +1534,36 @@ export default {
         fallback: (payload && payload.fallback) || "",
       });
       return json({ ok: true, text }, 200, origin);
+    }
+
+    // Spend Pulse — scan connected Gmail inboxes for receipt-like messages and
+    // extract private ledger records. Never sends amounts to push/public surfaces.
+    if (request.method === "POST" && url.pathname === "/spend/scan") {
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+      const rec = await gmailGetRec(env, payload && payload.session);
+      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+      let messages = [];
+      if (payload && payload.all) {
+        const per = Math.max(8, Math.floor(40 / rec.accounts.length));
+        for (const acct of rec.accounts) {
+          try { messages = messages.concat(await gmailInboxFull(env, acct, per)); } catch (e) { /* skip account */ }
+        }
+      } else {
+        const acct = gmailFindAccount(rec, payload && payload.account);
+        if (!acct) return json({ error: "not connected" }, 401, origin);
+        try { messages = await gmailInboxFull(env, acct, 40); } catch (e) { messages = []; }
+      }
+      messages = messages.slice(0, 40);
+      await gmailPutRec(env, payload.session, rec);
+      const candidates = messages.filter((m) => RECEIPT_RE.test((m.subject || "") + " " + (m.snippet || "") + " " + (m.body || "")));
+      const parsed = [];
+      for (let i = 0; i < candidates.length; i += 10) {
+        const batch = candidates.slice(i, i + 10);
+        try { parsed.push(...await parseSpendBatch(env, batch)); } catch (e) { /* skip batch */ }
+      }
+      return json({ ok: true, records: normalizeSpendRecords(parsed, candidates), scanned: candidates.length }, 200, origin);
     }
 
     // ── Email Command Center (Phase 5) — Gmail OAuth + AI drafts + send ──────────

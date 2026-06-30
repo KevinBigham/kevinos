@@ -41,6 +41,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **Mission wave #4 — One-Tap Send** | **Shipped** v0.31 → tone presets, confirmed send, archive-on-success |
 | ✅ | **Mission wave #6 — Link Stash + AI TL;DR** | **Shipped** v0.32 → synced read-later stash, relay `/summarize`, search/tag/manual fallback |
 | ✅ | **Mission wave #7 — People Radar** | **Shipped** v0.33 → synced mini-CRM, Gmail metadata enrich, cadence groups, Sunday people nudges |
+| ✅ | **Mission wave #8 — Spend Pulse** | **Shipped** v0.34 → private weekly spend card, cash ledger, Gmail receipt scan, category bars |
 
 ---
 

@@ -443,6 +443,14 @@
   .person-status{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:4px 8px;font-weight:700}
   .person-status.overdue{color:var(--clay);background:var(--gold-soft)}
   .person-status.ok{color:var(--ink-soft);background:var(--surface-2)}
+  .spend-card .spend-total{font-family:var(--font-display);font-size:22px;color:var(--ink);margin:6px 0 10px}
+  .spend-card .spend-bar{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px;color:var(--ink-soft);position:relative}
+  .spend-card .spend-bar .spend-cat{width:96px;flex:0 0 auto}
+  .spend-card .spend-bar .spend-amt{width:72px;flex:0 0 auto;text-align:right;color:var(--ink)}
+  .spend-card .spend-bar i{height:6px;border-radius:999px;background:var(--accent-soft);display:block;flex:1 1 auto;min-width:0}
+  .spend-card .spend-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-top:1px solid var(--line);font-size:13px}
+  .spend-card .spend-row span{min-width:0;word-break:break-word}
+  .spend-card .spend-foot{margin-top:10px}
 
   @media (max-width:560px){
     .wrap{padding:24px 14px 48px}
@@ -755,7 +763,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.33 · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.34 · Spend Pulse · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -795,6 +803,7 @@
   var PROMPT_CATS=[{key:"Coaching"},{key:"Teaching"},{key:"Studio"},{key:"Council"},{key:"Writing"},{key:"General"}];
   var PARA_BUCKETS=[{key:"Project",color:"#4A2E78"},{key:"Area",color:"#B8901F"},{key:"Resource",color:"#7E5AA6"},{key:"Archive",color:"#8A8594"}];
   var REPEAT_OPTS=[{key:"",label:"No repeat"},{key:"daily",label:"Daily"},{key:"weekdays",label:"Weekdays"},{key:"weekly",label:"Weekly"},{key:"monthly",label:"Monthly"}];
+  var SPEND_CATS=["Groceries","Dining","Shopping","Transport","Travel","Bills","Subscriptions","Entertainment","Health","Other"];
   var REFLECTIONS=["Begin where you are. It's the only place that works.","Calm is a pace, not a feeling. Set it.","What's here is enough to work with.","Move once, gently — then again.","Let the small things stay small.","You don't have to carry tomorrow yet. Just the next thing.","You've done hard mornings before."];
   var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
   var MON3=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -838,11 +847,11 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],habits:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},peopleCfg:{lastEnrichAt:0},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],habits:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
-  var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={}, briefBusy=false, weeklyBusy=false;
+  var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={}, briefBusy=false, weeklyBusy=false, spendBusy=false, spendEditId="";
   var vcOpen=false, vcState="idle", vcTranscript="", vcInterim="", vcRec=null, vcSupported=false, vcUndo=null, vcUndoT=0;
   var projFilter="All", projView="status", editingProjId=null;
   var editingBuildId=null;
@@ -1204,6 +1213,7 @@
     L.push("","Events this week ("+w.events.length+"):");
     if(w.events.length)w.events.slice(0,12).forEach(function(e){L.push("- "+(e.date||"")+" "+(e.time?fmtTime(e.time):"all day")+" "+(e.title||"(untitled)"));});else L.push("- none");
     if(w.builds.length){L.push("","In the studio:");w.builds.slice(0,8).forEach(function(b){L.push("- "+(b.name||"")+" ["+(b.stage||"")+"]"+(b.next?" → "+b.next:""));});}
+    var sp=spendContextText();if(sp)L.push("",sp);
     return L.join("\n");
   }
   function weeklyBodyShort(dk){
@@ -1223,6 +1233,96 @@
     }
     return n?(n+" "+(n===1?"person":"people")+" overdue to reach out."):"You're all caught up on your people.";
   }
+  function spendWeekStart(){return weekStartKey(todayKey());}
+  function spendThisWeek(){if(!isArr(state.spend))state.spend=[];var ws=spendWeekStart(),out=[],i,r;for(i=0;i<state.spend.length;i++){r=state.spend[i];if(r&&r.date&&r.date>=ws&&typeof r.amount==="number"&&r.amount>0)out.push(r);}return out;}
+  function spendWeekTotal(){var a=spendThisWeek(),t=0,i;for(i=0;i<a.length;i++)t+=a[i].amount;return t;}
+  function spendByCategory(){var a=spendThisWeek(),map={},i,c;for(i=0;i<a.length;i++){c=a[i].category||"Other";map[c]=(map[c]||0)+a[i].amount;}return map;}
+  function fmtMoney(n,cur){n=Number(n)||0;cur=cur||"USD";return cur==="USD"?"$"+n.toFixed(2):cur+" "+n.toFixed(2);}
+  function spendContextText(){var t=spendWeekTotal();if(t<=0)return"";var map=spendByCategory(),top="",tv=0,k;for(k in map){if(map.hasOwnProperty(k)&&map[k]>tv){tv=map[k];top=k;}}return "Spending this week: "+fmtMoney(t,"USD")+(top?". Top category: "+top+" ("+fmtMoney(tv,"USD")+")":"")+".";}
+  function spendCatOptions(sel){var h="",i,c;for(i=0;i<SPEND_CATS.length;i++){c=SPEND_CATS[i];h+='<option value="'+c+'"'+(c===sel?' selected':'')+'>'+c+'</option>';}return h;}
+  function findSpend(id){if(!isArr(state.spend))state.spend=[];for(var i=0;i<state.spend.length;i++){if(state.spend[i].id===id)return state.spend[i];}return null;}
+  function spendEditHTML(){
+    var r=spendEditId==="new"?{merchant:"",amount:"",category:"Other",date:todayKey()}:findSpend(spendEditId);
+    if(!r)r={merchant:"",amount:"",category:"Other",date:todayKey()};
+    return '<div class="edit-panel">'+
+      '<div class="field"><label for="spMerchant">Merchant</label><input class="inp" id="spMerchant" type="text" value="'+escapeHtml(r.merchant||"")+'"></div>'+
+      '<div class="field"><label for="spAmount">Amount</label><input class="inp" id="spAmount" type="number" step="0.01" min="0" value="'+escapeHtml(r.amount?Number(r.amount).toFixed(2):"")+'"></div>'+
+      '<div class="field"><label for="spCat">Category</label><select class="inp" id="spCat">'+spendCatOptions(r.category||"Other")+'</select></div>'+
+      '<div class="field"><label for="spDate">Date</label><input class="inp" id="spDate" type="date" value="'+escapeHtml(r.date||todayKey())+'"></div>'+
+      '<div class="edit-actions"><button class="add-btn" type="button" data-spend-save="'+escapeHtml(spendEditId)+'">Save</button><button class="btn-soft" type="button" data-spend-cancel="1">Cancel</button><button class="btn-ghost danger" type="button" data-spend-delete="'+escapeHtml(spendEditId)+'">Delete</button></div>'+
+    '</div>';
+  }
+  function spendRowsHTML(){
+    var a=spendThisWeek(),h="",i,r;
+    for(i=0;i<a.length;i++){r=a[i];if(r.source!=="cash")continue;h+='<div class="spend-row"><span>'+escapeHtml(r.merchant||"Cash")+' · '+escapeHtml(r.category||"Other")+'</span><span>'+escapeHtml(fmtMoney(r.amount,r.currency||"USD"))+' <button class="linklike" type="button" data-spend-edit="'+escapeHtml(r.id)+'">edit</button> <button class="linklike" type="button" data-spend-del="'+escapeHtml(r.id)+'">delete</button></span></div>';}
+    return h;
+  }
+  function spendBarsHTML(){
+    var map=spendByCategory(),total=spendWeekTotal(),h="",i,c,v,pct;
+    for(i=0;i<SPEND_CATS.length;i++){c=SPEND_CATS[i];v=map[c]||0;if(v<=0)continue;pct=total>0?Math.round(v/total*100):0;h+='<div class="spend-bar"><span class="spend-cat">'+escapeHtml(c)+'</span><span class="spend-amt">'+escapeHtml(fmtMoney(v,"USD"))+'</span><i style="width:'+pct+'%"></i></div>';}
+    return h;
+  }
+  function spendCardHTML(){
+    if(!isArr(state.spend))state.spend=[];
+    var total=spendWeekTotal(),inner="",scan=(relayOn()&&emailOn()?'<button class="linklike" type="button" data-spend-scan="1">Scan inbox</button>':""),last=(state.spendMeta&&state.spendMeta.lastScanAt)?'<span class="cq-prov">scanned '+escapeHtml(ghAgo(new Date(state.spendMeta.lastScanAt).toISOString()))+'</span>':"",foot='<div class="spend-foot"><button class="btn-soft" type="button" data-spend-add="1">+ Add cash</button></div>';
+    if(spendBusy)inner='<span class="cq-prov">scanning your inbox…</span>';
+    else if(!relayOn()){
+      inner='<div class="spend-total">'+escapeHtml(fmtMoney(total,"USD"))+' this week</div>'+spendBarsHTML();
+      if(spendThisWeek().length===0)inner+='<p class="empty">No spending logged yet this week.</p>';
+      inner+='<p class="hint">Connect AI below to scan receipts.</p>'+spendRowsHTML();
+      if(spendEditId)inner+=spendEditHTML();else inner+=foot;
+    }
+    else if(!emailOn()){
+      inner='<div class="spend-total">'+escapeHtml(fmtMoney(total,"USD"))+' this week</div>'+spendBarsHTML();
+      if(spendThisWeek().length===0)inner+='<p class="empty">No spending logged yet this week.</p>';
+      inner+='<p class="hint">Connect Gmail (Email tab) to auto-scan receipts.</p>'+spendRowsHTML();
+      if(spendEditId)inner+=spendEditHTML();else inner+=foot;
+    }
+    else{
+      inner='<div class="spend-total">'+escapeHtml(fmtMoney(total,"USD"))+' this week</div>'+spendBarsHTML();
+      if(spendThisWeek().length===0)inner+='<p class="empty">No spending logged yet this week.</p>';
+      inner+=spendRowsHTML();
+      if(spendEditId)inner+=spendEditHTML();else inner+=foot;
+    }
+    return '<div class="brief-card spend-card" style="background:var(--surface-2);border-radius:14px;padding:14px;margin:2px 0 14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px"><strong>💸 Spend Pulse</strong><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+last+scan+'</span></div>'+inner+'</div>';
+  }
+  function mergeSpendRecords(arr){
+    if(!isArr(arr))return 0;
+    if(!isArr(state.spend))state.spend=[];
+    var have={},i,r,n=0,amt,cat,mid;
+    for(i=0;i<state.spend.length;i++){r=state.spend[i];if(r&&r.msgId)have[r.msgId]=1;}
+    for(i=0;i<arr.length;i++){
+      r=arr[i];if(!r)continue;mid=(r.msgId||"").toString();if(mid&&have[mid])continue;
+      amt=Number(r.amount);if(!isFinite(amt)||amt<=0)continue;
+      if(!r.date||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))continue;
+      cat=(r.category||"Other").toString();if(SPEND_CATS.indexOf(cat)<0)cat="Other";
+      state.spend.unshift({id:uid(),msgId:mid,merchant:(r.merchant||"").toString().slice(0,80),amount:amt,currency:(r.currency||"USD").toString().toUpperCase().slice(0,3),date:r.date,category:cat,source:"email",createdAt:Date.now()});
+      if(mid)have[mid]=1;n++;
+    }
+    return n;
+  }
+  function scanSpend(force){
+    var base=relayBase(),tz="";
+    if(!base){toast("Connect AI first.");return;}
+    if(!(state.email&&state.email.session&&emailOn())){toast("Connect Gmail first (Email tab)");return;}
+    if(spendBusy)return;
+    spendBusy=true;renderNext();try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    fetch(base+"/spend/scan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,all:true,tz:tz,weekStart:spendWeekStart()})}).then(function(r){return r.json();}).then(function(j){
+      var added;if(j&&j.ok){added=mergeSpendRecords(j.records||[]);if(!state.spendMeta)state.spendMeta={lastScanAt:0};state.spendMeta.lastScanAt=Date.now();spendBusy=false;save();renderNext();toast("Found "+added+" new charge"+(added===1?"":"s")+" ✓");return;}
+      spendBusy=false;renderNext();toast((j&&j.error)||"Couldn’t scan inbox.");
+    }).catch(function(){spendBusy=false;renderNext();toast("Couldn’t reach the relay.");});
+  }
+  function addCashSpend(){spendEditId="new";renderNext();}
+  function saveSpendEdit(btn){
+    if(!isArr(state.spend))state.spend=[];
+    var m=(pf(btn,"spMerchant").value||"").trim(),amt=parseFloat(pf(btn,"spAmount").value||"0"),cat=pf(btn,"spCat").value||"Other",dt=pf(btn,"spDate").value||todayKey(),i;
+    if(!(amt>0)){toast("Enter an amount.");return;}
+    if(SPEND_CATS.indexOf(cat)<0)cat="Other";
+    if(spendEditId==="new")state.spend.unshift({id:uid(),msgId:"",merchant:m,amount:amt,currency:"USD",date:dt,category:cat,source:"cash",createdAt:Date.now()});
+    else{for(i=0;i<state.spend.length;i++){if(state.spend[i].id===spendEditId){state.spend[i].merchant=m;state.spend[i].amount=amt;state.spend[i].category=cat;state.spend[i].date=dt;break;}}}
+    spendEditId="";save();renderNext();
+  }
+  function deleteSpend(id){if(!isArr(state.spend))state.spend=[];var i;for(i=0;i<state.spend.length;i++){if(state.spend[i].id===id){state.spend.splice(i,1);break;}}if(spendEditId===id)spendEditId="";save();renderNext();}
   function weeklyCardHTML(){
     var wkText=(state.weekly&&state.weekly.text)||"";
     if(!wkText&&!weeklyBusy&&!relayOn())return"";
@@ -1347,6 +1447,7 @@
       hero+
       briefCardHTML()+
       weeklyCardHTML()+
+      spendCardHTML()+
       '<div class="capture-row"><input id="nextInput" class="capture-input" type="text" placeholder="Capture the next thing…" autocomplete="off" aria-label="Capture a task"><button class="add-btn" type="button" data-next-add="1">Add</button></div>'+
       '<div class="chips">'+nextChipsHTML()+'</div>'+
       '<hr class="surface-line">';
@@ -1501,7 +1602,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,weekly:1,peopleCfg:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,weekly:1,peopleCfg:1,spendMeta:1,v:1};
   var _syncPushT=null,_syncBusy=false;
   function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
   function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
@@ -1514,7 +1615,7 @@
   function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync "+passphrase);}
   function isEditing(){var el=document.activeElement;if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select";}
   function buildSyncDoc(){var d={},k;for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}return d;}
-  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","habits","council","pending"];
+  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","habits","council","pending"];
   function applySyncDoc(doc){
     if(!doc||typeof doc!=="object")return false;
     SYNC_ARRAYS.forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
@@ -1847,6 +1948,13 @@
     if(e.target.closest("[data-next-add]")){addNextTask();return;}
     if(e.target.closest("[data-brief-refresh]")){generateBrief(true);return;}
     if(e.target.closest("[data-weekly-refresh]")){generateWeekly(true);return;}
+    if(e.target.closest("[data-spend-scan]")){scanSpend(true);return;}
+    if(e.target.closest("[data-spend-add]")){addCashSpend();return;}
+    var spe=e.target.closest("[data-spend-edit]");if(spe){spendEditId=spe.getAttribute("data-spend-edit");renderNext();return;}
+    var sps=e.target.closest("[data-spend-save]");if(sps){saveSpendEdit(sps);return;}
+    if(e.target.closest("[data-spend-cancel]")){spendEditId="";renderNext();return;}
+    var spd=e.target.closest("[data-spend-del]");if(spd){deleteSpend(spd.getAttribute("data-spend-del"));return;}
+    var spx=e.target.closest("[data-spend-delete]");if(spx){deleteSpend(spx.getAttribute("data-spend-delete"));return;}
     if(e.target.closest("[data-council-add]")){addCouncil();return;}
     if(e.target.closest("[data-push-toggle]")){enablePush();return;}
     if(e.target.closest("[data-push-test]")){testPush();return;}
@@ -3007,7 +3115,7 @@
 
   function go(r){
     room=r;
-    editingId=null;editingProjId=null;editingBuildId=null;editingBriefId=null;editingLinkId=null;editingPromptId=null;editingNoteId=null;editingHabitId=null;editingPersonId="";
+    editingId=null;editingProjId=null;editingBuildId=null;editingBriefId=null;editingLinkId=null;editingPromptId=null;editingNoteId=null;editingHabitId=null;editingPersonId="";spendEditId="";
     var tabs=document.querySelectorAll("#nav .tab");
     for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle("active",tabs[i].dataset.room===r);
     ["home","next","tasks","calendar","habits","projects","studio","briefs","prompts","launchpad","notes","stash","people","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
@@ -3505,7 +3613,7 @@
       var saved;try{saved=JSON.parse(String(reader.result));}catch(e){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!saved||typeof saved!=="object"){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!window.confirm("Import this backup? It replaces everything in KevinOS on this device. Tip: export a backup first."))return;
-      ["items","events","projects","builds","briefs","links","prompts","notes","stash","people","habits","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
+      ["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","habits","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
@@ -3514,7 +3622,7 @@
       if(saved.v)state.v=saved.v;
       // note: state.sync is intentionally NOT restored from a backup — sync is a
       // per-device connection, so importing data never silently links a device.
-      editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;editingPersonId="";
+      editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;editingPersonId="";spendEditId="";
       save();go(room);window.alert("Backup imported — everything’s restored.");
     };
     reader.onerror=function(){window.alert("Couldn’t read that file.");};
@@ -3577,6 +3685,7 @@
       if(isArr(saved.notes))state.notes=saved.notes;
       if(isArr(saved.stash))state.stash=saved.stash;
       if(isArr(saved.people))state.people=saved.people;
+      if(isArr(saved.spend))state.spend=saved.spend;
       if(isArr(saved.habits))state.habits=saved.habits;
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(isArr(saved.council))state.council=saved.council;
@@ -3591,10 +3700,11 @@
       if(saved.brief&&typeof saved.brief==="object")state.brief=saved.brief;
       if(saved.weekly&&typeof saved.weekly==="object")state.weekly=saved.weekly;
       if(saved.peopleCfg&&typeof saved.peopleCfg==="object")state.peopleCfg=saved.peopleCfg;
+      if(saved.spendMeta&&typeof saved.spendMeta==="object")state.spendMeta=saved.spendMeta;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=32;
+    state.v=33;
     var sharedMsg=ingestShared();
     renderHome();
     vcDetect();

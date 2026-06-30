@@ -228,6 +228,12 @@ The People room is a synced mini-CRM: contacts live in `state.people[]`, while `
 
 If phone reminders and sync are on, KevinOS schedules a Sunday 6pm people nudge for the next 4 weeks. The relay handles `gen:"people"` by reading the synced D1 doc and counting overdue contacts at send time, falling back to the app-provided body if anything is unavailable.
 
+## Spend Pulse — already set up (v0.34)
+
+Spend Pulse lives in the Next room. It logs manual cash spends offline and, when Gmail is connected, can scan recent receipt/order-confirmation emails with `POST /spend/scan`. No new Cloudflare binding, OAuth scope, or secret is needed: it reuses the existing Gmail readonly token plus `GEMINI_API_KEY`. `GET /` shows `"spend":true` when Gemini is configured.
+
+The relay fetches recent Gmail messages with full bodies, prefilters receipt-like messages, asks Gemini for forced JSON spend records, validates each record, and returns `{ok:true,records,scanned}`. KevinOS then dedupes by Gmail `msgId` and stores records in synced `state.spend[]`; `state.spendMeta` stays device-local. Spend amounts are intentionally not pushed: there is no spend notification type, and the app keeps dollar amounts off Home and static push bodies.
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.
