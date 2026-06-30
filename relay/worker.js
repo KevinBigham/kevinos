@@ -380,6 +380,81 @@ async function extractActions(env, payload) {
   return out;
 }
 
+function decodeHtmlLite(s) {
+  return (s || "").toString()
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+function titleFromUrl(u) {
+  try {
+    const parsed = new URL(u);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    let last = parts.length ? parts[parts.length - 1] : "";
+    last = decodeURIComponent(last).replace(/\.[a-z0-9]{1,8}$/i, "").replace(/[-_]+/g, " ").trim();
+    const raw = (parsed.host + (last ? " " + last : "")).trim();
+    return raw.replace(/\b\w/g, (m) => m.toUpperCase()).slice(0, 90);
+  } catch (e) {
+    return (u || "").toString().slice(0, 90);
+  }
+}
+
+async function summarizePage(env, target) {
+  let res;
+  try {
+    res = await fetch(target, { headers: { "User-Agent": "Mozilla/5.0 (KevinOS Link Stash)" }, redirect: "follow", signal: AbortSignal.timeout(10000) });
+  } catch (e) {
+    return { ok: false, error: "Couldn't reach that page", title: titleFromUrl(target) };
+  }
+  if (!res.ok) return { ok: false, error: "Page blocked or paywalled", title: titleFromUrl(target) };
+  const contentType = (res.headers.get("content-type") || "").toLowerCase();
+  if (contentType.indexOf("text/html") === -1) return { ok: false, error: "Not a readable web page", title: titleFromUrl(target) };
+
+  let html = "";
+  try { html = await res.text(); } catch (e) { return { ok: false, error: "Couldn't read that page", title: titleFromUrl(target) }; }
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const htmlTitle = titleMatch ? decodeHtmlLite(titleMatch[1]).replace(/\s+/g, " ").trim().slice(0, 90) : "";
+  const text = decodeHtmlLite(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+  ).replace(/\s+/g, " ").trim().slice(0, 12000);
+  if (!text) return { ok: false, error: "Couldn't read that page", title: htmlTitle || titleFromUrl(target) };
+
+  try {
+    const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
+    const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
+    const systemPrompt = "You are a precise reading assistant. You are given the extracted text of a web page. Produce a strict JSON object describing it. Be factual and concise; never invent facts that are not in the text. Output ONLY the JSON object, no markdown, no preamble.";
+    const userPrompt =
+      "Summarize this web page. Return ONLY a JSON object with exactly these keys:\n" +
+      "\"title\": a short plain-text title for the page (max 90 chars),\n" +
+      "\"summary\": a 3-line TL;DR — exactly three short lines separated by newline characters, each line a single clear sentence, no bullets or numbering,\n" +
+      "\"tags\": an array of 2 to 5 lowercase one-or-two-word topic tags (no \"#\").\n\n" +
+      "URL: " + target + "\n\n" +
+      "PAGE TEXT:\n" + text;
+    const r = await fetch(apiUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: userPrompt }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, generationConfig: { responseMimeType: "application/json", temperature: 0.2 } }) });
+    const data = await r.json();
+    if (!r.ok) return { ok: false, error: "Couldn't summarize", title: htmlTitle || titleFromUrl(target) };
+    const cand = (data.candidates || [])[0];
+    const txt = (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
+    let obj = null;
+    try { obj = JSON.parse(txt); } catch (e) { const a = txt.indexOf("{"), b = txt.lastIndexOf("}"); if (a >= 0 && b > a) { try { obj = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { obj = null; } } }
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return { ok: false, error: "Couldn't summarize", title: htmlTitle || titleFromUrl(target) };
+    const rawTags = Array.isArray(obj.tags) ? obj.tags : [];
+    const tags = rawTags.map((t) => (t || "").toString().toLowerCase().trim().replace(/^#+/, "")).filter(Boolean).slice(0, 5);
+    const summary = (obj.summary || "").toString().split(/\r?\n/).slice(0, 3).join("\n").slice(0, 400).trim();
+    const title = ((obj.title || "").toString().trim() || htmlTitle || titleFromUrl(target)).slice(0, 90);
+    return { ok: true, title, summary, tags };
+  } catch (e) {
+    return { ok: false, error: "Couldn't summarize", title: htmlTitle || titleFromUrl(target) };
+  }
+}
+
 function captureNote(text, fallback) {
   const out = { ok: true, type: "note", note: { text: (text || "").toString().slice(0, 300) } };
   if (fallback) out.fallback = true;
@@ -1016,7 +1091,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -1096,6 +1171,21 @@ export default {
         return json({ ok: true, tasks }, 200, origin);
       } catch (e) {
         return json({ error: (e && e.message) || "actions failed" }, 502, origin);
+      }
+    }
+
+    // Link Stash — fetch a page server-side and return a concise Gemini TL;DR.
+    if (request.method === "POST" && url.pathname === "/summarize") {
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const target = (payload && payload.url || "").toString().trim();
+      if (!/^https?:\/\//i.test(target)) return json({ ok: false, error: "Not a valid URL", title: "" }, 200, origin);
+      if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+      try {
+        const out = await summarizePage(env, target);
+        return json(out, 200, origin);
+      } catch (e) {
+        return json({ ok: false, error: "Couldn't summarize", title: titleFromUrl(target) }, 200, origin);
       }
     }
 

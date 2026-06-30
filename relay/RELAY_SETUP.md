@@ -218,6 +218,10 @@ After that, the same relay-held Google token powers Email and Calendar. Calendar
 
 The Habits room is fully app-side and sync-backed: habits live in the shared D1 document as `state.habits[]`. No new secret or account setup is needed. If phone reminders are on and sync is connected, KevinOS schedules an 8pm local nudge for the next 7 days; the relay counts open habits from the synced doc at send time and skips the push when everything is complete. `GET /` shows `"habits":true` when the `SYNC` binding is available.
 
+## Link Stash + AI TL;DR — already set up (v0.32)
+
+The Stash room uses the existing `GEMINI_API_KEY` secret via relay `POST /summarize`. No new Cloudflare binding, OAuth scope, or secret is needed. `GET /` shows `"summarize":true` when Gemini is configured. The relay fetches readable HTML server-side, returns `{ok:true,title,summary,tags}` for successful pages, and returns HTTP 200 `{ok:false,error,title}` for blocked, unreachable, or non-HTML pages so KevinOS can keep the link and show the manual-summary fallback.
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.

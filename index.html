@@ -418,6 +418,20 @@
   .habit-grid{display:flex;gap:6px;margin-top:10px}
   .habit-grid .cell{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);background:var(--surface-2)}
   .habit-grid .cell.on{background:var(--accent);border-color:var(--accent)}
+  .stash-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px;transition:transform .14s ease,box-shadow .16s ease}
+  .stash-card:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+  .stash-title{font-family:var(--font-display);font-size:16.5px;color:var(--ink);font-weight:600;word-break:break-word}
+  .stash-title a{color:var(--accent);text-decoration:none}
+  .stash-title a:hover{text-decoration:underline}
+  .stash-summary{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-top:8px}
+  .stash-card-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .stash-card .tag{font-size:11px;letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:3px 8px}
+  .stash-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .stash-actions a{font-size:13.5px;color:var(--accent);text-decoration:none}
+  .stash-actions a:hover{text-decoration:underline}
+  .stash-failed{color:var(--ink-faint);font-family:var(--font-serif);font-style:italic;font-size:15px;margin:8px 0 0}
+  .stash-manual{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:8px 12px;width:100%;font-family:var(--font-ui);color:var(--ink);margin:6px 0;min-height:78px;resize:vertical}
+  .stash-manual:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
   @media (max-width:560px){
     .wrap{padding:24px 14px 48px}
@@ -447,6 +461,7 @@
           <button class="tab" type="button" data-room="calendar">Calendar</button>
           <button class="tab" type="button" data-room="habits">Habits</button>
           <button class="tab" type="button" data-room="notes">Notes</button>
+          <button class="tab" type="button" data-room="stash">Stash</button>
           <button class="tab" type="button" data-room="email">Email</button>
           <button class="cmdk-btn" type="button" id="cmdkBtn">⌘K</button>
         </div>
@@ -686,6 +701,15 @@
       <div id="noteList"></div>
     </div>
 
+    <div class="room" id="room-stash">
+      <div class="sec-head"><p class="section-label">Stash a link</p></div>
+      <div class="add-row"><input id="stashUrl" class="capture-input" type="url" placeholder="Paste a link to stash…" autocomplete="off" aria-label="Paste a link" /><button id="stashAddBtn" class="add-btn" type="button">Stash it</button></div>
+      <hr class="surface-line" />
+      <input id="stashSearch" class="search-inp" type="text" placeholder="Search your stash…" autocomplete="off" aria-label="Search stash" />
+      <div class="filter-row" id="stashTags"></div>
+      <div class="elist" id="stashList"></div>
+    </div>
+
     <div class="cmdk-overlay" id="cmdkOverlay">
       <div class="cmdk-box">
         <input class="cmdk-input" id="cmdkInput" type="text" placeholder="Search rooms and actions…" autocomplete="off">
@@ -703,7 +727,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.31 · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.32 · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -771,6 +795,7 @@
     {id:"room-prompts",label:"Prompts",kind:"room",icon:"?",keywords:"prompts ai snippets council",run:function(){go("prompts");}},
     {id:"room-launchpad",label:"Launchpad",kind:"room",icon:"↗",keywords:"launchpad links bookmarks stash",run:function(){go("launchpad");}},
     {id:"room-notes",label:"Notes",kind:"room",icon:"✎",keywords:"notes para resource archive",run:function(){go("notes");}},
+    {id:"room-stash",label:"Stash",kind:"room",icon:"▤",keywords:"stash links read later summarize tldr tags",run:function(){go("stash");}},
     {id:"room-github",label:"GitHub",kind:"room",icon:"⌁",keywords:"github commits streak repos",run:function(){go("github");}},
     {id:"room-email",label:"Email",kind:"room",icon:"✉",keywords:"email gmail inbox mail",run:function(){go("email");}},
     {id:"act-new-task",label:"New task",kind:"action",icon:"+",keywords:"add task capture todo",run:function(){go("tasks");var i=$("taskInput");if(i)i.focus();}},
@@ -783,7 +808,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],habits:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],habits:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
@@ -795,7 +820,7 @@
   var editingLinkId=null;
   var projAddArea="Inbox", briefAddKind="Brief", linkAddGroup="Studio";
   var promptSearch="", promptCatFilter="All", editingPromptId=null, promptAddCat="General";
-  var noteSearch="", noteFilter="All", noteView="para", editingNoteId=null, noteAddPara="Resource", editingHabitId=null;
+  var noteSearch="", noteFilter="All", noteView="para", editingNoteId=null, noteAddPara="Resource", stashFilter="", stashTag="", editingHabitId=null;
   var calCur, calSel, gcalEvents=[], gcalLoading=false, gcalError="", calDraft=null, calDrafting=false, calSlots=[], calSlotBusy=false, calParseErr="", calDur=60, calConnecting=false;
 
   var $=function(id){return document.getElementById(id);};
@@ -1447,7 +1472,7 @@
   function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync "+passphrase);}
   function isEditing(){var el=document.activeElement;if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select";}
   function buildSyncDoc(){var d={},k;for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}return d;}
-  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","habits","council","pending"];
+  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","habits","council","pending"];
   function applySyncDoc(doc){
     if(!doc||typeof doc!=="object")return false;
     SYNC_ARRAYS.forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
@@ -1485,6 +1510,7 @@
     else if(room==="launchpad")renderLinks();
     else if(room==="prompts")renderPrompts();
     else if(room==="notes")renderNotes();
+    else if(room==="stash")renderStash();
     else if(room==="habits")renderHabits();
     else if(room==="github"){if(state.github&&state.github.cache)renderGithub();}
     renderSync();
@@ -2499,6 +2525,95 @@
   function renderNotes(){genFilterChips("noteFilter",AREA_OPTS,function(){return noteFilter;},function(k){noteFilter=k;},renderNoteList);renderNoteList();}
   function handleNotesClick(e){var cp=e.target.closest("[data-note-copy]");if(cp){var n=findNote(cp.dataset.noteCopy);if(n){copyText(n.body||"");var old=cp.innerHTML;cp.innerHTML="Copied";setTimeout(function(){if(cp.isConnected)cp.innerHTML=old;},1300);}return;}var op=e.target.closest("[data-note-open]");if(op){editingNoteId=(editingNoteId===op.dataset.noteOpen)?null:op.dataset.noteOpen;renderNoteList();return;}var sv=e.target.closest("[data-note-save]");if(sv){var n2=findNote(sv.dataset.noteSave);if(n2){var t=(pf(sv,"nTitle").value||"").trim();if(t)n2.title=t;n2.para=pf(sv,"nPara").value;n2.area=pf(sv,"nArea").value;n2.tags=pf(sv,"nTags").value;n2.body=pf(sv,"nBody").value;}editingNoteId=null;renderNotes();save();return;}var dl=e.target.closest("[data-note-delete]");if(dl){state.notes=state.notes.filter(function(x){return x.id!==dl.dataset.noteDelete;});editingNoteId=null;renderNotes();save();return;}}
 
+  /* ---------- STASH ---------- */
+  function findStash(id){for(var i=0;i<state.stash.length;i++)if(state.stash[i].id===id)return state.stash[i];return null;}
+  function addStash(){
+    var inp=$("stashUrl"),u=normalizeUrl(inp.value);
+    if(!u)return;
+    var id=uid();
+    state.stash.unshift({id:id,url:u,title:u,summary:"",tags:[],ts:Date.now(),status:"pending",manual:false});
+    inp.value="";
+    renderStash();save();summarizeStash(id);
+  }
+  function summarizeStash(id){
+    var it=findStash(id),base=relayBase(),i,tg,tag;
+    if(!it)return;
+    if(!base){it.status="failed";persist();renderStash();return;}
+    fetch(base+"/summarize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:it.url})}).then(function(r){return r.json();}).then(function(j){
+      if(j&&j.ok){
+        it.title=j.title||it.url;it.summary=j.summary||"";it.tags=[];
+        tg=isArr(j.tags)?j.tags:[];
+        for(i=0;i<tg.length;i++){tag=(tg[i]||"").toString().toLowerCase().replace(/^#+/,"").trim();if(tag)it.tags.push(tag);}
+        it.status="done";
+      }else{
+        it.title=(j&&j.title)||it.url;it.status="failed";
+      }
+      persist();renderStash();
+    }).catch(function(){it.status="failed";persist();renderStash();});
+  }
+  function saveStashManual(id){
+    var it=findStash(id),ta=$("stashNote-"+id);
+    if(!it||!ta)return;
+    it.summary=(ta.value||"").trim();it.manual=true;it.status="done";
+    renderStash();save();
+  }
+  function deleteStash(id){state.stash=state.stash.filter(function(x){return x.id!==id;});renderStash();save();}
+  function stashTagsAll(){
+    var map={},out=[],i,j,tags,tag,k;
+    for(i=0;i<state.stash.length;i++){
+      tags=isArr(state.stash[i].tags)?state.stash[i].tags:[];
+      for(j=0;j<tags.length;j++){tag=(tags[j]||"").toString().toLowerCase().trim();if(tag)map["$"+tag]=tag;}
+    }
+    for(k in map){if(map.hasOwnProperty(k))out.push(map[k]);}
+    out.sort();return out;
+  }
+  function stashMatches(it){
+    var tags=isArr(it.tags)?it.tags:[],q=(stashFilter||"").toLowerCase();
+    if(stashTag&&tags.indexOf(stashTag)===-1)return false;
+    if(!q)return true;
+    return (((it.title||"")+" "+(it.url||"")+" "+(it.summary||"")+" "+tags.join(" ")).toLowerCase().indexOf(q)!==-1);
+  }
+  function setStashFilter(v){stashFilter=v;renderStash();}
+  function stashDate(ts){var d=new Date(ts||Date.now());if(isNaN(d.getTime()))return"";return MON3[d.getMonth()]+" "+d.getDate();}
+  function stashHref(u){u=(u||"").toString();return /^https?:\/\//i.test(u)?u:"#";}
+  function stashTagsHTML(tags){
+    var h="",i;
+    if(!isArr(tags))return h;
+    for(i=0;i<tags.length;i++){if(tags[i])h+='<span class="tag">'+escapeHtml(tags[i])+'</span>';}
+    return h;
+  }
+  function renderStash(){
+    if(!isArr(state.stash))state.stash=[];
+    var tagBox=$("stashTags"),tags=stashTagsAll(),i,h="",box=$("stashList"),rows,card,it,href,title,summary,tagHtml,status;
+    if(tagBox){
+      for(i=0;i<tags.length;i++)h+='<button class="chip'+(tags[i]===stashTag?' active':'')+'" type="button" data-stashtag="'+escapeHtml(tags[i])+'"'+(tags[i]===stashTag?' style="background:var(--accent)"':'')+'>'+escapeHtml(tags[i])+'</button>';
+      tagBox.innerHTML=h;
+    }
+    if(!box)return;
+    box.innerHTML="";
+    rows=state.stash.filter(function(x){return stashMatches(x);});
+    if(state.stash.length===0){box.innerHTML='<p class="empty">Nothing stashed yet. Paste a link above.</p>';return;}
+    if(rows.length===0){box.innerHTML='<p class="empty">No matches. Clear the search or tag.</p>';return;}
+    for(i=0;i<rows.length;i++){
+      it=rows[i];href=escapeHtml(stashHref(it.url));title=escapeHtml(it.title||it.url||"Untitled link");summary=escapeHtml(it.summary||"").replace(/\n/g,"<br>");tagHtml=stashTagsHTML(it.tags);status=it.status||"done";
+      card=document.createElement("div");card.className="stash-card";
+      if(status==="pending"){
+        card.innerHTML='<div class="stash-title">'+escapeHtml(it.url||"")+" "+'<span class="cq-prov">summarizing…</span></div><div class="stash-actions"><a href="'+href+'" target="_blank" rel="noopener">Open</a><button class="btn-ghost danger" type="button" data-stashact="del" data-id="'+escapeHtml(it.id)+'">Delete</button></div>';
+      }else if(status==="failed"){
+        card.innerHTML='<div class="stash-title">'+title+'</div><p class="stash-failed">Couldn&#39;t read this page &mdash; summarize it yourself:</p><textarea class="stash-manual" id="stashNote-'+escapeHtml(it.id)+'">'+escapeHtml(it.summary||"")+'</textarea><div class="stash-actions"><button class="add-btn" type="button" data-stashact="savemanual" data-id="'+escapeHtml(it.id)+'">Save note</button><a href="'+href+'" target="_blank" rel="noopener">Open</a><button class="btn-ghost danger" type="button" data-stashact="del" data-id="'+escapeHtml(it.id)+'">Delete</button></div>';
+      }else{
+        card.innerHTML='<div class="stash-title"><a href="'+href+'" target="_blank" rel="noopener">'+title+'</a></div>'+(summary?'<div class="stash-summary">'+summary+'</div>':"")+(tagHtml?'<div class="stash-card-tags">'+tagHtml+'</div>':"")+'<div class="stash-actions"><span class="cq-prov">'+escapeHtml(stashDate(it.ts))+(it.manual?" · manual":"")+'</span><a href="'+href+'" target="_blank" rel="noopener">Open</a><button class="btn-ghost danger" type="button" data-stashact="del" data-id="'+escapeHtml(it.id)+'">Delete</button></div>';
+      }
+      box.appendChild(card);
+    }
+  }
+  function handleStashClick(e){
+    var b=e.target.closest("[data-stashact]");if(!b)return;
+    var act=b.getAttribute("data-stashact"),id=b.getAttribute("data-id");
+    if(act==="del")deleteStash(id);
+    else if(act==="savemanual")saveStashManual(id);
+  }
+
   function seedPrompts(){if(!state.prompts.length){state.prompts=[
     {id:uid(),title:"Multi-model synthesis",cat:"Council",tags:"synthesis, compare",body:"You are one voice among several models answering the same question.\nQUESTION:\n<QUESTION>\n\nWhat the other models said:\n<OTHER VIEWS>\n\nGive me: (1) where you agree, (2) where you'd push back, (3) the single strongest recommendation, (4) what would change your mind. Be concise and specific.",createdAt:Date.now()},
     {id:uid(),title:"Grade against rubric",cat:"Teaching",tags:"grading, rubric",body:"Grade this work strictly against the rubric below. Follow the rubric exactly. For each criterion: the score plus a 1–2 sentence neutral, objective reason. Keep it parent/admin safe. No praise inflation, no personal remarks.\n\nRUBRIC:\n<RUBRIC>\n\nWORK:\n<WORK>",createdAt:Date.now()},
@@ -2732,7 +2847,7 @@
     editingId=null;editingProjId=null;editingBuildId=null;editingBriefId=null;editingLinkId=null;editingPromptId=null;editingNoteId=null;editingHabitId=null;
     var tabs=document.querySelectorAll("#nav .tab");
     for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle("active",tabs[i].dataset.room===r);
-    ["home","next","tasks","calendar","habits","projects","studio","briefs","prompts","launchpad","notes","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
+    ["home","next","tasks","calendar","habits","projects","studio","briefs","prompts","launchpad","notes","stash","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
     if(r==="home")renderHome();
     else if(r==="next"){renderNext();maybeAutoBrief();maybeAutoWeekly();}
     else if(r==="tasks")renderTasks();
@@ -2744,6 +2859,7 @@
     else if(r==="launchpad")renderLinks();
     else if(r==="prompts")renderPrompts();
     else if(r==="notes")renderNotes();
+    else if(r==="stash")renderStash();
     else if(r==="github")ghSync(false);
     else if(r==="email")emailEnter();
     try{window.scrollTo(0,0);}catch(e){}
@@ -2920,6 +3036,11 @@
   $("noteList").addEventListener("click",handleNotesClick);
   $("noteSearch").addEventListener("input",function(){noteSearch=this.value;renderNoteList();});
   $("noteViewToggle").addEventListener("click",function(e){var b=e.target.closest("[data-nview]");if(!b)return;noteView=b.dataset.nview;var btns=$("noteViewToggle").querySelectorAll(".vt-btn");for(var i=0;i<btns.length;i++)btns[i].classList.toggle("active",btns[i].dataset.nview===noteView);renderNoteList();});
+  $("stashAddBtn").addEventListener("click",addStash);
+  $("stashUrl").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addStash();}});
+  $("stashSearch").addEventListener("input",function(e){setStashFilter(e.target.value);});
+  $("stashTags").addEventListener("click",function(e){var t=e.target.closest("[data-stashtag]");if(!t)return;var tag=t.getAttribute("data-stashtag");stashTag=(stashTag===tag?"":tag);renderStash();});
+  $("stashList").addEventListener("click",handleStashClick);
   $("ghView").addEventListener("click",handleGithubClick);
   $("ghView").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="ghTokenInput"){e.preventDefault();ghConnect();}});
 
@@ -3216,7 +3337,7 @@
       var saved;try{saved=JSON.parse(String(reader.result));}catch(e){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!saved||typeof saved!=="object"){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!window.confirm("Import this backup? It replaces everything in KevinOS on this device. Tip: export a backup first."))return;
-      ["items","events","projects","builds","briefs","links","prompts","notes","habits","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
+      ["items","events","projects","builds","briefs","links","prompts","notes","stash","habits","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
@@ -3286,6 +3407,7 @@
       if(isArr(saved.links))state.links=saved.links;
       if(isArr(saved.prompts))state.prompts=saved.prompts;
       if(isArr(saved.notes))state.notes=saved.notes;
+      if(isArr(saved.stash))state.stash=saved.stash;
       if(isArr(saved.habits))state.habits=saved.habits;
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(isArr(saved.council))state.council=saved.council;
@@ -3302,7 +3424,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=30;
+    state.v=31;
     var sharedMsg=ingestShared();
     renderHome();
     vcDetect();
