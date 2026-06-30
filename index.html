@@ -368,6 +368,22 @@
   @keyframes fadeUp{to{opacity:1;transform:none}}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 
+  .cmdk-btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font-family:var(--font-ui);font-size:12px;color:var(--ink-soft);cursor:pointer;transition:border-color .16s ease,color .16s ease}
+  .cmdk-btn:hover{border-color:var(--ink-faint);color:var(--ink)}
+  .cmdk-overlay{position:fixed;inset:0;background:rgba(30,26,36,.38);display:none;z-index:1000;align-items:flex-start;justify-content:center}
+  .cmdk-overlay.open{display:flex}
+  .cmdk-box{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);width:min(560px,92vw);margin-top:12vh;overflow:hidden}
+  .cmdk-input{width:100%;border:none;border-bottom:1px solid var(--line);padding:14px 16px;font-family:var(--font-ui);font-size:16px;color:var(--ink);background:transparent}
+  .cmdk-input::placeholder{color:var(--ink-faint)}
+  .cmdk-input:focus{outline:none}
+  .cmdk-list{max-height:50vh;overflow-y:auto}
+  .cmdk-row{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer}
+  .cmdk-row:hover{background:var(--surface-2)}
+  .cmdk-row.active{background:var(--accent-soft)}
+  .cmdk-ic{width:18px;text-align:center;color:var(--accent);flex:none}
+  .cmdk-label{flex:1;color:var(--ink);font-family:var(--font-ui)}
+  .cmdk-kind{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+
   @media (max-width:560px){
     .wrap{padding:24px 14px 48px}
     .greeting{font-size:28px}
@@ -396,6 +412,7 @@
           <button class="tab" type="button" data-room="calendar">Calendar</button>
           <button class="tab" type="button" data-room="notes">Notes</button>
           <button class="tab" type="button" data-room="email">Email</button>
+          <button class="cmdk-btn" type="button" id="cmdkBtn">⌘K</button>
         </div>
       </div>
       <div class="nav-sub">
@@ -620,6 +637,13 @@
       <div id="noteList"></div>
     </div>
 
+    <div class="cmdk-overlay" id="cmdkOverlay">
+      <div class="cmdk-box">
+        <input class="cmdk-input" id="cmdkInput" type="text" placeholder="Search rooms and actions…" autocomplete="off">
+        <div class="cmdk-list" id="cmdkList"></div>
+      </div>
+    </div>
+
     <footer class="foot fade-up d4">
       <div class="status" id="storageStatus"><span class="dot-live"></span>Connecting storage…</div>
       <div class="foot-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
@@ -628,7 +652,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.26 · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.27 · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -684,10 +708,32 @@
     {type:"area",area:"Inbox",q:"Anything else.",prompt:"Whatever's still rattling around — random, big, small. Get it out of your head."},
     {type:"review"}
   ];
+  var COMMANDS=[
+    {id:"room-home",label:"Home",kind:"room",icon:"⌂",keywords:"home today dashboard start",run:function(){go("home");}},
+    {id:"room-next",label:"Next",kind:"room",icon:"▸",keywords:"next today agenda brief focus",run:function(){go("next");}},
+    {id:"room-tasks",label:"Tasks",kind:"room",icon:"✓",keywords:"tasks todo list capture",run:function(){go("tasks");}},
+    {id:"room-calendar",label:"Calendar",kind:"room",icon:"□",keywords:"calendar events schedule agenda",run:function(){go("calendar");}},
+    {id:"room-projects",label:"Projects",kind:"room",icon:"◇",keywords:"projects plans areas",run:function(){go("projects");}},
+    {id:"room-studio",label:"Studio",kind:"room",icon:"◆",keywords:"studio builds projects making",run:function(){go("studio");}},
+    {id:"room-briefs",label:"Briefs",kind:"room",icon:"☰",keywords:"briefs sops docs reference",run:function(){go("briefs");}},
+    {id:"room-prompts",label:"Prompts",kind:"room",icon:"?",keywords:"prompts ai snippets council",run:function(){go("prompts");}},
+    {id:"room-launchpad",label:"Launchpad",kind:"room",icon:"↗",keywords:"launchpad links bookmarks stash",run:function(){go("launchpad");}},
+    {id:"room-notes",label:"Notes",kind:"room",icon:"✎",keywords:"notes para resource archive",run:function(){go("notes");}},
+    {id:"room-github",label:"GitHub",kind:"room",icon:"⌁",keywords:"github commits streak repos",run:function(){go("github");}},
+    {id:"room-email",label:"Email",kind:"room",icon:"✉",keywords:"email gmail inbox mail",run:function(){go("email");}},
+    {id:"act-new-task",label:"New task",kind:"action",icon:"+",keywords:"add task capture todo",run:function(){go("tasks");var i=$("taskInput");if(i)i.focus();}},
+    {id:"act-email",label:"Email",kind:"action",icon:"✉",keywords:"open email gmail inbox",run:function(){go("email");}},
+    {id:"act-refresh-inbox",label:"Refresh inbox",kind:"action",icon:"↻",keywords:"refresh email gmail inbox reload",run:function(){go("email");if(typeof loadThreads==="function")loadThreads(true);}},
+    {id:"act-snooze-noise",label:"Snooze all noise",kind:"action",icon:"☾",keywords:"snooze noise email quiet tomorrow",run:function(){var n=0,i,m;go("email");if(typeof snoozeMsg!=="function")return;for(i=0;i<emailThreads.length;i++){m=emailThreads[i];if(m&&m.category==="noise"){snoozeMsg(m.id,"tom");n++;}}if(!n)toast("No noise to snooze");else renderEmail();}},
+    {id:"act-generate-brief",label:"Generate brief",kind:"action",icon:"☀",keywords:"generate brief morning next ai",run:function(){go("next");if(typeof generateBrief==="function")generateBrief(true);}},
+    {id:"act-generate-weekly",label:"Generate weekly review",kind:"action",icon:"↺",keywords:"generate weekly review week ai",run:function(){go("next");if(typeof generateWeekly==="function")generateWeekly(true);}},
+    {id:"act-refresh-github",label:"Refresh GitHub",kind:"action",icon:"⌁",keywords:"refresh github repos commits streak",run:function(){go("github");if(typeof ghSync==="function")ghSync(true);}}
+  ];
 
   var store=makeStore();
   var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
+  var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
   var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={}, briefBusy=false, weeklyBusy=false;
   var projFilter="All", projView="status", editingProjId=null;
@@ -2388,6 +2434,72 @@
     ];}
   }
 
+  function paletteMatch(q,entry){
+    q=(q||"").toString().toLowerCase().trim();
+    if(!q)return 0;
+    var label=(entry.label||"").toString().toLowerCase();
+    var keys=(entry.keywords||"").toString().toLowerCase();
+    var text=label+" "+keys;
+    if(label.indexOf(q)===0)return 100;
+    if(label.indexOf(q)!==-1)return 80;
+    if(keys.indexOf(q)!==-1)return 60;
+    var pos=0,i,ch;
+    for(i=0;i<q.length;i++){
+      ch=q.charAt(i);
+      pos=text.indexOf(ch,pos);
+      if(pos===-1)return -1;
+      pos++;
+    }
+    return 20;
+  }
+  function paletteFilter(q){
+    var sorted=[],i,e,score;
+    for(i=0;i<COMMANDS.length;i++){
+      e=COMMANDS[i];score=paletteMatch(q,e);
+      if(score>=0)sorted.push({entry:e,score:score,idx:i});
+    }
+    sorted.sort(function(a,b){if(b.score!==a.score)return b.score-a.score;return a.idx-b.idx;});
+    paletteResults=[];
+    for(i=0;i<sorted.length;i++)paletteResults.push(sorted[i].entry);
+  }
+  function renderPalette(){
+    var box=$("cmdkList");if(!box)return;
+    box.innerHTML="";
+    if(!paletteResults.length){box.innerHTML='<p class="empty">No matches</p>';return;}
+    for(var i=0;i<paletteResults.length;i++){
+      var entry=paletteResults[i];
+      var row=document.createElement("div");row.className="cmdk-row"+(i===paletteSel?" active":"");row.dataset.cmdkIdx=String(i);
+      var ic=document.createElement("span");ic.className="cmdk-ic";ic.textContent=entry.icon||"";
+      var lab=document.createElement("span");lab.className="cmdk-label";lab.innerHTML=escapeHtml(entry.label||"");
+      var kind=document.createElement("span");kind.className="cmdk-kind";kind.textContent=entry.kind==="room"?"Room":"Action";
+      row.appendChild(ic);row.appendChild(lab);row.appendChild(kind);box.appendChild(row);
+    }
+  }
+  function openPalette(){
+    paletteOpen=true;
+    var inp=$("cmdkInput");if(inp)inp.value="";
+    paletteFilter("");paletteSel=0;renderPalette();
+    var ov=$("cmdkOverlay");if(ov)ov.classList.add("open");
+    setTimeout(function(){var i=$("cmdkInput");if(i)i.focus();},20);
+  }
+  function closePalette(){
+    paletteOpen=false;
+    var ov=$("cmdkOverlay");if(ov)ov.classList.remove("open");
+  }
+  function paletteMove(d){
+    if(!paletteResults.length)return;
+    paletteSel=(paletteSel+d+paletteResults.length)%paletteResults.length;
+    renderPalette();
+    var list=$("cmdkList"),el=list?list.querySelector(".cmdk-row.active"):null;
+    if(el&&el.scrollIntoView)el.scrollIntoView({block:"nearest"});
+  }
+  function paletteExec(){
+    var entry=paletteResults[paletteSel];
+    if(!entry||typeof entry.run!=="function")return;
+    closePalette();
+    entry.run();
+  }
+
   /* ---------- wire up ---------- */
   $("addBtn").addEventListener("click",function(){addTask($("captureInput"),function(){return selectedArea;},null);});
   $("captureInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("captureInput"),function(){return selectedArea;},null);}});
@@ -2398,6 +2510,18 @@
   $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}else if(t&&t.id==="relayUrl"){e.preventDefault();if(!state.relay)state.relay={url:""};state.relay.url=(t.value||"").trim();relayOpen=false;renderNext();save();}});
   $("nextView").addEventListener("change",function(e){var t=e.target;if(t&&t.id==="briefHour"){if(!state.push)state.push={enabled:false,endpoint:"",hour:8,syncedAt:0};state.push.hour=parseInt(t.value,10)||8;save();renderNext();}});
   $("nav").addEventListener("click",function(e){var t=e.target.closest(".tab");if(t)go(t.dataset.room);});
+  $("cmdkBtn").addEventListener("click",function(){openPalette();});
+  document.addEventListener("keydown",function(e){
+    if((e.metaKey||e.ctrlKey)&&(e.key==="k"||e.key==="K")){e.preventDefault();if(paletteOpen){closePalette();}else{openPalette();}return;}
+    if(!paletteOpen)return;
+    if(e.key==="Escape"){e.preventDefault();closePalette();}
+    else if(e.key==="ArrowDown"){e.preventDefault();paletteMove(1);}
+    else if(e.key==="ArrowUp"){e.preventDefault();paletteMove(-1);}
+    else if(e.key==="Enter"){e.preventDefault();paletteExec();}
+  });
+  $("cmdkInput").addEventListener("input",function(){paletteFilter(this.value);paletteSel=0;renderPalette();});
+  $("cmdkOverlay").addEventListener("click",function(e){if(e.target===this)closePalette();});
+  $("cmdkList").addEventListener("click",function(e){var r=e.target.closest("[data-cmdk-idx]");if(!r)return;paletteSel=parseInt(r.dataset.cmdkIdx,10)||0;paletteExec();});
   var goBtns=document.querySelectorAll("[data-goto]");for(var gi=0;gi<goBtns.length;gi++){goBtns[gi].addEventListener("click",function(){go(this.dataset.goto);});}
   $("sweepCardHome").addEventListener("click",startSweep);
   $("sweepCardTasks").addEventListener("click",startSweep);
