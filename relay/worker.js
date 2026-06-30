@@ -1452,7 +1452,12 @@ export default {
         const from = gmailHeader(hs, "From"), subject = gmailHeader(hs, "Subject");
         const msgId = gmailHeader(hs, "Message-ID") || gmailHeader(hs, "Message-Id");
         const body = gmailBodyText(mj.payload).slice(0, 8000);
-        const sys = "You are " + acct.email + ", writing a reply as this person. Draft a clear, warm, concise reply. Return ONLY the reply body text — no subject line, no email headers, a simple sign-off is fine.";
+        let toneClause = "";
+        const t = (payload.tone || "").toString();
+        if (t === "warm") toneClause = " Lean into a warm, friendly, appreciative tone — personable and encouraging, but still concise.";
+        else if (t === "terse") toneClause = " Make it terse and efficient — as few words as possible while staying polite; no pleasantries, no filler.";
+        else if (t === "decline") toneClause = " The answer is no: politely decline. Be gracious and brief, give a soft reason, do not over-apologize, and do not leave the door open.";
+        const sys = "You are " + acct.email + ", writing a reply as this person. Draft a clear, warm, concise reply. Return ONLY the reply body text — no subject line, no email headers, a simple sign-off is fine." + toneClause;
         const prompt = "Reply to this email" + (payload.instructions ? " (extra guidance: " + payload.instructions + ")" : "") + ".\n\nFrom: " + from + "\nSubject: " + subject + "\n\n" + body;
         const draft = await callGemini(env, sys, prompt);
         return json({ ok: true, to: from, subject: /^re:/i.test(subject) ? subject : ("Re: " + subject), body: draft, threadId: mj.threadId, messageId: msgId }, 200, origin);

@@ -60,6 +60,9 @@
   .chip{font-size:13px;font-family:var(--font-ui);color:var(--ink-soft);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 13px;cursor:pointer;transition:all .16s ease}
   .chip:hover{border-color:var(--ink-faint)}
   .chip.active{color:#fff;border-color:transparent}
+  .draft-tones{display:flex;gap:6px;margin:0 0 8px 0;flex-wrap:wrap}
+  .draft-tones .chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .draft-confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
   .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 14px}
   .section-label{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin:0}
@@ -700,7 +703,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.30 · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.31 · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -2922,6 +2925,7 @@
 
   /* ---------- Email Command Center (v0.18) ---------- */
   var emailThreads=[], emailDrafts={}, emailLoading=false, emailError="", emailSending={}, emailOvernight=[], emailDrafting=false, emailGroupsOpen={fyi:false,noise:false,snoozed:false}, emailSnoozeOpen="";
+  var emailTone={}, emailConfirm={}, emailRewriting={};
   var UNIFIED="__all__";
   function emailCfg(){if(!state.email)state.email={session:"",accounts:[],active:""};return state.email;}
   function emailOn(){var e=state.email;return !!(e&&e.accounts&&e.accounts.length);}
@@ -2992,7 +2996,7 @@
       emailDrafting=false;
       if(j&&j.ok&&isArr(j.drafts)){
         emailOvernight=j.drafts;
-        j.drafts.forEach(function(d){if(!emailDrafts[d.id]||emailDrafts[d.id].overnight)emailDrafts[d.id]={to:d.to,subject:d.subject,body:d.body,threadId:d.threadId,messageId:d.messageId,overnight:true};});
+        j.drafts.forEach(function(d){if(!emailDrafts[d.id]||emailDrafts[d.id].overnight)emailDrafts[d.id]={to:d.to,subject:d.subject,body:d.body,threadId:d.threadId,messageId:d.messageId,account:d.account,overnight:true};});
         if(generate)toast(j.drafts.length?(j.drafts.length+" repl"+(j.drafts.length===1?"y":"ies")+" drafted ✓"):"Nothing needed a reply — inbox’s calm. 🎉");
       }
       renderEmail();
@@ -3046,6 +3050,26 @@
     var t=card.querySelector('[data-df="to"]'),b=card.querySelector('[data-df="body"]');
     return {to:t?t.value:"",body:b?b.value:""};
   }
+  function rewriteDraft(id,tone){
+    if(emailRewriting[id])return;
+    var d=emailDrafts[id];if(!d||d.loading)return;
+    var ed=readDraftCard(id);if(ed){d.to=ed.to;d.body=ed.body;}
+    var base=relayBase();if(!base)return;var ac=acctForId(id),prevTone=emailTone[id]||d.tone||"";
+    emailRewriting[id]=true;emailTone[id]=tone;renderEmail();
+    fetch(base+"/google/draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:ac,id:id,tone:tone})}).then(function(r){return r.json();}).then(function(j){
+      var cur=emailDrafts[id];delete emailRewriting[id];
+      if(!cur){renderEmail();return;}
+      if(j&&j.ok&&j.body){cur.body=j.body;cur.tone=tone;emailTone[id]=tone;renderEmail();return;}
+      if(prevTone)emailTone[id]=prevTone;else delete emailTone[id];
+      toast((j&&j.error)?("Rewrite failed: "+j.error):"Couldn't rewrite — try again.");renderEmail();
+    }).catch(function(){delete emailRewriting[id];if(prevTone)emailTone[id]=prevTone;else delete emailTone[id];toast("Couldn't reach the relay.");renderEmail();});
+  }
+  function confirmSend(id){
+    var d=emailDrafts[id];if(!d||d.loading||emailRewriting[id])return;
+    var ed=readDraftCard(id);if(ed){d.to=ed.to;d.body=ed.body;}
+    emailConfirm[id]=true;renderEmail();
+  }
+  function cancelSend(id){delete emailConfirm[id];renderEmail();}
   function sendReply(id){
     var d=emailDrafts[id];if(!d||d.loading)return;
     var ed=readDraftCard(id)||{};var to=(ed.to||d.to||"").trim(),body=(ed.body||d.body||"").trim();
@@ -3053,17 +3077,17 @@
     if(emailSending[id])return;emailSending[id]=true;renderEmail();
     fetch(relayBase()+"/google/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,account:(d.account||acctForId(id)),to:to,subject:d.subject||"",body:body,threadId:d.threadId,messageId:d.messageId})}).then(function(r){return r.json();}).then(function(j){
       emailSending[id]=false;
-      if(!j||!j.ok){toast((j&&j.error)?("Send failed: "+j.error):"Couldn’t send.");renderEmail();return;}
-      if(d.overnight)clearOvernight(id);delete emailDrafts[id];toast("Sent ✓");renderEmail();
-    }).catch(function(){emailSending[id]=false;toast("Couldn’t reach the relay.");renderEmail();});
+      if(!j||!j.ok){toast((j&&j.error)?("Send failed: "+j.error):"Couldn’t send.");delete emailConfirm[id];renderEmail();return;}
+      if(d.overnight)clearOvernight(id);delete emailDrafts[id];delete emailConfirm[id];delete emailTone[id];delete emailRewriting[id];toast("Sent ✓");archiveMsg(id);
+    }).catch(function(){emailSending[id]=false;delete emailConfirm[id];toast("Couldn’t reach the relay.");renderEmail();});
   }
-  function discardDraft(id){if(emailDrafts[id]&&emailDrafts[id].overnight)clearOvernight(id);delete emailDrafts[id];renderEmail();}
+  function discardDraft(id){if(emailDrafts[id]&&emailDrafts[id].overnight)clearOvernight(id);delete emailDrafts[id];delete emailConfirm[id];delete emailTone[id];delete emailRewriting[id];renderEmail();}
   function emailDisconnect(account){
     var base=relayBase(),e=emailCfg();
     if(e.session&&base)fetch(base+"/google/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:e.session,account:account||undefined})}).catch(function(){});
     if(account){e.accounts=(e.accounts||[]).filter(function(a){return a!==account;});if(e.active===account)e.active=e.accounts[0]||"";if(!e.accounts.length){e.session="";e.pendingOAuth=false;}}
     else{state.email={session:"",accounts:[],active:""};}
-    emailThreads=[];emailDrafts={};emailOvernight=[];save();renderEmail();
+    emailThreads=[];emailDrafts={};emailOvernight=[];emailTone={};emailConfirm={};emailRewriting={};save();renderEmail();
   }
   function emailFromName(from){var m=(from||"").match(/^\s*"?([^"<]*?)"?\s*</);var nm=m?m[1].trim():(from||"");return nm||from||"(unknown)";}
   function emailConnectHTML(){
@@ -3084,12 +3108,20 @@
   function emailDraftHTML(id){
     var d=emailDrafts[id];if(!d)return"";
     if(d.loading)return '<div class="cq-seat pending" style="margin-top:8px"><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
-    var sending=!!emailSending[id];
-    return '<div data-dcard="'+id+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px">'+
-      (d.overnight?'<div class="hint" style="margin-bottom:6px;color:#5B3B8C">📝 Drafted overnight — review &amp; send</div>':'')+
+    var sending=!!emailSending[id],rewriting=!!emailRewriting[id],tone=emailTone[id]||d.tone||"";
+    var shell='<div data-dcard="'+id+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px">';
+    var badge=d.overnight?'<div class="hint" style="margin-bottom:6px;color:#5B3B8C">📝 Drafted overnight — review &amp; send</div>':'';
+    if(emailConfirm[id]){
+      return shell+badge+
+        '<div class="hint" style="color:var(--ink-soft);margin-bottom:8px">Send to <strong>'+escapeHtml(d.to||"")+'</strong>?</div>'+
+        (sending?'<div class="cq-prov" style="padding:8px 0">Sending…</div>':'<div class="draft-confirm"><button class="add-btn" type="button" data-em="sendyes" data-id="'+id+'">Yes, send</button><button class="btn-soft" type="button" data-em="sendno" data-id="'+id+'">Cancel</button></div>')+
+        '</div>';
+    }
+    return shell+badge+
+      '<div class="draft-tones"><button class="chip'+(tone==="warm"?" active":"")+'" type="button" data-em="tone" data-id="'+id+'" data-tone="warm">Warm</button><button class="chip'+(tone==="terse"?" active":"")+'" type="button" data-em="tone" data-id="'+id+'" data-tone="terse">Terse</button><button class="chip'+(tone==="decline"?" active":"")+'" type="button" data-em="tone" data-id="'+id+'" data-tone="decline">Decline</button></div>'+
       '<div class="field" style="margin-bottom:6px"><label>To</label><input class="inp" data-df="to" value="'+escapeHtml(d.to||"")+'"></div>'+
-      '<div class="field" style="margin-bottom:6px"><label>'+escapeHtml(d.subject||"")+'</label><textarea class="inp" data-df="body" rows="6" style="width:100%;resize:vertical">'+escapeHtml(d.body||"")+'</textarea></div>'+
-      '<div style="display:flex;gap:8px"><button class="add-btn" type="button" data-em="send" data-id="'+id+'"'+(sending?" disabled":"")+'>'+(sending?"Sending…":"Approve & send")+'</button><button class="btn-ghost" type="button" data-em="discard" data-id="'+id+'">Discard</button></div></div>';
+      (rewriting?'<div class="field" style="margin-bottom:6px"><label>'+escapeHtml(d.subject||"")+'</label><div class="cq-prov" style="padding:8px 0">rewriting…</div></div>':'<div class="field" style="margin-bottom:6px"><label>'+escapeHtml(d.subject||"")+'</label><textarea class="inp" data-df="body" rows="6" style="width:100%;resize:vertical">'+escapeHtml(d.body||"")+'</textarea></div>')+
+      '<div style="display:flex;gap:8px"><button class="add-btn" type="button" data-em="send" data-id="'+id+'"'+((sending||rewriting)?" disabled":"")+'>'+(sending?"Sending…":(rewriting?"Rewriting…":"Approve & send"))+'</button><button class="btn-ghost" type="button" data-em="discard" data-id="'+id+'">Discard</button></div></div>';
   }
   function emailRowHTML(m){
     var badge=(isUnified()&&m.account)?'<span class="cq-pill" style="background:rgba(91,59,140,.12);color:#5B3B8C">'+escapeHtml(acctShort(m.account))+'</span>':'';
@@ -3152,7 +3184,10 @@
     else if(act==="draftall")fetchOvernight(true);
     else if(act==="grp"){emailGroupsOpen[id]=!emailGroupsOpen[id];renderEmail();}
     else if(act==="draft")draftReply(id);
-    else if(act==="send")sendReply(id);
+    else if(act==="tone")rewriteDraft(id,a.getAttribute("data-tone"));
+    else if(act==="send")confirmSend(id);
+    else if(act==="sendyes")sendReply(id);
+    else if(act==="sendno")cancelSend(id);
     else if(act==="discard")discardDraft(id);
     else if(act==="archive")archiveMsg(id);
     else if(act==="snooze"){emailSnoozeOpen=id;renderEmail();}
