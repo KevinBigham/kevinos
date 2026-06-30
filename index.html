@@ -405,6 +405,16 @@
   .cmdk-ic{width:18px;text-align:center;color:var(--accent);flex:none}
   .cmdk-label{flex:1;color:var(--ink);font-family:var(--font-ui)}
   .cmdk-kind{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+  .habit-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px;transition:transform .14s ease,box-shadow .16s ease}
+  .habit-card:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+  .habit-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .habit-name{font-size:16px;color:var(--ink);font-weight:650;min-width:0;word-break:break-word}
+  .habit-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .habit-card .add-btn,.habit-card .btn-soft{padding:8px 12px;border-radius:10px}
+  .habit-card .flame{font-size:11px;color:var(--ink-faint);letter-spacing:.04em;margin-top:6px}
+  .habit-grid{display:flex;gap:6px;margin-top:10px}
+  .habit-grid .cell{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);background:var(--surface-2)}
+  .habit-grid .cell.on{background:var(--accent);border-color:var(--accent)}
 
   @media (max-width:560px){
     .wrap{padding:24px 14px 48px}
@@ -432,6 +442,7 @@
           <button class="tab" type="button" data-room="next">Next</button>
           <button class="tab" type="button" data-room="tasks">Tasks</button>
           <button class="tab" type="button" data-room="calendar">Calendar</button>
+          <button class="tab" type="button" data-room="habits">Habits</button>
           <button class="tab" type="button" data-room="notes">Notes</button>
           <button class="tab" type="button" data-room="email">Email</button>
           <button class="cmdk-btn" type="button" id="cmdkBtn">⌘K</button>
@@ -573,6 +584,17 @@
       <p class="hint">Import/export uses standard <strong>.ics</strong> files — the exported file imports into <strong>Apple Calendar</strong> or <strong>Google Calendar</strong>. To push events onto your real Google Calendar live, hit <strong>Copy for Claude</strong> and paste them to me in chat.</p>
     </div>
 
+    <!-- HABITS -->
+    <div class="room" id="room-habits">
+      <div class="sec-head"><p class="section-label">Habits</p></div>
+      <div class="capture-row" id="habitAddRow">
+        <input id="habitInput" class="capture-input" type="text" placeholder="New habit…" autocomplete="off" aria-label="New habit" />
+        <button class="add-btn" type="button" id="habitAddBtn">Add</button>
+      </div>
+      <hr class="surface-line" />
+      <div id="habitList"></div>
+    </div>
+
     <!-- PROJECTS -->
     <div class="room" id="room-projects">
       <div class="sec-head"><p class="section-label">New project</p></div>
@@ -678,7 +700,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.29 · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.30 · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -739,6 +761,7 @@
     {id:"room-next",label:"Next",kind:"room",icon:"▸",keywords:"next today agenda brief focus",run:function(){go("next");}},
     {id:"room-tasks",label:"Tasks",kind:"room",icon:"✓",keywords:"tasks todo list capture",run:function(){go("tasks");}},
     {id:"room-calendar",label:"Calendar",kind:"room",icon:"□",keywords:"calendar events schedule agenda",run:function(){go("calendar");}},
+    {id:"room-habits",label:"Habits",kind:"room",icon:"🔥",keywords:"habits streak routines daily chain",run:function(){go("habits");}},
     {id:"room-projects",label:"Projects",kind:"room",icon:"◇",keywords:"projects plans areas",run:function(){go("projects");}},
     {id:"room-studio",label:"Studio",kind:"room",icon:"◆",keywords:"studio builds projects making",run:function(){go("studio");}},
     {id:"room-briefs",label:"Briefs",kind:"room",icon:"☰",keywords:"briefs sops docs reference",run:function(){go("briefs");}},
@@ -757,7 +780,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],habits:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
@@ -769,7 +792,7 @@
   var editingLinkId=null;
   var projAddArea="Inbox", briefAddKind="Brief", linkAddGroup="Studio";
   var promptSearch="", promptCatFilter="All", editingPromptId=null, promptAddCat="General";
-  var noteSearch="", noteFilter="All", noteView="para", editingNoteId=null, noteAddPara="Resource";
+  var noteSearch="", noteFilter="All", noteView="para", editingNoteId=null, noteAddPara="Resource", editingHabitId=null;
   var calCur, calSel, gcalEvents=[], gcalLoading=false, gcalError="", calDraft=null, calDrafting=false, calSlots=[], calSlotBusy=false, calParseErr="", calDur=60, calConnecting=false;
 
   var $=function(id){return document.getElementById(id);};
@@ -941,6 +964,57 @@
     var cn=e.target.closest("[data-edit-cancel]");if(cn){editingId=null;renderTasks();return;}
     var dl=e.target.closest("[data-edit-delete]");if(dl){state.items=state.items.filter(function(x){return x.id!==dl.dataset.editDelete;});editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
     handleTaskAction(e);
+  }
+
+  function findHabit(id){for(var i=0;i<state.habits.length;i++){if(state.habits[i].id===id)return state.habits[i];}return null;}
+  function habitDoneToday(h){return !!(h&&h.done&&h.done[todayKey()]);}
+  function habitCurrentStreak(h){
+    if(!h||!h.done)return 0;
+    var k=todayKey(),count=0;if(!h.done[k])k=addDaysKey(k,-1);
+    while(h.done[k]){count++;k=addDaysKey(k,-1);}
+    return count;
+  }
+  function habitLongestStreak(h){
+    if(!h||!h.done)return 0;
+    var keys=[],k,i,run=0,best=0,prev="";
+    for(k in h.done){if(h.done.hasOwnProperty(k)&&h.done[k])keys.push(k);}
+    keys.sort();
+    for(i=0;i<keys.length;i++){if(i>0&&keys[i]===addDaysKey(prev,1))run++;else run=1;if(run>best)best=run;prev=keys[i];}
+    return best;
+  }
+  function habitGrid7(h){
+    var out=[],i,k;
+    for(i=6;i>=0;i--){k=addDaysKey(todayKey(),-i);out.push({key:k,done:!!(h&&h.done&&h.done[k])});}
+    return out;
+  }
+  function toggleHabitToday(h){var k=todayKey();h.done=h.done||{};if(h.done[k])delete h.done[k];else h.done[k]=1;}
+  function addHabit(){
+    var inp=$("habitInput"),name=(inp.value||"").trim();if(!name)return;
+    state.habits.unshift({id:uid(),name:name,createdAt:Date.now(),done:{}});
+    inp.value="";renderHabits();renderHome();save();
+  }
+  function renderHabits(){
+    var box=$("habitList");if(!box)return;box.innerHTML="";
+    if(!state.habits.length){box.innerHTML='<p class="empty">No habits yet. Add one above to start a streak.</p>';return;}
+    for(var i=0;i<state.habits.length;i++){
+      var h=state.habits[i],done=habitDoneToday(h),cur=habitCurrentStreak(h),best=habitLongestStreak(h),g=habitGrid7(h),gh="",j;
+      for(j=0;j<g.length;j++)gh+='<span class="cell'+(g[j].done?' on':'')+'" title="'+escapeHtml(relDay(g[j].key))+'"></span>';
+      var card=document.createElement("div");card.className="habit-card";
+      card.innerHTML='<div class="habit-top"><div><div class="habit-name">'+escapeHtml(h.name||"Untitled habit")+'</div><div class="flame">🔥 '+cur+' day streak <span class="bc">best: '+best+'</span></div></div><div class="habit-actions"><button class="btn-soft" type="button" data-action="edit" data-id="'+escapeHtml(h.id)+'">Edit</button><button class="'+(done?'add-btn':'btn-soft')+'" type="button" data-action="toggle" data-id="'+escapeHtml(h.id)+'">'+(done?'✓ Done today':'Check off')+'</button></div></div><div class="habit-grid">'+gh+'</div>';
+      if(editingHabitId===h.id){var p=document.createElement("div");p.className="edit-panel";var f=field("Habit");f.appendChild(inpEl("habitEditName","text",h.name||""));p.appendChild(f);p.appendChild(editActions("habitedit",h.id));card.appendChild(p);}
+      box.appendChild(card);
+    }
+  }
+  function handleHabitsClick(e){
+    var sv=e.target.closest("[data-habitedit-save]");
+    if(sv){var h=findHabit(sv.getAttribute("data-habitedit-save"));if(h){var t=(pf(sv,"habitEditName").value||"").trim();if(t)h.name=t;}editingHabitId=null;renderHabits();renderHome();save();return;}
+    var cn=e.target.closest("[data-habitedit-cancel]");if(cn){editingHabitId=null;renderHabits();return;}
+    var dl=e.target.closest("[data-habitedit-delete]");if(dl){var did=dl.getAttribute("data-habitedit-delete");state.habits=state.habits.filter(function(x){return x.id!==did;});editingHabitId=null;renderHabits();renderHome();save();return;}
+    var btn=e.target.closest("[data-action]");if(!btn)return;
+    var id=btn.dataset.id,act=btn.dataset.action,hb=findHabit(id);if(!hb)return;
+    if(act==="edit"){editingHabitId=(editingHabitId===id)?null:id;renderHabits();return;}
+    if(act==="toggle")toggleHabitToday(hb);
+    renderHabits();renderHome();save();
   }
 
   function renderHomeToday(){
@@ -1288,6 +1362,9 @@
     // gen:"weekly" → Sunday 5pm, a "here's your week" review written fresh from
     // the synced week. Schedule the next 4 Sundays so it survives a quiet week.
     for(i=0;i<4;i++){var wst=nextDowTime(0,17)+i*7*86400000,wkk=dateKey(new Date(wst));out.push({id:"weekly-"+i,fireAt:wst,title:"🗓️ Your week ahead",body:weeklyBodyShort(wkk),url:url,tag:"kevinos-weekly",gen:"weekly",syncKey:sk,emailSession:es,dateKey:wkk,tz:tz});}
+    // gen:"habits" -> 8pm local, count unchecked habits from the synced doc.
+    var htimes=morningBriefTimes(20,7);
+    for(i=0;i<htimes.length;i++){var dkH=dateKey(new Date(htimes[i]));out.push({id:"habits-"+i,fireAt:htimes[i],title:"🔥 Don’t break the chain",body:"Some habits are still open today.",url:url,tag:"kevinos-habits",gen:"habits",syncKey:sk,dateKey:dkH,tz:tz});}
     var now=Date.now();
     state.items.forEach(function(it){if(it.done||!it.due||!it.dueTime)return;var fa=taskDueEpoch(it);if(fa>now)out.push({id:"task-"+it.id,fireAt:fa,title:"Task due",body:it.text,url:url,tag:"kevinos-task-"+it.id});});
     return out;
@@ -1346,9 +1423,9 @@
       h+='<div class="push-row"><label for="briefHour">Morning brief</label><select class="inp" id="briefHour">'+briefHourOpts()+"</select>"+
         '<button class="btn-soft" type="button" data-push-test="1">Send test</button>'+
         '<button class="btn-ghost danger" type="button" data-push-off="1">Turn off</button></div>'+
-        '<p class="cq-hint">A morning brief at '+fmtHour(hour)+", plus a nudge when any task with a due time comes up — pushed to this device."+(relayOn()?"":" Connect AI above first.")+"</p>";
+        '<p class="cq-hint">A morning brief at '+fmtHour(hour)+", habit nudges at 8:00 PM, plus any task with a due time — pushed to this device."+(relayOn()?"":" Connect AI above first.")+"</p>";
     }else{
-      h+='<p class="cq-hint">Get a morning brief and task-due nudges as notifications on this device. '+(sup?(relayOn()?"Tap “Turn on.”":"Connect AI above first — the relay sends them."):"Add KevinOS to your home screen, then turn this on.")+"</p>";
+      h+='<p class="cq-hint">Get a morning brief, 8:00 PM habit nudges, and task-due nudges as notifications on this device. '+(sup?(relayOn()?"Tap “Turn on.”":"Connect AI above first — the relay sends them."):"Add KevinOS to your home screen, then turn this on.")+"</p>";
     }
     return h;
   }
@@ -1367,7 +1444,7 @@
   function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync "+passphrase);}
   function isEditing(){var el=document.activeElement;if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select";}
   function buildSyncDoc(){var d={},k;for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}return d;}
-  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","council","pending"];
+  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","habits","council","pending"];
   function applySyncDoc(doc){
     if(!doc||typeof doc!=="object")return false;
     SYNC_ARRAYS.forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
@@ -1405,6 +1482,7 @@
     else if(room==="launchpad")renderLinks();
     else if(room==="prompts")renderPrompts();
     else if(room==="notes")renderNotes();
+    else if(room==="habits")renderHabits();
     else if(room==="github"){if(state.github&&state.github.cache)renderGithub();}
     renderSync();
   }
@@ -1739,6 +1817,10 @@
   function renderHomeNudges(){
     var box=$("homeNudges");if(!box)return;var html="";var tk=todayKey();var hr=(new Date()).getHours();
     var openToday=openTodayCount();
+    if(state.habits&&state.habits.length){
+      var hd=0,hi;for(hi=0;hi<state.habits.length;hi++){if(habitDoneToday(state.habits[hi]))hd++;}
+      html+='<button class="gh-nudge" type="button" data-go="habits" style="background:var(--gold-soft);margin-top:14px"><span class="gh-fire" style="color:var(--clay)">🔥</span><span class="nu-txt"><strong>Habits.</strong> '+hd+'/'+state.habits.length+' done today.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
+    }
     if(hr>=17&&openToday>0&&state.lastShutdown!==tk){
       html+='<button class="gh-nudge" type="button" data-openwind="1" style="background:var(--accent-soft);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">'+moonSvg()+'</span><span class="nu-txt"><strong>Wind down the day.</strong> '+openToday+' still open — close it out and rest.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
     }
@@ -2644,14 +2726,15 @@
 
   function go(r){
     room=r;
-    editingId=null;editingProjId=null;editingBuildId=null;editingBriefId=null;editingLinkId=null;editingPromptId=null;editingNoteId=null;
+    editingId=null;editingProjId=null;editingBuildId=null;editingBriefId=null;editingLinkId=null;editingPromptId=null;editingNoteId=null;editingHabitId=null;
     var tabs=document.querySelectorAll("#nav .tab");
     for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle("active",tabs[i].dataset.room===r);
-    ["home","next","tasks","calendar","projects","studio","briefs","prompts","launchpad","notes","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
+    ["home","next","tasks","calendar","habits","projects","studio","briefs","prompts","launchpad","notes","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
     if(r==="home")renderHome();
     else if(r==="next"){renderNext();maybeAutoBrief();maybeAutoWeekly();}
     else if(r==="tasks")renderTasks();
     else if(r==="calendar"){renderCalendar();if(calOn())loadGcal(false);}
+    else if(r==="habits")renderHabits();
     else if(r==="projects")renderProjects();
     else if(r==="studio")renderBuilds();
     else if(r==="briefs")renderBriefs();
@@ -2750,7 +2833,7 @@
   $("captureInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("captureInput"),function(){return selectedArea;},null);}});
   $("homeTodayList").addEventListener("click",handleTaskAction);
   $("ghNudge").addEventListener("click",function(){if(state.github&&state.github.token)go("github");});
-  $("homeNudges").addEventListener("click",function(e){if(e.target.closest("[data-openwind]")){openWind();return;}if(e.target.closest("[data-backup]")){exportBackup();}});
+  $("homeNudges").addEventListener("click",function(e){var g=e.target.closest("[data-go]");if(g){go(g.getAttribute("data-go"));return;}if(e.target.closest("[data-openwind]")){openWind();return;}if(e.target.closest("[data-backup]")){exportBackup();}});
   $("nextView").addEventListener("click",handleNextClick);
   $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}else if(t&&t.id==="relayUrl"){e.preventDefault();if(!state.relay)state.relay={url:""};state.relay.url=(t.value||"").trim();relayOpen=false;renderNext();save();}});
   $("nextView").addEventListener("change",function(e){var t=e.target;if(t&&t.id==="briefHour"){if(!state.push)state.push={enabled:false,endpoint:"",hour:8,syncedAt:0};state.push.hour=parseInt(t.value,10)||8;save();renderNext();}});
@@ -2781,6 +2864,9 @@
   $("taskDoneToggle").addEventListener("click",function(){taskDoneOpen=!taskDoneOpen;renderTaskList();});
   $("taskClearDone").addEventListener("click",function(){state.items=state.items.filter(function(i){return !i.done;});renderTasks();renderHome();save();});
   $("viewToggle").addEventListener("click",function(e){var b=e.target.closest("[data-view]");if(!b)return;taskView=b.dataset.view;var btns=$("viewToggle").querySelectorAll(".vt-btn");for(var i=0;i<btns.length;i++)btns[i].classList.toggle("active",btns[i].dataset.view===taskView);renderTaskList();});
+  $("habitAddBtn").addEventListener("click",addHabit);
+  $("habitInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addHabit();}});
+  $("habitList").addEventListener("click",handleHabitsClick);
 
   $("prevMonth").addEventListener("click",function(){calCur.m--;if(calCur.m<0){calCur.m=11;calCur.y--;}renderMonth();});
   $("nextMonth").addEventListener("click",function(){calCur.m++;if(calCur.m>11){calCur.m=0;calCur.y++;}renderMonth();});
@@ -3095,7 +3181,7 @@
       var saved;try{saved=JSON.parse(String(reader.result));}catch(e){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!saved||typeof saved!=="object"){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!window.confirm("Import this backup? It replaces everything in KevinOS on this device. Tip: export a backup first."))return;
-      ["items","events","projects","builds","briefs","links","prompts","notes","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
+      ["items","events","projects","builds","briefs","links","prompts","notes","habits","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
@@ -3104,7 +3190,7 @@
       if(saved.v)state.v=saved.v;
       // note: state.sync is intentionally NOT restored from a backup — sync is a
       // per-device connection, so importing data never silently links a device.
-      editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=null;
+      editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;
       save();go(room);window.alert("Backup imported — everything’s restored.");
     };
     reader.onerror=function(){window.alert("Couldn’t read that file.");};
@@ -3165,6 +3251,7 @@
       if(isArr(saved.links))state.links=saved.links;
       if(isArr(saved.prompts))state.prompts=saved.prompts;
       if(isArr(saved.notes))state.notes=saved.notes;
+      if(isArr(saved.habits))state.habits=saved.habits;
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(isArr(saved.council))state.council=saved.council;
       if(isArr(saved.pending))state.pending=saved.pending;
@@ -3180,7 +3267,7 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=29;
+    state.v=30;
     var sharedMsg=ingestShared();
     renderHome();
     vcDetect();

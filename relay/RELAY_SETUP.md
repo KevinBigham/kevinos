@@ -172,7 +172,7 @@ How it works, and how to reproduce it on a fresh relay:
 2. The `[[d1_databases]]` binding is already in `wrangler.toml`. **Deploy:** `npx wrangler deploy`. `GET /` then shows `"sync":true`.
 3. In KevinOS → footer → **Cross-device sync** → **Connect** → pick any passphrase (or tap **Generate**) → **Start syncing**. Enter the **same** passphrase on your other devices to link them.
 
-The model is **last-write-wins**: the most recent edit wins. **Content** syncs (tasks, notes, projects, calendar, …); **device connections** (the relay URL, push, GitHub) stay per-device. Your passphrase never leaves the device — only `sha256(passphrase)` is sent, and that's the database row key. Backup/restore still works as the escape hatch, and importing a backup never links a device on its own. Cost stays **$0** (Cloudflare D1 free tier — 5 GB, far beyond a personal dataset).
+The model is **last-write-wins**: the most recent edit wins. **Content** syncs (tasks, notes, projects, calendar, habits, …); **device connections** (the relay URL, push, GitHub) stay per-device. Your passphrase never leaves the device — only `sha256(passphrase)` is sent, and that's the database row key. Backup/restore still works as the escape hatch, and importing a backup never links a device on its own. Cost stays **$0** (Cloudflare D1 free tier — 5 GB, far beyond a personal dataset).
 
 ## Calendar / File AI — already set up (v0.17)
 
@@ -213,6 +213,10 @@ KevinOS can now show live Google Calendar events, find open slots, and create a 
 3. In KevinOS → **Calendar** → **Connect Google Calendar** → approve the Google consent screen again.
 
 After that, the same relay-held Google token powers Email and Calendar. Calendar events fetched from Google are display-only on the device; events you explicitly create are also mirrored into KevinOS as `source:"gcal"` so they show offline and sync like normal events.
+
+## Habits & Streaks — already set up (v0.30)
+
+The Habits room is fully app-side and sync-backed: habits live in the shared D1 document as `state.habits[]`. No new secret or account setup is needed. If phone reminders are on and sync is connected, KevinOS schedules an 8pm local nudge for the next 7 days; the relay counts open habits from the synced doc at send time and skips the push when everything is complete. `GET /` shows `"habits":true` when the `SYNC` binding is available.
 
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.

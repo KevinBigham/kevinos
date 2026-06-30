@@ -588,6 +588,13 @@ async function firePush(env) {
             if (!dr.count) skip = true;
             else { title = "📝 Replies drafted"; body = dr.count + (dr.count === 1 ? " reply is" : " replies are") + " ready to review & send in KevinOS."; }
           } catch (e) { skip = true; }
+        } else if (r.gen === "habits") {
+          // Evening nudge: count habits still open in the synced doc right now.
+          try {
+            const n = await countOpenHabits(env, r.syncKey, r.dateKey);
+            if (!n) skip = true;
+            else { title = "🔥 Don’t break the chain"; body = n + " habit" + (n === 1 ? "" : "s") + " still open today."; }
+          } catch (e) { body = r.body; }
         }
         if (skip) continue;
         const res = await sendPush(rec.subscription, { title: title, body: body, url: r.url, tag: r.tag }, env, 86400);
@@ -879,6 +886,18 @@ async function buildServerBrief(env, opts) {
     return text && text.trim() ? text.trim().slice(0, 350) : fallback;
   } catch (e) { return fallback; }
 }
+async function countOpenHabits(env, syncKey, dateKey) {
+  if (!env.SYNC || !syncKey || !/^[a-f0-9]{16,128}$/.test(syncKey)) return 0;
+  const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(syncKey).first();
+  if (!row || !row.doc) return 0;
+  let doc;
+  try { doc = JSON.parse(row.doc); } catch (e) { throw e; }
+  const habits = Array.isArray(doc.habits) ? doc.habits : [];
+  if (!habits.length) return 0;
+  let open = 0;
+  for (const h of habits) { if (!(h && h.done && h.done[dateKey])) open++; }
+  return open;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Weekly review — a Sunday-evening "here's your week" brief, built from the same
@@ -997,7 +1016,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
