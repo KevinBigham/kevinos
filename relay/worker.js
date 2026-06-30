@@ -1096,6 +1096,7 @@ function weeklyDigest(doc, D) {
   const events = Array.isArray(doc && doc.events) ? doc.events : [];
   const builds = Array.isArray(doc && doc.builds) ? doc.builds : [];
   const spend = Array.isArray(doc && doc.spend) ? doc.spend : [];
+  const goals = Array.isArray(doc && doc.goals) ? doc.goals : [];
   const end = D ? addDaysKey(D, 7) : "9999-99-99";
   const open = items.filter((i) => i && !i.done);
   const overdue = D ? open.filter((i) => i.due && i.due < D) : [];
@@ -1104,6 +1105,7 @@ function weeklyDigest(doc, D) {
   const evs = events.filter((e) => e && e.date && (!D || e.date >= D) && e.date <= end)
     .sort((a, b) => ((a.date + (a.time || "99:99")) < (b.date + (b.time || "99:99")) ? -1 : 1));
   const active = builds.filter((b) => b && (b.stage === "Idea" || b.stage === "Building" || b.stage === "Testing"));
+  const activeGoals = goals.filter((g) => g && g.status !== "done" && g.status !== "dropped");
   let wkStart = D;
   if (D) { const dd = new Date(D + "T00:00:00Z"); wkStart = addDaysKey(D, -dd.getUTCDay()); }
   const weekSpend = spend.filter((s) => s && typeof s.amount === "number" && s.amount > 0 && s.date && (!wkStart || s.date >= wkStart));
@@ -1111,7 +1113,7 @@ function weeklyDigest(doc, D) {
   weekSpend.forEach((s) => { const c = s.category || "Other"; spendTotal += s.amount; byCat[c] = (byCat[c] || 0) + s.amount; });
   let spendTop = ""; let topV = 0;
   Object.keys(byCat).forEach((c) => { if (byCat[c] > topV) { topV = byCat[c]; spendTop = c; } });
-  return { nOpen: open.length, overdue: overdue.slice(0, 12), nOverdue: overdue.length, nEvents: evs.length, events: evs.slice(0, 12), dueWeek: dueWeek.slice(0, 12), builds: active.slice(0, 8), spendTotal, spendTop };
+  return { nOpen: open.length, overdue: overdue.slice(0, 12), nOverdue: overdue.length, nEvents: evs.length, events: evs.slice(0, 12), dueWeek: dueWeek.slice(0, 12), builds: active.slice(0, 8), goals: activeGoals.slice(0, 8), spendTotal, spendTop };
 }
 function weeklyDigestText(wd, D) {
   const L = [];
@@ -1123,6 +1125,16 @@ function weeklyDigestText(wd, D) {
   L.push("", "Events this week (" + wd.nEvents + "):");
   if (wd.events.length) wd.events.forEach((e) => L.push("- " + (e.date || "") + " " + (e.time ? e.time : "all day") + " " + (e.title || "(untitled)"))); else L.push("- none");
   if (wd.builds.length) { L.push("", "In the studio:"); wd.builds.forEach((b) => L.push("- " + (b.name || "(untitled)") + " [" + (b.stage || "") + "]" + (b.next ? " → " + b.next : ""))); }
+  if (wd.goals && wd.goals.length) {
+    L.push("", "Quarterly goals:");
+    wd.goals.forEach((g) => {
+      const ck = Array.isArray(g.checkins) && g.checkins.length ? g.checkins[0] : null;
+      const moved = ck && ck.weekKey === D && ck.progress !== g.progress ? " (moved this week)" : "";
+      L.push("- " + (g.title || "(untitled)") + ": " + (typeof g.progress === "number" ? g.progress + "%" : "0%") +
+        (g.target ? " toward " + g.target : "") + moved +
+        (ck && ck.note ? " — note: " + ck.note : ""));
+    });
+  }
   if (wd.spendTotal > 0) L.push("", "Spending this week: ~$" + Math.round(wd.spendTotal) + (wd.spendTop ? " (mostly " + wd.spendTop + ")" : "") + ".");
   return L.join("\n");
 }
@@ -1147,7 +1159,7 @@ async function buildWeeklyReview(env, opts) {
     lines.push("", "Inbox: " + inbox.unread + " unread");
     inbox.subjects.forEach((s) => lines.push("- from " + (s.from || "?") + ": " + (s.subject || "(no subject)")));
   }
-  const system = "You are Kevin's calm assistant inside KevinOS. It's Sunday evening. Write a SHORT weekly review — 3 to 5 sentences, warm and grounding — that orients him to the week ahead: the big rocks on the calendar, which priorities to protect time for, anything overdue to clear first, and one thing worth teeing up tonight. If there is spending data, mention the rough weekly spend total and the top category in one short clause. Plain text. No lists, no preamble, no greeting line, no sign-off.";
+  const system = "You are Kevin's calm assistant inside KevinOS. It's Sunday evening. Write a SHORT weekly review — 3 to 5 sentences, warm and grounding — that orients him to the week ahead: the big rocks on the calendar, which priorities to protect time for, anything overdue to clear first, and one thing worth teeing up tonight. If quarterly goals are listed, weave in one honest, specific line about goal momentum — name a goal he moved and encourage protecting time for one he hasn't. If there is spending data, mention the rough weekly spend total and the top category in one short clause. Plain text. No lists, no preamble, no greeting line, no sign-off.";
   try {
     const text = await callGemini(env, system, "Here is my week ahead. Write my Sunday weekly review.\n\n" + lines.join("\n"));
     return text && text.trim() ? text.trim().slice(0, 520) : fallback;

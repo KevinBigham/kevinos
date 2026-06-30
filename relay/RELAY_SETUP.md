@@ -234,6 +234,12 @@ Spend Pulse lives in the Next room. It logs manual cash spends offline and, when
 
 The relay fetches recent Gmail messages with full bodies, prefilters receipt-like messages, asks Gemini for forced JSON spend records, validates each record, and returns `{ok:true,records,scanned}`. KevinOS then dedupes by Gmail `msgId` and stores records in synced `state.spend[]`; `state.spendMeta` stays device-local. Spend amounts are intentionally not pushed: there is no spend notification type, and the app keeps dollar amounts off Home and static push bodies.
 
+## Goals & Weekly Check-In — already set up (v0.35)
+
+The Goals room is app-side and sync-backed: quarterly goals live in the shared D1 document as `state.goals[]`, while the weekly check-in completion marker stays device-local in `state.weekly.checkinWeek`. No new Cloudflare binding, OAuth scope, secret, health flag, or setup step is needed.
+
+Weekly Review reuses the existing `POST /weekly` endpoint and `GEMINI_API_KEY`. When active goals exist, KevinOS sends goal progress/check-in notes in the weekly context; when the relay builds the digest from the synced D1 doc, it now includes active goals in the prompt so the Sunday review can name goal momentum.
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.
