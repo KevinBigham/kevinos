@@ -380,6 +380,88 @@ async function extractActions(env, payload) {
   return out;
 }
 
+function captureNote(text, fallback) {
+  const out = { ok: true, type: "note", note: { text: (text || "").toString().slice(0, 300) } };
+  if (fallback) out.fallback = true;
+  return out;
+}
+
+function captureDate(s) {
+  s = (s || "").toString().trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+}
+
+function captureTime(s) {
+  s = (s || "").toString().trim();
+  return /^\d{2}:\d{2}$/.test(s) ? s : "";
+}
+
+function captureWeekdayDate(text, today) {
+  today = captureDate(today);
+  if (!today) return "";
+  const m = (text || "").toString().toLowerCase().match(/\b(sun(?:day)?|mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?)\b/);
+  if (!m) return "";
+  const names = { sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2, wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6 };
+  const want = names[m[1]];
+  const cur = new Date(today + "T00:00:00Z").getUTCDay();
+  let add = (want - cur + 7) % 7;
+  if (add === 0) add = 7;
+  return addDaysKey(today, add);
+}
+
+async function classifyCapture(env, payload) {
+  const raw = (payload && payload.text || "").toString();
+  const areas = (Array.isArray(payload.areas) && payload.areas.length) ? payload.areas.map((a) => (a || "").toString().trim()).filter(Boolean).slice(0, 12) : ["Work", "Coaching", "Teaching", "Personal", "Ana", "Inbox"];
+  const okAreas = {}; areas.forEach((a) => { okAreas[a] = 1; });
+  if (!env.GEMINI_API_KEY) return captureNote(raw, true);
+  try {
+    const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
+    const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
+    const system =
+      'You are a fast capture classifier for a personal productivity app. The user spoke or typed one short thought. Classify it into exactly one of: "task", "event", or "note", and extract structured fields. Return ONLY valid JSON, no markdown, no commentary.\n\n' +
+      'Rules:\n' +
+      '- "task": an action the user must do ("call the plumber", "buy milk", "email Sarah"). Fields: {"type":"task","text":<clean imperative>,"area":<one of the provided areas or "">,"due":<YYYY-MM-DD or "">}.\n' +
+      '- "event": something happening at a specific date/time ("dentist Friday at 3", "lunch with Mike tomorrow noon"). Fields: {"type":"event","title":<short>,"date":<YYYY-MM-DD>,"time":<HH:MM 24-hour or "">}.\n' +
+      '- "note": an idea, reflection, or fact with no action and no time ("idea for the app: dark mode", "the wifi password is hunter2"). Fields: {"type":"note","text":<the thought, lightly cleaned>}.\n' +
+      '- Resolve relative dates ("tomorrow","Friday","next week") against the provided today date and timezone. If no date is mentioned for a task, leave "due" as "".\n' +
+      '- Pick "area" only if clearly implied; otherwise "".\n' +
+      '- When unsure between task and note, prefer "note".';
+    const user =
+      "Today: " + ((payload && payload.today) || "") + " (" + ((payload && payload.tz) || "") + ")\n" +
+      "Available areas: " + areas.join(", ") + "\n" +
+      'Thought: "' + raw.slice(0, 2000) + '"';
+    const r = await fetch(apiUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: user }] }], systemInstruction: { parts: [{ text: system }] }, generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }) });
+    const data = await r.json();
+    if (!r.ok) return captureNote(raw, true);
+    const cand = (data.candidates || [])[0];
+    const txt = (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
+    if (!txt) return captureNote(raw, true);
+    let obj = null;
+    try { obj = JSON.parse(txt); } catch (e) { const a = txt.indexOf("{"), b = txt.lastIndexOf("}"); if (a >= 0 && b > a) { try { obj = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { obj = null; } } }
+    if (!obj || (obj.type !== "task" && obj.type !== "event" && obj.type !== "note")) return captureNote(raw, true);
+    if (obj.type === "task") {
+      const src = obj.task || obj;
+      const text = ((src && src.text) || raw).toString().trim().slice(0, 300);
+      let area = ((src && src.area) || "Inbox").toString().trim();
+      if (!okAreas[area]) area = "Inbox";
+      return { ok: true, type: "task", task: { text, area, due: captureDate(src && src.due) } };
+    }
+    if (obj.type === "event") {
+      const ev = obj.event || obj;
+      const title = ((ev && ev.title) || raw || "(untitled)").toString().trim().slice(0, 300);
+      const today = captureDate(payload && payload.today);
+      const wdDate = captureWeekdayDate(raw, today);
+      let date = captureDate(ev && ev.date);
+      if (wdDate) date = wdDate;
+      return { ok: true, type: "event", event: { title, date, time: captureTime(ev && ev.time) } };
+    }
+    const note = obj.note || obj;
+    return { ok: true, type: "note", note: { text: ((note && note.text) || raw).toString().trim().slice(0, 300) } };
+  } catch (e) {
+    return captureNote(raw, true);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Web Push (Phase 2b) — VAPID + RFC 8291 aes128gcm encryption, all in WebCrypto.
 // The app computes its reminder set (morning brief + per-task due) and syncs it
@@ -846,7 +928,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -927,6 +1009,15 @@ export default {
       } catch (e) {
         return json({ error: (e && e.message) || "actions failed" }, 502, origin);
       }
+    }
+
+    // Quick Capture — classify one spoken/typed thought into task, event, or note.
+    if (request.method === "POST" && url.pathname === "/capture") {
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      if (!payload || !payload.text) return json({ error: "Provide text to classify" }, 400, origin);
+      const out = await classifyCapture(env, payload);
+      return json(out, 200, origin);
     }
 
     // Web Push — the VAPID public key, so the app never has to hardcode it.

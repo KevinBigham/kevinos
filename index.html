@@ -330,6 +330,17 @@
   .rep-tag{flex:none;font-size:12px;color:var(--ink-faint)}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);opacity:0;transition:opacity .25s ease,transform .25s ease;z-index:80;max-width:90vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .toast-undo{color:var(--accent-soft);margin-left:10px;text-decoration:underline}
+  .vc-mic{position:fixed;right:18px;bottom:76px;width:52px;height:52px;border-radius:999px;background:var(--accent);color:#fff;border:none;box-shadow:var(--shadow);font-size:22px;z-index:81;cursor:pointer;transition:transform .14s ease,box-shadow .16s ease}
+  .vc-mic:hover{transform:translateY(-1px)}
+  .vc-panel{position:fixed;left:16px;right:16px;bottom:140px;max-width:420px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;z-index:82}
+  .vc-text{width:100%;min-height:64px;margin-bottom:10px;font-family:var(--font-ui);font-size:15px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 13px;resize:vertical}
+  .vc-text:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .vc-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .vc-row{display:flex;align-items:center;color:var(--ink-soft);font-size:14px}
+  .vc-live{color:var(--ink);font-size:15px;margin:6px 0 4px;min-height:22px}
+  .vc-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;animation:vcPulse 1s ease-in-out infinite}
+  @keyframes vcPulse{0%,100%{opacity:1}50%{opacity:.3}}
   .wind-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
   .wind-item{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:12px;background:var(--surface-2)}
   .wind-txt{flex:1;font-size:15px;color:var(--ink);min-width:0;word-break:break-word}
@@ -643,6 +654,8 @@
         <div class="cmdk-list" id="cmdkList"></div>
       </div>
     </div>
+    <button id="vcMic" class="vc-mic" type="button" aria-label="Voice capture">🎙️</button>
+    <div id="vcPanel"></div>
 
     <footer class="foot fade-up d4">
       <div class="status" id="storageStatus"><span class="dot-live"></span>Connecting storage…</div>
@@ -652,7 +665,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.27 · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.28 · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -736,6 +749,7 @@
   var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
   var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={}, briefBusy=false, weeklyBusy=false;
+  var vcOpen=false, vcState="idle", vcTranscript="", vcInterim="", vcRec=null, vcSupported=false, vcUndo=null, vcUndoT=0;
   var projFilter="All", projView="status", editingProjId=null;
   var editingBuildId=null;
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
@@ -1074,6 +1088,89 @@
     }).catch(function(){weeklyBusy=false;state.weekly={weekKey:wk,date:dk,text:""};persist();renderNext();});
   }
   function maybeAutoWeekly(){if(room!=="next"||!relayOn()||weeklyBusy)return;if(state.weekly&&state.weekly.weekKey===weekStartKey(todayKey()))return;generateWeekly(false);}
+  function vcDetect(){vcSupported=!!(window.SpeechRecognition||window.webkitSpeechRecognition);}
+  function vcOpenPanel(){vcOpen=true;vcState="idle";vcTranscript="";vcInterim="";renderVoiceCapture();if(vcSupported)vcStart();}
+  function vcClose(){vcStop();vcOpen=false;vcState="idle";renderVoiceCapture();}
+  function vcStart(){
+    var Rec=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!Rec){vcSupported=false;vcState="idle";renderVoiceCapture();return;}
+    try{vcRec=new Rec();}catch(e){vcSupported=false;vcState="idle";renderVoiceCapture();return;}
+    vcRec.interimResults=true;vcRec.lang="en-US";vcRec.continuous=false;
+    vcRec.onresult=function(e){
+      var fin="",intm="",i;
+      for(i=e.resultIndex;i<e.results.length;i++){var t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else intm+=t;}
+      if(fin)vcTranscript=(vcTranscript+" "+fin).trim();
+      vcInterim=intm;renderVoiceCapture();
+    };
+    vcRec.onerror=function(e){if(e&&e.error==="not-allowed")vcSupported=false;vcState=vcTranscript?"review":"idle";vcRec=null;renderVoiceCapture();};
+    vcRec.onend=function(){vcRec=null;if(vcState==="listening")vcState=vcTranscript?"review":"idle";renderVoiceCapture();};
+    vcState="listening";renderVoiceCapture();
+    try{vcRec.start();}catch(e){vcState=vcTranscript?"review":"idle";renderVoiceCapture();}
+  }
+  function vcStop(){if(vcRec){try{vcRec.stop();}catch(e){}vcRec=null;}}
+  function vcSend(){
+    var tx=$("vcText"),t=tx?(tx.value||""):vcTranscript;
+    t=t.trim();if(!t)return;
+    vcStop();vcState="sending";renderVoiceCapture();
+    var base=relayBase();var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    if(!base){vcApply({ok:true,type:"note",note:{text:t},fallback:true});return;}
+    fetch(base+"/capture",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t,today:todayKey(),tz:tz,areas:AREAS.map(function(a){return a.key;})})}).then(function(r){return r.json();}).then(function(j){
+      vcApply(j&&j.ok?j:{ok:true,type:"note",note:{text:t},fallback:true});
+    }).catch(function(){vcApply({ok:true,type:"note",note:{text:t},fallback:true});});
+  }
+  function vcArea(a){for(var i=0;i<AREAS.length;i++){if(AREAS[i].key===a)return a;}return "Inbox";}
+  function vcApply(j){
+    var id=uid(),coll,label;
+    if(j.type==="task"){
+      var k=j.task||{};
+      state.items.unshift({id:id,text:(k.text||"Captured thought").toString(),area:vcArea(k.area||"Inbox"),today:false,done:false,due:(k.due||null),dueTime:"",projectId:null,repeat:"",createdAt:Date.now()});
+      coll="items";label="Task";
+    } else if(j.type==="event"){
+      var ev=j.event||{},tm=ev.time||"";
+      state.events.push({id:id,title:(ev.title||"(untitled)").toString(),date:ev.date||todayKey(),time:tm||null,allDay:!tm,area:"Inbox",source:"app"});
+      coll="events";label="Event";
+    } else {
+      var n=j.note||{};
+      state.notes.unshift({id:id,title:(n.text||"Captured thought").toString(),para:"Resource",area:"Inbox",tags:"",body:"",createdAt:Date.now()});
+      coll="notes";label="Note";
+    }
+    vcUndo={coll:coll,id:id,label:label};save();vcOpen=false;vcState="idle";renderVoiceCapture();renderNext();renderHome();
+    if(coll==="items")renderTasks();else if(coll==="events")renderCalendar();else renderNotes();
+    vcToast(j.fallback?"Saved as note":(label+" added"),label);
+  }
+  function vcToast(msg,label){
+    var el=document.createElement("div");el.className="toast";
+    el.innerHTML=escapeHtml(msg)+' ✓ <button class="toast-undo linklike" type="button" data-vc="undo">Undo</button>';
+    document.body.appendChild(el);
+    setTimeout(function(){el.classList.add("show");},20);
+    setTimeout(function(){el.classList.remove("show");setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},320);},6000);
+    clearTimeout(vcUndoT);vcUndoT=setTimeout(function(){vcUndo=null;},6000);
+  }
+  function vcUndoLast(){
+    if(!vcUndo)return;
+    var c=vcUndo.coll,id=vcUndo.id;
+    state[c]=state[c].filter(function(x){return x.id!==id;});
+    save();renderNext();renderHome();if(c==="items")renderTasks();else if(c==="events")renderCalendar();else renderNotes();
+    clearTimeout(vcUndoT);vcUndo=null;toast("Removed");
+  }
+  function renderVoiceCapture(){
+    var box=$("vcPanel");if(!box)return;
+    if(!vcOpen){box.innerHTML="";return;}
+    var h='<div class="vc-panel">';
+    if(vcState==="listening")h+='<div class="vc-row"><span class="vc-dot"></span>🎙️ Listening…</div><div class="vc-live">'+escapeHtml(vcInterim||vcTranscript)+'</div><button class="btn-soft" type="button" data-vc="stop">Stop</button>';
+    else if(vcState==="sending")h+='<div class="vc-row">Filing…</div>';
+    else if(vcState==="review")h+='<div class="vc-live">'+escapeHtml(vcTranscript)+'</div><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Send</button><button class="btn-soft" type="button" data-vc="cancel">Cancel</button></div>';
+    else h+='<textarea id="vcText" class="vc-text" placeholder="Type a quick thought…"></textarea><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Send</button><button class="btn-soft" type="button" data-vc="cancel">Cancel</button></div>';
+    h+='</div>';box.innerHTML=h;
+  }
+  function handleVoiceClick(ev){
+    var a=ev.target.closest("[data-vc]");if(!a)return;
+    var act=a.getAttribute("data-vc");
+    if(act==="stop"){vcStop();vcState=vcTranscript?"review":"idle";renderVoiceCapture();}
+    else if(act==="send")vcSend();
+    else if(act==="cancel")vcClose();
+    else if(act==="undo")vcUndoLast();
+  }
   function renderNext(){
     var box=$("nextView");if(!box)return;
     var tk=todayKey(),wk=addDaysKey(tk,7);
@@ -2522,6 +2619,9 @@
   $("cmdkInput").addEventListener("input",function(){paletteFilter(this.value);paletteSel=0;renderPalette();});
   $("cmdkOverlay").addEventListener("click",function(e){if(e.target===this)closePalette();});
   $("cmdkList").addEventListener("click",function(e){var r=e.target.closest("[data-cmdk-idx]");if(!r)return;paletteSel=parseInt(r.dataset.cmdkIdx,10)||0;paletteExec();});
+  $("vcMic").addEventListener("click",vcOpenPanel);
+  $("vcPanel").addEventListener("click",handleVoiceClick);
+  document.addEventListener("click",function(e){var u=e.target.closest('[data-vc="undo"]');if(u)vcUndoLast();});
   var goBtns=document.querySelectorAll("[data-goto]");for(var gi=0;gi<goBtns.length;gi++){goBtns[gi].addEventListener("click",function(){go(this.dataset.goto);});}
   $("sweepCardHome").addEventListener("click",startSweep);
   $("sweepCardTasks").addEventListener("click",startSweep);
@@ -2932,6 +3032,7 @@
     state.v=26;
     var sharedMsg=ingestShared();
     renderHome();
+    vcDetect();
     save();
     if(state.push&&state.push.enabled)syncReminders();
     renderSync();if(syncOn())syncPull();
