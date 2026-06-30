@@ -43,6 +43,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **Mission wave #7 — People Radar** | **Shipped** v0.33 → synced mini-CRM, Gmail metadata enrich, cadence groups, Sunday people nudges |
 | ✅ | **Mission wave #8 — Spend Pulse** | **Shipped** v0.34 → private weekly spend card, cash ledger, Gmail receipt scan, category bars |
 | ✅ | **Mission wave #9 — Goals & Weekly Check-In** | **Shipped** v0.35 → synced goals, Sunday check-in, `/weekly` goal momentum |
+| ✅ | **Mission wave #10 — Morning Launch Sequence** | **Shipped** v0.36 → Launch ritual, `/launch` game plan, agenda/inbox/focus/habits |
 
 ---
 
@@ -285,6 +286,8 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Goals & Weekly Check-In shipped 🎯 (v0.35)** Mission wave #9 is live: a new Goals tab stores synced `state.goals[]` with title, target, progress, status, and check-in history. Next shows a Sunday check-in card for active goals, saves progress/note entries, hides after completion for the week, and feeds active goal context into `/weekly`; the relay weekly prompt now calls out goal momentum. Verified: relay deployed; live `/weekly` goal-context response; worker/SW/app parse; ES5 grep; local add/edit/delete/reload/check-in/mock-weekly smoke; footer/SW cache `v0.35` / `kevinos-v0_35`.
 
+**Morning Launch Sequence shipped 🌅 (v0.36)** Mission wave #10 is live: a new Launch tab and Home deep-link assemble a morning ritual from a game-plan narration, today's agenda, inbox triage counts, top focus tasks, and inline habit check-offs. Relay `POST /launch` mirrors the server brief engine with a launch-specific prompt, D1 context fallback, Gmail inbox peek, and safe fallback behavior. Verified: relay deployed with `launch:true`; live `/launch` success/empty/malformed probes; worker/SW/app parse; ES5 grep; local mock UI smoke covering task/event/habit/email/narration/refresh/deep-link; footer/SW cache `v0.36` / `kevinos-v0_36`.
+
 **Next wave scoped 🗺️📋 (`MISSION.md`)** A full build brief for the **next 10 features** now lives at [`MISSION.md`](MISSION.md) — written to be handed to an external coding agent (e.g. Codex) and followed literally. Each feature has its own self-contained section (mission · user flow · exact `state`/sync model · relay routes with request/response shapes and the actual Gemini prompt text · ES5 app changes with real function names + line numbers to mirror · runnable curl/preview verification · acceptance checklist · gotchas · Definition of Done), preceded by an **Operating Manual** (architecture, the non-negotiable rules, the standard build/verify/deploy loop, the sync model) and a **recommended build order**. The ten: **#1 ⌘K Command Palette · #2 Voice/Quick Capture · #3 Calendar Room · #4 One-Tap Send · #5 Habits & Streaks · #6 Link Stash + AI TL;DR · #7 People Radar · #8 Spend Pulse · #9 Goals & Weekly Check-In · #10 Morning Launch Sequence.** Authored by a 25-agent workflow that read the live codebase and adversarially fact-checked every spec against the real `index.html` / `worker.js`.
 
-**On deck:** continue the remaining **1 feature in [`MISSION.md`](MISSION.md)** — #10 Morning Launch Sequence — plus the older backlog: **batch triage** (archive/snooze a whole group at once), **send-later / scheduled replies**, and **Outlook**.
+**Mission wave complete ✅:** all 10 features in [`MISSION.md`](MISSION.md) are shipped. Older backlog still open: **batch triage** (archive/snooze a whole group at once), **send-later / scheduled replies**, and **Outlook**.

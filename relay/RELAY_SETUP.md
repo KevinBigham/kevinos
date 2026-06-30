@@ -240,6 +240,12 @@ The Goals room is app-side and sync-backed: quarterly goals live in the shared D
 
 Weekly Review reuses the existing `POST /weekly` endpoint and `GEMINI_API_KEY`. When active goals exist, KevinOS sends goal progress/check-in notes in the weekly context; when the relay builds the digest from the synced D1 doc, it now includes active goals in the prompt so the Sunday review can name goal momentum.
 
+## Morning Launch Sequence — already set up (v0.36)
+
+The Launch room is a device-local morning ritual layered over existing KevinOS data: today’s events/tasks, connected Gmail inbox metadata, and synced habits. The narration cache lives in `state.launch` and is intentionally not synced; habit check-offs still mutate synced `state.habits[]`.
+
+Relay `POST /launch` reuses `GEMINI_API_KEY`, the existing `SYNC` D1 binding, and the Gmail token store used by `/brief`. `GET /` shows `"launch":true` when Gemini is configured. No new Cloudflare binding, OAuth scope, secret, env var, cron, or setup step is needed.
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.

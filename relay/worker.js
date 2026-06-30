@@ -1044,6 +1044,33 @@ async function buildServerBrief(env, opts) {
     return text && text.trim() ? text.trim().slice(0, 350) : fallback;
   } catch (e) { return fallback; }
 }
+async function buildLaunchPlan(env, opts) {
+  const fallback = (opts.fallback || "").toString();
+  if (!env.GEMINI_API_KEY) return fallback;
+  // 1) Day context: prefer app-supplied context; else read the synced D1 doc.
+  let context = (opts.context || "").toString();
+  if (!context && opts.syncKey && /^[a-f0-9]{16,128}$/.test(opts.syncKey) && env.SYNC) {
+    try {
+      const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(opts.syncKey).first();
+      if (row && row.doc) context = briefDigestText(briefDigest(JSON.parse(row.doc), opts.dateKey), opts.dateKey);
+    } catch (e) { /* fall through to whatever we have */ }
+  }
+  // 2) Live inbox peek (optional).
+  let inbox = null;
+  if (opts.emailSession) { try { inbox = await briefInbox(env, opts.emailSession); } catch (e) { inbox = null; } }
+  if (!context && !inbox) return fallback;
+  const lines = [];
+  if (context) lines.push(context);
+  if (inbox) {
+    lines.push("", "Inbox: " + inbox.unread + " unread");
+    inbox.subjects.forEach((s) => lines.push("- from " + (s.from || "?") + ": " + (s.subject || "(no subject)")));
+  }
+  const system = "You are Kevin's calm, motivating morning launch coach. You are given his calendar, tasks, and inbox for today. Write a SHORT spoken-style game plan — 2 to 4 sentences — that opens by naming the shape of the day (\"Here's your day: 3 meetings, 2 emails need you\"), then names the single most important focus, then ends with one steadying line. Be concrete and use the real numbers and titles given. Warm and direct, never corporate. Plain text only. No lists, no preamble, no greeting line, no sign-off.";
+  try {
+    const text = await callGemini(env, system, "Here is my day. Write my launch game plan.\n\n" + lines.join("\n"));
+    return text && text.trim() ? text.trim().slice(0, 400) : fallback;
+  } catch (e) { return fallback; }
+}
 async function countOpenHabits(env, syncKey, dateKey) {
   if (!env.SYNC || !syncKey || !/^[a-f0-9]{16,128}$/.test(syncKey)) return 0;
   const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(syncKey).first();
@@ -1217,7 +1244,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID, peopleEnrich: !!env.GOOGLE_CLIENT_ID }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!env.GEMINI_API_KEY, launch: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID, peopleEnrich: !!env.GOOGLE_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -1539,6 +1566,21 @@ export default {
       let payload;
       try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
       const text = await buildWeeklyReview(env, {
+        syncKey: (payload && payload.syncKey) || "",
+        emailSession: (payload && payload.emailSession) || "",
+        dateKey: (payload && payload.dateKey) || "",
+        context: (payload && payload.context) || "",
+        fallback: (payload && payload.fallback) || "",
+      });
+      return json({ ok: true, text }, 200, origin);
+    }
+
+    // Morning Launch — an on-demand spoken-style day plan from the same synced
+    // day context + inbox peek as the morning brief.
+    if (request.method === "POST" && url.pathname === "/launch") {
+      let payload;
+      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const text = await buildLaunchPlan(env, {
         syncKey: (payload && payload.syncKey) || "",
         emailSession: (payload && payload.emailSession) || "",
         dateKey: (payload && payload.dateKey) || "",
