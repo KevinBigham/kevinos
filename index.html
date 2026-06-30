@@ -432,6 +432,17 @@
   .stash-failed{color:var(--ink-faint);font-family:var(--font-serif);font-style:italic;font-size:15px;margin:8px 0 0}
   .stash-manual{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:8px 12px;width:100%;font-family:var(--font-ui);color:var(--ink);margin:6px 0;min-height:78px;resize:vertical}
   .stash-manual:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .person-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px;transition:transform .14s ease,box-shadow .16s ease}
+  .person-card:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+  .person-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .person-main{min-width:0;flex:1}
+  .person-name{font-size:16px;color:var(--ink);font-weight:650;word-break:break-word}
+  .person-meta{color:var(--ink-faint);font-size:12px;line-height:1.45;margin-top:5px}
+  .person-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .person-card .add-btn,.person-card .btn-soft{padding:8px 12px;border-radius:10px}
+  .person-status{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:4px 8px;font-weight:700}
+  .person-status.overdue{color:var(--clay);background:var(--gold-soft)}
+  .person-status.ok{color:var(--ink-soft);background:var(--surface-2)}
 
   @media (max-width:560px){
     .wrap{padding:24px 14px 48px}
@@ -462,6 +473,7 @@
           <button class="tab" type="button" data-room="habits">Habits</button>
           <button class="tab" type="button" data-room="notes">Notes</button>
           <button class="tab" type="button" data-room="stash">Stash</button>
+          <button class="tab" type="button" data-room="people">People</button>
           <button class="tab" type="button" data-room="email">Email</button>
           <button class="cmdk-btn" type="button" id="cmdkBtn">⌘K</button>
         </div>
@@ -710,6 +722,22 @@
       <div class="elist" id="stashList"></div>
     </div>
 
+    <div class="room" id="room-people">
+      <div class="sec-head"><p class="section-label">People Radar</p></div>
+      <div class="add-row">
+        <input id="peopleName" class="capture-input" type="text" placeholder="Name — e.g. Mom" autocomplete="off" aria-label="Person name" />
+        <input id="peopleEmail" class="capture-input" type="email" placeholder="Email (optional)" autocomplete="off" aria-label="Person email" />
+        <select id="peopleCadence" class="inp" aria-label="Contact cadence">
+          <option value="7">Weekly</option>
+          <option value="14" selected>Every 2 weeks</option>
+          <option value="30">Monthly</option>
+          <option value="90">Quarterly</option>
+        </select>
+        <button id="peopleAddBtn" class="add-btn" type="button">Add</button>
+      </div>
+      <div id="peopleList"></div>
+    </div>
+
     <div class="cmdk-overlay" id="cmdkOverlay">
       <div class="cmdk-box">
         <input class="cmdk-input" id="cmdkInput" type="text" placeholder="Search rooms and actions…" autocomplete="off">
@@ -727,7 +755,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.32 · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.33 · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -773,6 +801,7 @@
   var DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
   var WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   var WD3=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var CADENCES=[{key:"7",label:"Weekly"},{key:"14",label:"Every 2 weeks"},{key:"30",label:"Monthly"},{key:"90",label:"Quarterly"}];
   var SWEEP_STEPS=[
     {type:"intro"},
     {type:"area",area:"Work",q:"Work.",prompt:"Projects to move forward, decisions sitting open, anything waiting on you — what's on your plate?"},
@@ -796,6 +825,7 @@
     {id:"room-launchpad",label:"Launchpad",kind:"room",icon:"↗",keywords:"launchpad links bookmarks stash",run:function(){go("launchpad");}},
     {id:"room-notes",label:"Notes",kind:"room",icon:"✎",keywords:"notes para resource archive",run:function(){go("notes");}},
     {id:"room-stash",label:"Stash",kind:"room",icon:"▤",keywords:"stash links read later summarize tldr tags",run:function(){go("stash");}},
+    {id:"room-people",label:"People",kind:"room",icon:"◎",keywords:"people radar contacts crm relationships follow up cadence",run:function(){go("people");}},
     {id:"room-github",label:"GitHub",kind:"room",icon:"⌁",keywords:"github commits streak repos",run:function(){go("github");}},
     {id:"room-email",label:"Email",kind:"room",icon:"✉",keywords:"email gmail inbox mail",run:function(){go("email");}},
     {id:"act-new-task",label:"New task",kind:"action",icon:"+",keywords:"add task capture todo",run:function(){go("tasks");var i=$("taskInput");if(i)i.focus();}},
@@ -808,7 +838,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],habits:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],habits:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},peopleCfg:{lastEnrichAt:0},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
@@ -820,7 +850,7 @@
   var editingLinkId=null;
   var projAddArea="Inbox", briefAddKind="Brief", linkAddGroup="Studio";
   var promptSearch="", promptCatFilter="All", editingPromptId=null, promptAddCat="General";
-  var noteSearch="", noteFilter="All", noteView="para", editingNoteId=null, noteAddPara="Resource", stashFilter="", stashTag="", editingHabitId=null;
+  var noteSearch="", noteFilter="All", noteView="para", editingNoteId=null, noteAddPara="Resource", stashFilter="", stashTag="", editingHabitId=null, peopleEnriching=false, editingPersonId="";
   var calCur, calSel, gcalEvents=[], gcalLoading=false, gcalError="", calDraft=null, calDrafting=false, calSlots=[], calSlotBusy=false, calParseErr="", calDur=60, calConnecting=false;
 
   var $=function(id){return document.getElementById(id);};
@@ -1183,6 +1213,16 @@
     if(w.overdue.length)s+=" · "+w.overdue.length+" overdue";
     return s;
   }
+  function peopleNudgeBody(dk){
+    var i,n=0,p,due;
+    if(!isArr(state.people))state.people=[];
+    for(i=0;i<state.people.length;i++){
+      p=state.people[i];
+      due=p&&p.lastContact?addDaysKey(p.lastContact,parseInt(p.cadence,10)||14):dk;
+      if(due<dk)n++;
+    }
+    return n?(n+" "+(n===1?"person":"people")+" overdue to reach out."):"You're all caught up on your people.";
+  }
   function weeklyCardHTML(){
     var wkText=(state.weekly&&state.weekly.text)||"";
     if(!wkText&&!weeklyBusy&&!relayOn())return"";
@@ -1390,6 +1430,8 @@
     // gen:"weekly" → Sunday 5pm, a "here's your week" review written fresh from
     // the synced week. Schedule the next 4 Sundays so it survives a quiet week.
     for(i=0;i<4;i++){var wst=nextDowTime(0,17)+i*7*86400000,wkk=dateKey(new Date(wst));out.push({id:"weekly-"+i,fireAt:wst,title:"🗓️ Your week ahead",body:weeklyBodyShort(wkk),url:url,tag:"kevinos-weekly",gen:"weekly",syncKey:sk,emailSession:es,dateKey:wkk,tz:tz});}
+    // gen:"people" -> Sunday 6pm, refreshed from the synced mini-CRM.
+    for(i=0;i<4;i++){var pst=nextDowTime(0,18)+i*7*86400000,pkk=dateKey(new Date(pst));out.push({id:"people-"+i,fireAt:pst,title:"⏰ People to reach out to",body:peopleNudgeBody(pkk),url:url,tag:"kevinos-people",gen:"people",syncKey:sk,dateKey:pkk,tz:tz});}
     // gen:"habits" -> 8pm local, count unchecked habits from the synced doc.
     var htimes=morningBriefTimes(20,7);
     for(i=0;i<htimes.length;i++){var dkH=dateKey(new Date(htimes[i]));out.push({id:"habits-"+i,fireAt:htimes[i],title:"🔥 Don’t break the chain",body:"Some habits are still open today.",url:url,tag:"kevinos-habits",gen:"habits",syncKey:sk,dateKey:dkH,tz:tz});}
@@ -1459,7 +1501,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,weekly:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,weekly:1,peopleCfg:1,v:1};
   var _syncPushT=null,_syncBusy=false;
   function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
   function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
@@ -1472,7 +1514,7 @@
   function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync "+passphrase);}
   function isEditing(){var el=document.activeElement;if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select";}
   function buildSyncDoc(){var d={},k;for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}return d;}
-  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","habits","council","pending"];
+  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","habits","council","pending"];
   function applySyncDoc(doc){
     if(!doc||typeof doc!=="object")return false;
     SYNC_ARRAYS.forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
@@ -1511,6 +1553,7 @@
     else if(room==="prompts")renderPrompts();
     else if(room==="notes")renderNotes();
     else if(room==="stash")renderStash();
+    else if(room==="people")renderPeople();
     else if(room==="habits")renderHabits();
     else if(room==="github"){if(state.github&&state.github.cache)renderGithub();}
     renderSync();
@@ -1849,6 +1892,10 @@
     if(state.habits&&state.habits.length){
       var hd=0,hi;for(hi=0;hi<state.habits.length;hi++){if(habitDoneToday(state.habits[hi]))hd++;}
       html+='<button class="gh-nudge" type="button" data-go="habits" style="background:var(--gold-soft);margin-top:14px"><span class="gh-fire" style="color:var(--clay)">🔥</span><span class="nu-txt"><strong>Habits.</strong> '+hd+'/'+state.habits.length+' done today.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
+    }
+    var pn=peopleOverdue();
+    if(pn){
+      html+='<button class="gh-nudge" type="button" data-go="people" style="background:var(--surface-2);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">◎</span><span class="nu-txt"><strong>People.</strong> '+pn+' '+(pn===1?'person':'people')+' overdue to reach out.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
     }
     if(hr>=17&&openToday>0&&state.lastShutdown!==tk){
       html+='<button class="gh-nudge" type="button" data-openwind="1" style="background:var(--accent-soft);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">'+moonSvg()+'</span><span class="nu-txt"><strong>Wind down the day.</strong> '+openToday+' still open — close it out and rest.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
@@ -2614,6 +2661,122 @@
     else if(act==="savemanual")saveStashManual(id);
   }
 
+  function findPerson(id){if(!isArr(state.people))state.people=[];for(var i=0;i<state.people.length;i++){if(state.people[i].id===id)return state.people[i];}return null;}
+  function cleanEmail(v){return (v||"").toString().trim().toLowerCase();}
+  function personDue(p){return p&&p.lastContact?addDaysKey(p.lastContact,parseInt(p.cadence,10)||14):todayKey();}
+  function personStatus(p){var due=personDue(p),tk=todayKey();if(due<tk)return"overdue";if(due<=addDaysKey(tk,3))return"due";return"ok";}
+  function cadenceLabel(d){var v=String(parseInt(d,10)||14),i;for(i=0;i<CADENCES.length;i++){if(CADENCES[i].key===v)return CADENCES[i].label;}return v+" days";}
+  function peopleOverdue(){var i,n=0;if(!isArr(state.people))state.people=[];for(i=0;i<state.people.length;i++){if(personStatus(state.people[i])==="overdue")n++;}return n;}
+  function peopleCadenceOptions(sel){
+    var h="",v=String(parseInt(sel,10)||14),i;
+    for(i=0;i<CADENCES.length;i++){h+='<option value="'+CADENCES[i].key+'"'+(CADENCES[i].key===v?' selected':'')+'>'+CADENCES[i].label+'</option>';}
+    return h;
+  }
+  function peopleSort(a,b){var ad=personDue(a),bd=personDue(b),an=(a.name||"").toLowerCase(),bn=(b.name||"").toLowerCase();if(ad!==bd)return ad<bd?-1:1;return an<bn?-1:(an>bn?1:0);}
+  function addPerson(){
+    var n=$("peopleName"),e=$("peopleEmail"),c=$("peopleCadence"),name=(n.value||"").trim(),email=cleanEmail(e?e.value:""),cad=parseInt(c?c.value:"14",10)||14;
+    if(!name){n.focus();return;}
+    if(!isArr(state.people))state.people=[];
+    state.people.unshift({id:uid(),name:name,email:email,cadence:cad,lastContact:"",birthday:"",note:"",createdAt:Date.now()});
+    n.value="";if(e)e.value="";if(c)c.value="14";
+    renderPeople();renderHome();save();
+  }
+  function markContacted(id){
+    var p=findPerson(id);if(!p)return;
+    p.lastContact=todayKey();editingPersonId="";renderPeople();renderHome();save();toast("Contact logged ✓");
+  }
+  function enrichPeople(){
+    if(peopleEnriching)return;
+    if(!relayOn()||!emailOn()){toast("Connect Gmail first.");return;}
+    if(!isArr(state.people))state.people=[];
+    var list=[],i,p;
+    for(i=0;i<state.people.length;i++){p=state.people[i];if(p&&p.id&&cleanEmail(p.email))list.push({id:p.id,email:cleanEmail(p.email)});}
+    if(!list.length){toast("Add an email first.");return;}
+    peopleEnriching=true;renderPeople();
+    fetch(relayBase()+"/people/enrich",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,people:list})}).then(function(r){return r.json();}).then(function(j){
+      var changed=0,res,hit;
+      peopleEnriching=false;
+      if(!j||!j.ok){toast((j&&j.error)?("People check failed: "+j.error):"People check failed.");renderPeople();return;}
+      res=isArr(j.results)?j.results:[];
+      for(i=0;i<res.length;i++){
+        hit=res[i];p=findPerson(hit&&hit.id);
+        if(p&&hit.lastContact&&(!p.lastContact||hit.lastContact>p.lastContact)){p.lastContact=hit.lastContact;changed++;}
+      }
+      if(!state.peopleCfg)state.peopleCfg={lastEnrichAt:0};
+      state.peopleCfg.lastEnrichAt=Date.now();
+      renderPeople();renderHome();save();
+      toast(changed?("Updated "+changed+" contact"+(changed===1?"":"s")+" ✓"):"No newer Gmail contact found.");
+    }).catch(function(){peopleEnriching=false;renderPeople();toast("Couldn’t reach the relay.");});
+  }
+  function personEditHTML(p){
+    return '<div class="edit-panel">'+
+      '<div class="field"><label for="pe-name">Name</label><input class="inp" id="pe-name" type="text" value="'+escapeHtml(p.name||"")+'"></div>'+
+      '<div class="field"><label for="pe-email">Email</label><input class="inp" id="pe-email" type="email" value="'+escapeHtml(p.email||"")+'"></div>'+
+      '<div class="field"><label for="pe-cad">Cadence</label><select class="inp" id="pe-cad">'+peopleCadenceOptions(p.cadence)+'</select></div>'+
+      '<div class="field"><label for="pe-last">Last contact</label><input class="inp" id="pe-last" type="date" value="'+escapeHtml(p.lastContact||"")+'"></div>'+
+      '<div class="field"><label for="pe-bday">Birthday</label><input class="inp" id="pe-bday" type="date" value="'+escapeHtml(p.birthday||"")+'"></div>'+
+      '<div class="field"><label for="pe-note">Note</label><textarea class="inp" id="pe-note" rows="3" style="width:100%;resize:vertical">'+escapeHtml(p.note||"")+'</textarea></div>'+
+      '<div class="edit-actions"><button class="add-btn" type="button" data-person-save="'+escapeHtml(p.id)+'">Save</button><button class="btn-soft" type="button" data-person-cancel="1">Cancel</button><button class="btn-ghost danger" type="button" data-person-delete="'+escapeHtml(p.id)+'">Delete</button></div>'+
+    '</div>';
+  }
+  function personCardHTML(p){
+    var due=personDue(p),st=personStatus(p),meta=[],email=cleanEmail(p.email),label=st==="overdue"?"Overdue":(st==="due"?"Due soon":"OK"),h;
+    meta.push(p.lastContact?"Last "+prettyDate(p.lastContact):"No last contact");
+    meta.push(cadenceLabel(p.cadence));
+    meta.push("Due "+(due===todayKey()?"today":prettyDate(due)));
+    if(email)meta.push(email);
+    if(p.birthday)meta.push("Birthday "+prettyDate(p.birthday));
+    if(p.note)meta.push(p.note);
+    h='<div class="person-card" data-people="open" data-id="'+escapeHtml(p.id)+'"><div class="person-row"><div class="person-main">'+
+      '<div class="person-name">'+escapeHtml(p.name||"Untitled person")+'</div>'+
+      '<div class="person-meta">'+escapeHtml(meta.join(" · "))+'</div></div>'+
+      '<div class="person-actions"><span class="person-status '+st+'">'+label+'</span><button class="btn-soft" type="button" data-people="contact" data-id="'+escapeHtml(p.id)+'">✓ Contacted</button><button class="btn-soft" type="button" data-people="open" data-id="'+escapeHtml(p.id)+'">Edit</button></div></div>';
+    if(editingPersonId===p.id)h+=personEditHTML(p);
+    return h+'</div>';
+  }
+  function peopleBucketHTML(name,arr){
+    var h="",i;if(!arr.length)return"";
+    arr.sort(peopleSort);
+    h+='<div class="bucket"><p class="bucket-head">'+name+' <span class="bc">'+arr.length+'</span></p><div class="rows">';
+    for(i=0;i<arr.length;i++)h+=personCardHTML(arr[i]);
+    h+='</div></div>';return h;
+  }
+  function renderPeople(){
+    if(!isArr(state.people))state.people=[];
+    var box=$("peopleList"),i,p,groups={overdue:[],due:[],ok:[]},h="";
+    if(!box)return;
+    h='<div class="sec-head" style="margin-top:16px"><p class="section-label">Relationships</p>'+(relayOn()&&emailOn()?'<button class="sec-link" type="button" data-people="enrich">'+(peopleEnriching?"Checking…":"Enrich from Gmail")+'</button>':"")+'</div>';
+    if(!state.people.length){box.innerHTML=h+'<p class="empty">No people yet. Add someone above.</p>';return;}
+    for(i=0;i<state.people.length;i++){p=state.people[i];groups[personStatus(p)].push(p);}
+    h+=peopleBucketHTML("Overdue",groups.overdue);
+    h+=peopleBucketHTML("Due soon",groups.due);
+    h+=peopleBucketHTML("OK",groups.ok);
+    box.innerHTML=h;
+  }
+  function handlePeopleClick(e){
+    var sv=e.target.closest("[data-person-save]"),cn=e.target.closest("[data-person-cancel]"),dl=e.target.closest("[data-person-delete]"),b,id,p,t,cad,last,bday,note;
+    if(sv){
+      id=sv.getAttribute("data-person-save");p=findPerson(id);
+      if(p){
+        t=(pf(sv,"pe-name").value||"").trim();if(t)p.name=t;
+        p.email=cleanEmail(pf(sv,"pe-email").value);
+        cad=parseInt(pf(sv,"pe-cad").value,10)||14;p.cadence=cad;
+        last=pf(sv,"pe-last").value||"";p.lastContact=last;
+        bday=pf(sv,"pe-bday").value||"";p.birthday=bday;
+        note=(pf(sv,"pe-note").value||"").trim();p.note=note;
+      }
+      editingPersonId="";renderPeople();renderHome();save();return;
+    }
+    if(cn){editingPersonId="";renderPeople();return;}
+    if(dl){id=dl.getAttribute("data-person-delete");state.people=state.people.filter(function(x){return x.id!==id;});editingPersonId="";renderPeople();renderHome();save();return;}
+    if(e.target.closest(".edit-panel"))return;
+    b=e.target.closest("[data-people]");if(!b)return;
+    id=b.getAttribute("data-id");
+    if(b.getAttribute("data-people")==="enrich"){enrichPeople();return;}
+    if(b.getAttribute("data-people")==="contact"){markContacted(id);return;}
+    if(b.getAttribute("data-people")==="open"){editingPersonId=(editingPersonId===id)?"":id;renderPeople();}
+  }
+
   function seedPrompts(){if(!state.prompts.length){state.prompts=[
     {id:uid(),title:"Multi-model synthesis",cat:"Council",tags:"synthesis, compare",body:"You are one voice among several models answering the same question.\nQUESTION:\n<QUESTION>\n\nWhat the other models said:\n<OTHER VIEWS>\n\nGive me: (1) where you agree, (2) where you'd push back, (3) the single strongest recommendation, (4) what would change your mind. Be concise and specific.",createdAt:Date.now()},
     {id:uid(),title:"Grade against rubric",cat:"Teaching",tags:"grading, rubric",body:"Grade this work strictly against the rubric below. Follow the rubric exactly. For each criterion: the score plus a 1–2 sentence neutral, objective reason. Keep it parent/admin safe. No praise inflation, no personal remarks.\n\nRUBRIC:\n<RUBRIC>\n\nWORK:\n<WORK>",createdAt:Date.now()},
@@ -2844,10 +3007,10 @@
 
   function go(r){
     room=r;
-    editingId=null;editingProjId=null;editingBuildId=null;editingBriefId=null;editingLinkId=null;editingPromptId=null;editingNoteId=null;editingHabitId=null;
+    editingId=null;editingProjId=null;editingBuildId=null;editingBriefId=null;editingLinkId=null;editingPromptId=null;editingNoteId=null;editingHabitId=null;editingPersonId="";
     var tabs=document.querySelectorAll("#nav .tab");
     for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle("active",tabs[i].dataset.room===r);
-    ["home","next","tasks","calendar","habits","projects","studio","briefs","prompts","launchpad","notes","stash","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
+    ["home","next","tasks","calendar","habits","projects","studio","briefs","prompts","launchpad","notes","stash","people","github","email"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
     if(r==="home")renderHome();
     else if(r==="next"){renderNext();maybeAutoBrief();maybeAutoWeekly();}
     else if(r==="tasks")renderTasks();
@@ -2860,6 +3023,7 @@
     else if(r==="prompts")renderPrompts();
     else if(r==="notes")renderNotes();
     else if(r==="stash")renderStash();
+    else if(r==="people")renderPeople();
     else if(r==="github")ghSync(false);
     else if(r==="email")emailEnter();
     try{window.scrollTo(0,0);}catch(e){}
@@ -3041,6 +3205,10 @@
   $("stashSearch").addEventListener("input",function(e){setStashFilter(e.target.value);});
   $("stashTags").addEventListener("click",function(e){var t=e.target.closest("[data-stashtag]");if(!t)return;var tag=t.getAttribute("data-stashtag");stashTag=(stashTag===tag?"":tag);renderStash();});
   $("stashList").addEventListener("click",handleStashClick);
+  $("peopleAddBtn").addEventListener("click",addPerson);
+  $("peopleName").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addPerson();}});
+  $("peopleEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addPerson();}});
+  $("peopleList").addEventListener("click",handlePeopleClick);
   $("ghView").addEventListener("click",handleGithubClick);
   $("ghView").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="ghTokenInput"){e.preventDefault();ghConnect();}});
 
@@ -3337,7 +3505,7 @@
       var saved;try{saved=JSON.parse(String(reader.result));}catch(e){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!saved||typeof saved!=="object"){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!window.confirm("Import this backup? It replaces everything in KevinOS on this device. Tip: export a backup first."))return;
-      ["items","events","projects","builds","briefs","links","prompts","notes","stash","habits","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
+      ["items","events","projects","builds","briefs","links","prompts","notes","stash","people","habits","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
@@ -3346,7 +3514,7 @@
       if(saved.v)state.v=saved.v;
       // note: state.sync is intentionally NOT restored from a backup — sync is a
       // per-device connection, so importing data never silently links a device.
-      editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;
+      editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;editingPersonId="";
       save();go(room);window.alert("Backup imported — everything’s restored.");
     };
     reader.onerror=function(){window.alert("Couldn’t read that file.");};
@@ -3408,6 +3576,7 @@
       if(isArr(saved.prompts))state.prompts=saved.prompts;
       if(isArr(saved.notes))state.notes=saved.notes;
       if(isArr(saved.stash))state.stash=saved.stash;
+      if(isArr(saved.people))state.people=saved.people;
       if(isArr(saved.habits))state.habits=saved.habits;
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(isArr(saved.council))state.council=saved.council;
@@ -3421,10 +3590,11 @@
       if(saved.calendar&&typeof saved.calendar==="object")state.calendar=saved.calendar;
       if(saved.brief&&typeof saved.brief==="object")state.brief=saved.brief;
       if(saved.weekly&&typeof saved.weekly==="object")state.weekly=saved.weekly;
+      if(saved.peopleCfg&&typeof saved.peopleCfg==="object")state.peopleCfg=saved.peopleCfg;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=31;
+    state.v=32;
     var sharedMsg=ingestShared();
     renderHome();
     vcDetect();

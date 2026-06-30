@@ -222,6 +222,12 @@ The Habits room is fully app-side and sync-backed: habits live in the shared D1 
 
 The Stash room uses the existing `GEMINI_API_KEY` secret via relay `POST /summarize`. No new Cloudflare binding, OAuth scope, or secret is needed. `GET /` shows `"summarize":true` when Gemini is configured. The relay fetches readable HTML server-side, returns `{ok:true,title,summary,tags}` for successful pages, and returns HTTP 200 `{ok:false,error,title}` for blocked, unreachable, or non-HTML pages so KevinOS can keep the link and show the manual-summary fallback.
 
+## People Radar — already set up (v0.33)
+
+The People room is a synced mini-CRM: contacts live in `state.people[]`, while `peopleCfg` stays device-local. No new Google scope, Cloudflare binding, or secret is needed. If Gmail is connected, KevinOS can call `POST /people/enrich` with `{session, people:[{id,email}]}`; the relay checks Gmail metadata only (`from:<email> OR to:<email>`) and returns the newest contact date per person. It does not store message content or write the sync doc directly. `GET /` shows `"peopleEnrich":true` when Google OAuth is configured.
+
+If phone reminders and sync are on, KevinOS schedules a Sunday 6pm people nudge for the next 4 weeks. The relay handles `gen:"people"` by reading the synced D1 doc and counting overdue contacts at send time, falling back to the app-provided body if anything is unavailable.
+
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.

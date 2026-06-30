@@ -40,6 +40,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **Mission wave #5 — Habits & Streaks** | **Shipped** v0.30 → synced habits, streaks, 8pm open-habit nudges |
 | ✅ | **Mission wave #4 — One-Tap Send** | **Shipped** v0.31 → tone presets, confirmed send, archive-on-success |
 | ✅ | **Mission wave #6 — Link Stash + AI TL;DR** | **Shipped** v0.32 → synced read-later stash, relay `/summarize`, search/tag/manual fallback |
+| ✅ | **Mission wave #7 — People Radar** | **Shipped** v0.33 → synced mini-CRM, Gmail metadata enrich, cadence groups, Sunday people nudges |
 
 ---
 

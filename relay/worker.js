@@ -656,6 +656,9 @@ async function firePush(env) {
         } else if (r.gen === "weekly") {
           // Sunday-evening weekly review, written fresh from the synced week.
           try { body = await buildWeeklyReview(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
+        } else if (r.gen === "people") {
+          // Weekly relationship nudge, regenerated from the synced people list.
+          try { body = await buildPeopleNudge(env, { syncKey: r.syncKey, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
         } else if (r.gen === "draft") {
           // Pre-draft replies to real overnight mail; notify only if there are any.
           try {
@@ -974,6 +977,28 @@ async function countOpenHabits(env, syncKey, dateKey) {
   return open;
 }
 
+async function buildPeopleNudge(env, opts) {
+  const fallback = (opts.fallback || "").toString();
+  const D = (opts.dateKey || "").toString();
+  if (!opts.syncKey || !/^[a-f0-9]{16,128}$/.test(opts.syncKey) || !env.SYNC || !D) return fallback;
+  try {
+    const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(opts.syncKey).first();
+    if (!row || !row.doc) return fallback;
+    const doc = JSON.parse(row.doc);
+    const people = Array.isArray(doc.people) ? doc.people : [];
+    const overdue = people.filter((p) => {
+      if (!p) return false;
+      const due = p.lastContact ? addDaysKey(p.lastContact, Number(p.cadence) || 14) : D;
+      return due < D;
+    });
+    if (!overdue.length) return fallback;
+    const names = overdue.map((p) => (p.name || "someone").toString());
+    const shown = names.slice(0, 4).join(", ");
+    const more = names.length > 4 ? ", and " + (names.length - 4) + " more" : "";
+    return overdue.length + (overdue.length === 1 ? " person" : " people") + " overdue to reach out: " + shown + more + ".";
+  } catch (e) { return fallback; }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Weekly review — a Sunday-evening "here's your week" brief, built from the same
 // synced doc as the morning brief. Forward-looking: the next 7 days of events +
@@ -1091,7 +1116,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID, peopleEnrich: !!env.GOOGLE_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -1596,6 +1621,46 @@ export default {
         if (!sr.ok) return json({ error: (sj.error && sj.error.message) || "send failed" }, 502, origin);
         return json({ ok: true, id: sj.id }, 200, origin);
       } catch (e) { return json({ error: (e && e.message) || "send failed" }, 502, origin); }
+    }
+
+    // People Radar — back-fill last-contact dates from Gmail metadata only.
+    if (request.method === "POST" && url.pathname === "/people/enrich") {
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const rec = await gmailGetRec(env, payload && payload.session);
+      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+      const rawPeople = Array.isArray(payload.people) ? payload.people : [];
+      const people = rawPeople.map((p) => ({ id: ((p && p.id) || "").toString(), email: ((p && p.email) || "").toString().trim().toLowerCase() }));
+      const best = {};
+      for (const p of people) best[p.id] = "";
+      for (const acct of rec.accounts) {
+        let token;
+        try { token = await gmailAccessToken(env, acct); } catch (e) { continue; }
+        for (const person of people) {
+          if (!person.email) continue;
+          try {
+            const q = "from:" + person.email + " OR to:" + person.email;
+            const lr = await gmailApi(token, "/messages?q=" + encodeURIComponent(q) + "&maxResults=1");
+            const lj = await lr.json();
+            if (!lr.ok) continue;
+            const msgId = lj.messages && lj.messages[0] && lj.messages[0].id;
+            if (!msgId) continue;
+            const mr = await gmailApi(token, "/messages/" + msgId + "?format=metadata&metadataHeaders=Date");
+            const mj = await mr.json();
+            if (!mr.ok) continue;
+            const hs = mj.payload && mj.payload.headers;
+            const dateStr = gmailHeader(hs, "Date");
+            const ts = Date.parse(dateStr) || (Number(mj.internalDate) || 0);
+            if (!ts) continue;
+            const d = new Date(ts);
+            const key = d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+            if (key > (best[person.id] || "")) best[person.id] = key;
+          } catch (e) { /* leave this person as found:false */ }
+        }
+      }
+      await gmailPutRec(env, payload.session, rec);
+      const results = people.map((p) => ({ id: p.id, email: p.email, lastContact: best[p.id] || "", found: !!best[p.id] }));
+      return json({ ok: true, results }, 200, origin);
     }
 
     // Email — disconnect one account (or all) for a session; revoke on Google.
