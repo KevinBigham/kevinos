@@ -184,7 +184,7 @@ KevinOS can read your Gmail and send AI-drafted replies you approve. This is a o
 
 1. Go to **https://console.cloud.google.com** → sign in (any of your Google accounts can own this).
 2. **Create a project:** top bar → project dropdown → **New Project** → name it `KevinOS` → Create → make sure it's selected.
-3. **Enable the Gmail API:** left menu → **APIs & Services → Library** → search **Gmail API** → **Enable**.
+3. **Enable the Google APIs:** left menu → **APIs & Services → Library** → search **Gmail API** → **Enable**, then search **Google Calendar API** → **Enable**.
 4. **OAuth consent screen:** APIs & Services → **OAuth consent screen** → User type **External** → Create.
    - App name `KevinOS`; your email for support + developer contact → Save and continue.
    - **Scopes:** just **Save and continue** (no need to add any here).
@@ -202,7 +202,17 @@ KevinOS can read your Gmail and send AI-drafted replies you approve. This is a o
    I'll add `GOOGLE_CLIENT_ID` + redeploy. `GET /` then shows `"email":true`.
 7. In KevinOS → **Email** → **Connect Gmail** → pick your account → approve. Google warns "**KevinOS hasn't been verified**" — expected in Testing mode; click **Advanced → Continue** (you're the developer). Connect more accounts with **+ Account**.
 
-Scopes: `gmail.readonly` (read inbox) + `gmail.send` (send the replies you approve) + `userinfo.email` (label accounts). Tokens are held on the relay and **refreshed automatically — never stored on your phone**, and KevinOS **never sends without your explicit approval**. Disconnecting in-app revokes the token on Google. Cost stays **$0** (Gmail API + Gemini free tiers).
+Scopes: `gmail.readonly` (read inbox) + `gmail.send` (send the replies you approve) + `calendar.events` / `calendar.readonly` (show, scan, and create calendar events) + `userinfo.email` (label accounts). Tokens are held on the relay and **refreshed automatically — never stored on your phone**, and KevinOS **never sends without your explicit approval**. Disconnecting in-app revokes the token on Google. Cost stays **$0** (Gmail API + Calendar API + Gemini free tiers).
+
+## Google Calendar Room — reconnect once (v0.29)
+
+KevinOS can now show live Google Calendar events, find open slots, and create a real calendar event from a plain-English phrase. No new secret is needed, but existing Gmail tokens were created before the Calendar scopes existed, so each connected Google account must reconnect once:
+
+1. Confirm the **Google Calendar API** is enabled in the same Google Cloud project (see the Gmail setup section above).
+2. Deploy the relay after the `GOOGLE_SCOPE` change. `GET /` should show `"calendar":true`.
+3. In KevinOS → **Calendar** → **Connect Google Calendar** → approve the Google consent screen again.
+
+After that, the same relay-held Google token powers Email and Calendar. Calendar events fetched from Google are display-only on the device; events you explicitly create are also mirrored into KevinOS as `source:"gcal"` so they show offline and sync like normal events.
 
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.

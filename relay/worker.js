@@ -637,7 +637,7 @@ async function ghRevoke(env, token) {
 // the relay (refreshable), never in the browser. AI drafts replies; the user
 // approves and the relay sends (gmail.send). Reuses the PUSH KV with a gml: key.
 // ─────────────────────────────────────────────────────────────────────────────
-const GOOGLE_SCOPE = "openid email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send";
+const GOOGLE_SCOPE = "openid email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly";
 
 function gPage(msg) {
   return new Response(
@@ -702,6 +702,75 @@ function gmailApi(token, path, init) {
     ...(init || {}),
     headers: { Authorization: "Bearer " + token, ...(init && init.headers) },
   });
+}
+async function calendarApi(token, path, init) {
+  init = init || {};
+  init.headers = Object.assign({ Authorization: "Bearer " + token, "Content-Type": "application/json" }, init.headers || {});
+  const r = await fetch("https://www.googleapis.com/calendar/v3" + path, init);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((data.error && data.error.message) || ("Calendar error " + r.status));
+  return data;
+}
+function calAddMinutes(t, mins) {
+  t = captureTime(t);
+  if (!t) return "";
+  const p = t.split(":");
+  const m = (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0) + (mins || 0);
+  const hh = Math.floor(m / 60) % 24;
+  const mm = ((m % 60) + 60) % 60;
+  return (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+}
+function calMin(t) {
+  t = captureTime(t);
+  if (!t) return 0;
+  const p = t.split(":");
+  return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0);
+}
+function calHHMM(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+}
+function calLocalParts(value, tz) {
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz || "UTC", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false, hourCycle: "h23" });
+  const parts = {};
+  for (const p of fmt.formatToParts(new Date(value))) parts[p.type] = p.value;
+  const hour = Number(parts.hour || 0) % 24;
+  return { date: parts.year + "-" + parts.month + "-" + parts.day, min: hour * 60 + (Number(parts.minute) || 0) };
+}
+function calIsoDate(d, tz) {
+  return calLocalParts(d, tz).date;
+}
+function calSlotsFromBusy(busy, from, to, dayStart, dayEnd, durationMin, tz) {
+  const slots = [];
+  const startDate = calIsoDate(from, tz);
+  const endDate = calIsoDate(to, tz);
+  const dur = Math.max(15, Math.min(480, Number(durationMin) || 60));
+  const startMin = calMin(dayStart || "09:00");
+  const endMin = calMin(dayEnd || "18:00");
+  let d = startDate;
+  while (d <= endDate && slots.length < 6) {
+    const blocks = (busy || []).map((b) => {
+      const s = calLocalParts(b.start, tz);
+      const e = calLocalParts(b.end, tz);
+      if (s.date > d || e.date < d) return null;
+      const sm = s.date < d ? 0 : s.min;
+      const em = e.date > d ? 1440 : e.min;
+      const start = Math.max(startMin, sm);
+      const end = Math.min(endMin, em);
+      if (end <= start) return null;
+      return { start, end };
+    }).filter(Boolean).sort((a, b) => a.start - b.start);
+    let cur = startMin;
+    for (const b of blocks) {
+      if (b.start - cur >= dur) slots.push({ date: d, start: calHHMM(cur), end: calHHMM(cur + dur) });
+      if (slots.length >= 6) break;
+      if (b.end > cur) cur = b.end;
+    }
+    if (slots.length < 6 && endMin - cur >= dur) slots.push({ date: d, start: calHHMM(cur), end: calHHMM(cur + dur) });
+    d = addDaysKey(d, 1);
+  }
+  return slots;
 }
 // Smart-inbox bucket from Gmail's own category labels (free — Gmail already
 // classified): primary = real mail that may need you; fyi = updates/receipts;
@@ -928,7 +997,7 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/") {
       const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
+      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, email: !!env.GOOGLE_CLIENT_ID }, 200, origin);
     }
 
     // Council — fan one prompt out to every configured seat, then synthesize.
@@ -1429,6 +1498,114 @@ export default {
         }
       }
       return json({ ok: true }, 200, origin);
+    }
+
+    // Calendar — list upcoming Google Calendar events for the connected account.
+    if (request.method === "POST" && url.pathname === "/calendar/list") {
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const rec = await gmailGetRec(env, payload && payload.session);
+      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+      const acct = gmailFindAccount(rec, payload && payload.account);
+      if (!acct) return json({ error: "not connected" }, 401, origin);
+      try {
+        const token = await gmailAccessToken(env, acct);
+        const calId = ((payload && payload.calId) || "primary").toString();
+        const max = Math.min(50, Math.max(1, (Number(payload && payload.days) || 30)) * 2);
+        const data = await calendarApi(token, "/calendars/" + encodeURIComponent(calId) + "/events?singleEvents=true&orderBy=startTime&timeMin=" + encodeURIComponent(new Date().toISOString()) + "&maxResults=" + max);
+        const events = (data.items || []).map((item) => {
+          const st = item.start || {};
+          const en = item.end || {};
+          const timed = !!st.dateTime;
+          return { id: item.id, title: item.summary || "(untitled)", date: timed ? st.dateTime.slice(0, 10) : st.date, start: timed ? st.dateTime.slice(11, 16) : null, end: en.dateTime ? en.dateTime.slice(11, 16) : null, allDay: !timed, location: item.location || "", notes: item.description || "", htmlLink: item.htmlLink || "" };
+        });
+        await gmailPutRec(env, payload.session, rec);
+        return json({ ok: true, events, account: acct.email }, 200, origin);
+      } catch (e) { return json({ error: (e && e.message) || "Couldn't read your calendar." }, 502, origin); }
+    }
+
+    // Calendar — read busy blocks and return the first few open slots.
+    if (request.method === "POST" && url.pathname === "/calendar/freebusy") {
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const rec = await gmailGetRec(env, payload && payload.session);
+      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+      const acct = gmailFindAccount(rec, payload && payload.account);
+      if (!acct) return json({ error: "not connected" }, 401, origin);
+      try {
+        const token = await gmailAccessToken(env, acct);
+        const calId = ((payload && payload.calId) || "primary").toString();
+        const data = await calendarApi(token, "/freeBusy", { method: "POST", body: JSON.stringify({ timeMin: payload.from, timeMax: payload.to, items: [{ id: calId }] }) });
+        const busy = (data.calendars && data.calendars[calId] && data.calendars[calId].busy) || [];
+        const slots = calSlotsFromBusy(busy, payload.from, payload.to, payload.dayStart || "09:00", payload.dayEnd || "18:00", payload.durationMin || 60, payload.tz || payload.timeZone || "UTC");
+        await gmailPutRec(env, payload.session, rec);
+        return json({ ok: true, busy, slots }, 200, origin);
+      } catch (e) { return json({ error: "Couldn't read your calendar." }, 502, origin); }
+    }
+
+    // Calendar — Gemini parses one natural-language phrase into one event.
+    if (request.method === "POST" && url.pathname === "/calendar/parse") {
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+      const raw = ((payload && payload.text) || "").toString().trim();
+      if (!raw || !/[A-Za-z0-9]/.test(raw)) return json({ ok: false, error: "Couldn't understand that. Try 'lunch with Sam Tue 1pm'." }, 200, origin);
+      try {
+        const instr = 'You are a precise calendar parser for Kevin. Convert ONE natural-language phrase into a single calendar event as STRICT JSON. Output ONLY a JSON object, no prose, no markdown. Schema: {"title":string,"date":"YYYY-MM-DD","start":"HH:MM" 24-hour or null,"end":"HH:MM" 24-hour or null,"allDay":boolean,"location":string,"notes":string}. Resolve relative dates ("today","tomorrow","next Tue","this weekend") against the provided current date and timezone. If a start time is given but no end, set end to one hour after start. If no time is given, set allDay=true and start/end=null. Title should be concise and human ("Lunch with Sam", not "lunch with sam next tue"). Use empty string for unknown location/notes. Never invent attendees.';
+        const user = "Current date: " + ((payload && payload.today) || "") + "\nTimezone: " + ((payload && payload.tz) || "UTC") + "\nPhrase: " + raw;
+        const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
+        const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
+        const r = await fetch(apiUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: instr }, { text: user }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }) });
+        const data = await r.json();
+        if (!r.ok) throw new Error("Gemini calendar parse failed");
+        const cand = (data.candidates || [])[0];
+        const txt = (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
+        let obj = null;
+        try { obj = JSON.parse(txt); } catch (e) { const a = txt.indexOf("{"), b = txt.lastIndexOf("}"); if (a >= 0 && b > a) { try { obj = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { obj = null; } } }
+        if (!obj) throw new Error("Calendar JSON parse failed");
+        let date = captureDate(obj.date);
+        const wdDate = captureWeekdayDate(raw, payload && payload.today);
+        if (wdDate) date = wdDate;
+        const start = obj.allDay ? null : (captureTime(obj.start) || null);
+        let end = obj.allDay ? null : (captureTime(obj.end) || null);
+        if (start && !end) end = calAddMinutes(start, 60);
+        const title = ((obj.title || raw) + "").trim().slice(0, 200);
+        if (!title || /^untitled event$/i.test(title) || title === "(untitled)" || !date) throw new Error("Calendar validation failed");
+        return json({ ok: true, event: { title, date, start, end, allDay: !start || !!obj.allDay, location: ((obj.location || "") + "").slice(0, 300), notes: ((obj.notes || "") + "").slice(0, 1000) } }, 200, origin);
+      } catch (e) {
+        return json({ ok: false, error: "Couldn't understand that. Try 'lunch with Sam Tue 1pm'." }, 200, origin);
+      }
+    }
+
+    // Calendar — create a real Google Calendar event.
+    if (request.method === "POST" && url.pathname === "/calendar/create") {
+      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+      const rec = await gmailGetRec(env, payload && payload.session);
+      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+      const acct = gmailFindAccount(rec, payload && payload.account);
+      if (!acct) return json({ error: "not connected" }, 401, origin);
+      const title = ((payload && payload.title) || "").toString().trim();
+      const date = captureDate(payload && payload.date);
+      if (!title || !date) return json({ error: "Missing title or date" }, 400, origin);
+      try {
+        const token = await gmailAccessToken(env, acct);
+        const calId = ((payload && payload.calId) || "primary").toString();
+        const location = ((payload && payload.location) || "").toString();
+        const notes = ((payload && payload.notes) || "").toString();
+        const tz = ((payload && payload.tz) || "UTC").toString();
+        let body;
+        if (payload && payload.allDay) {
+          body = { summary: title, location, description: notes, start: { date }, end: { date: addDaysKey(date, 1) } };
+        } else {
+          const start = captureTime(payload && payload.start);
+          const end = captureTime(payload && payload.end) || (start ? calAddMinutes(start, 60) : "");
+          if (!start) return json({ error: "Missing start time" }, 400, origin);
+          body = { summary: title, location, description: notes, start: { dateTime: date + "T" + start + ":00", timeZone: tz }, end: { dateTime: date + "T" + end + ":00", timeZone: tz } };
+        }
+        const data = await calendarApi(token, "/calendars/" + encodeURIComponent(calId) + "/events", { method: "POST", body: JSON.stringify(body) });
+        await gmailPutRec(env, payload.session, rec);
+        return json({ ok: true, id: data.id, htmlLink: data.htmlLink || "" }, 200, origin);
+      } catch (e) { return json({ error: "Couldn't create the event." }, 502, origin); }
     }
 
     return json({ error: "Not found" }, 404, origin);

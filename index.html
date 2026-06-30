@@ -211,6 +211,17 @@
   .ev-time.allday{color:var(--ink-faint);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase}
   .ev-title{flex:1;font-size:15.5px;color:var(--ink);min-width:0;word-break:break-word}
   .ev-src{flex:none;font-size:11px;color:var(--ink-faint)}
+  .gcal-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+  .gcal-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+  .gcal-strip-main{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13px;color:var(--ink-soft)}
+  .gcal-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block}
+  .gcal-form{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:16px}
+  .gcal-inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .gcal-inline .inp{flex:1;min-width:220px}
+  .gcal-draft{margin-top:12px}
+  .gcal-slots{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .gcal-slot{background:var(--gold-soft);color:var(--clay);border-color:rgba(184,144,31,.35)}
+  .gcal-pill{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:3px 7px}
   .addev-toggle{margin-top:8px}
   .addev{margin-top:14px;padding:16px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);display:none}
   .addev.open{display:block}
@@ -512,6 +523,8 @@
 
     <!-- CALENDAR -->
     <div class="room" id="room-calendar">
+      <div id="calConnect"></div>
+      <div id="calCompose"></div>
       <div class="cal-head">
         <div class="month-label" id="monthLabel">—</div>
         <div class="cal-ctrls">
@@ -665,7 +678,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.28 · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.29 · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -744,7 +757,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},weekly:{weekKey:"",date:"",text:""},lastBackupAt:0,lastShutdown:"",v:5};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
@@ -757,7 +770,7 @@
   var projAddArea="Inbox", briefAddKind="Brief", linkAddGroup="Studio";
   var promptSearch="", promptCatFilter="All", editingPromptId=null, promptAddCat="General";
   var noteSearch="", noteFilter="All", noteView="para", editingNoteId=null, noteAddPara="Resource";
-  var calCur, calSel;
+  var calCur, calSel, gcalEvents=[], gcalLoading=false, gcalError="", calDraft=null, calDrafting=false, calSlots=[], calSlotBusy=false, calParseErr="", calDur=60, calConnecting=false;
 
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
@@ -1341,7 +1354,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,brief:1,weekly:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,weekly:1,v:1};
   var _syncPushT=null,_syncBusy=false;
   function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
   function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
@@ -1768,6 +1781,124 @@
     else if(a==="rollall"){windItems().forEach(function(it){it.due=tm;it.today=false;});save();renderWind();}
   }
 
+  function calCfg(){if(!state.calendar)state.calendar={connected:false,calId:"primary",lastSyncAt:0};if(!state.calendar.calId)state.calendar.calId="primary";return state.calendar;}
+  function calOn(){return !!(state.calendar&&state.calendar.connected);}
+  function calSession(){return (state.email&&state.email.session)||"";}
+  function calAccount(){var a=(typeof emailActive==="function")?emailActive():"";return a===UNIFIED?((state.email&&state.email.accounts&&state.email.accounts[0])||""):a;}
+  function calConnectStart(){
+    var base=relayBase();
+    if(!base){gcalError="Connect the relay first (Next → Connect AI).";renderCalendar();return;}
+    emailCfg();if(!state.email.session)state.email.session=uid()+uid()+uid();
+    calConnecting=true;gcalError="";save();
+    try{window.open(base+"/google/login?session="+encodeURIComponent(state.email.session),"_blank");}catch(e){}
+    renderCalendar();calConnectPoll(0);
+  }
+  function calConnectPoll(n){
+    if(!calConnecting)return;
+    var base=relayBase();if(!base)return;
+    fetch(base+"/google/status?session="+encodeURIComponent(calSession())).then(function(r){return r.json();}).then(function(j){
+      if(!calConnecting)return;
+      if(j&&j.accounts&&j.accounts.length){
+        calCfg().connected=true;calConnecting=false;gcalError="";
+        if(!emailOn()){state.email.accounts=j.accounts.map(function(a){return a.email;});if(!state.email.active)state.email.active=(state.email.accounts.length>1?UNIFIED:(state.email.accounts[0]||""));}
+        save();loadGcal(true);return;
+      }
+      if(n<60)setTimeout(function(){calConnectPoll(n+1);},2500);
+      else{calConnecting=false;gcalError="Timed out waiting for Google. Try again.";save();renderCalendar();}
+    }).catch(function(){if(n<60)setTimeout(function(){calConnectPoll(n+1);},2500);else{calConnecting=false;gcalError="Couldn’t reach Google status.";renderCalendar();}});
+  }
+  function loadGcal(force){
+    if(!calOn()||!relayBase())return;
+    if(gcalLoading&&!force)return;
+    gcalLoading=true;gcalError="";renderCalendar();
+    fetch(relayBase()+"/calendar/list",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:calSession(),account:calAccount(),calId:calCfg().calId,days:30})}).then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.ok)gcalError=(j&&j.error)||"Couldn’t load your calendar.";
+      else{gcalEvents=j.events||[];calCfg().lastSyncAt=Date.now();}
+      gcalLoading=false;persist();renderCalendar();
+    }).catch(function(){gcalLoading=false;gcalError="Couldn’t reach the relay.";renderCalendar();});
+  }
+  function calParse(){
+    if(!relayBase()){calParseErr="Connect the relay first.";renderCalendar();return;}
+    var inp=$("calNL"),val=(inp?(inp.value||""):"").trim();if(!val)return;
+    var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    calDrafting=true;calParseErr="";renderCalendar();
+    fetch(relayBase()+"/calendar/parse",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:val,today:todayKey(),tz:tz})}).then(function(r){return r.json();}).then(function(j){
+      if(j&&j.ok&&j.event)calDraft=j.event;else calParseErr=(j&&j.error)||"Couldn’t understand that.";
+      calDrafting=false;renderCalendar();
+    }).catch(function(){calDrafting=false;calParseErr="Couldn’t reach the relay.";renderCalendar();});
+  }
+  function readCalDraftCard(){
+    var box=document.querySelector('[data-cal-draft="1"]');if(!box)return calDraft;
+    var all=box.querySelector("#calD_allday");
+    return {title:((box.querySelector("#calD_title")||{}).value||"").trim(),date:((box.querySelector("#calD_date")||{}).value||"").trim(),start:((box.querySelector("#calD_start")||{}).value||"").trim(),end:((box.querySelector("#calD_end")||{}).value||"").trim(),allDay:!!(all&&all.checked),location:((box.querySelector("#calD_location")||{}).value||"").trim(),notes:((box.querySelector("#calD_notes")||{}).value||"").trim()};
+  }
+  function calCreate(){
+    var d=readCalDraftCard()||calDraft;if(!d)return;
+    if(!relayBase()){gcalError="Connect the relay first (Next → Connect AI).";renderCalendar();return;}
+    if(!d.title||!d.date){toast("Need a title and a date.");return;}
+    var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    fetch(relayBase()+"/calendar/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:calSession(),account:calAccount(),calId:calCfg().calId,title:d.title,date:d.date,start:d.start,end:d.end,allDay:!!d.allDay,location:d.location||"",notes:d.notes||"",tz:tz})}).then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.ok){gcalError=(j&&j.error)||"Couldn’t create the event.";renderCalendar();return;}
+      state.events.unshift({id:uid(),title:d.title,date:d.date,time:(d.allDay?null:(d.start||null)),allDay:!!d.allDay,area:evArea,source:"gcal",gcalId:j.id});
+      calDraft=null;save();loadGcal(true);renderCalendar();renderHome();toast("Added to Google Calendar ✓");
+    }).catch(function(){gcalError="Couldn’t reach the relay.";renderCalendar();});
+  }
+  function calDraftCancel(){calDraft=null;calParseErr="";renderCalendar();}
+  function calFindSlots(){
+    if(!calOn()){toast("Connect Google Calendar first.");return;}
+    if(!relayBase()){gcalError="Connect the relay first (Next → Connect AI).";renderCalendar();return;}
+    var now=new Date(),from=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0,0).toISOString(),to=new Date(now.getFullYear(),now.getMonth(),now.getDate()+7,23,59,0,0).toISOString();
+    var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    calSlotBusy=true;calSlots=[];renderCalendar();
+    fetch(relayBase()+"/calendar/freebusy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:calSession(),account:calAccount(),calId:calCfg().calId,from:from,to:to,dayStart:"09:00",dayEnd:"18:00",durationMin:calDur,tz:tz})}).then(function(r){return r.json();}).then(function(j){
+      calSlots=(j&&j.slots)?j.slots:[];calSlots.searched=true;if(j&&!j.ok&&j.error)gcalError=j.error;calSlotBusy=false;renderCalendar();
+    }).catch(function(){calSlotBusy=false;gcalError="Couldn’t reach the relay.";renderCalendar();});
+  }
+  function calPickSlot(idx){var s=calSlots[idx];if(!s)return;calDraft={title:"",date:s.date,start:s.start,end:s.end,allDay:false,location:"",notes:""};renderCalendar();}
+  function calDisconnect(){
+    if(!window.confirm("Disconnect Google Calendar on this device?"))return;
+    if(!emailOn()&&relayBase()&&calSession()){fetch(relayBase()+"/google/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:calSession()})}).catch(function(){});}
+    calCfg().connected=false;gcalEvents=[];calDraft=null;calSlots=[];save();renderCalendar();
+  }
+  function renderCalConnect(){
+    var box=$("calConnect");if(!box)return;
+    var err=gcalError?'<p class="gh-err">'+escapeHtml(gcalError)+'</p>':"";
+    if(calConnecting){box.innerHTML='<div class="gcal-card"><div class="sec-head"><p class="section-label">Connect Google Calendar</p></div><p class="gh-lead">Waiting for Google… approve the calendar re-consent in the tab that opened, then come back here.</p>'+err+'<div class="edit-actions"><button class="add-btn" type="button" data-cal="checkoauth">I’ve authorized — check now</button><button class="btn-soft" type="button" data-cal="disconnect">Cancel</button></div></div>';return;}
+    if(!calOn()){box.innerHTML='<div class="gcal-card"><div class="sec-head"><p class="section-label">Connect Google Calendar</p></div><p class="gh-lead">Bring your real Google Calendar into this room. This uses the same Google session as Email, but needs one quick reconnect to grant calendar access.</p>'+err+'<div class="edit-actions" style="margin-top:14px"><button class="add-btn" type="button" data-cal="connect">Connect Google Calendar ↗</button></div><p class="hint">No new secret is stored in the browser; the relay keeps Google tokens server-side.</p></div>';return;}
+    var acct=calAccount()||"primary account";
+    box.innerHTML='<div class="gcal-strip"><div class="gcal-strip-main"><span class="gcal-dot"></span><span class="section-label" style="margin:0">Google Calendar</span><span>'+escapeHtml(acct)+'</span>'+(gcalLoading?'<span class="gh-syncing">Syncing…</span>':(calCfg().lastSyncAt?'<span class="gh-synced" style="margin:0">Synced '+ghAgo(new Date(calCfg().lastSyncAt).toISOString())+'</span>':""))+'</div><div class="gcal-inline" style="gap:6px"><button class="btn-soft" type="button" data-cal="refresh">↻ Refresh</button><button class="btn-soft" type="button" data-cal="disconnect">Disconnect</button></div></div>'+err;
+  }
+  function renderCalCompose(){
+    var box=$("calCompose");if(!box)return;
+    if(!calOn()){box.innerHTML="";return;}
+    var h='<div class="gcal-form"><div class="sec-head"><p class="section-label">Add by typing</p></div><div class="gcal-inline"><input id="calNL" class="inp title" type="text" placeholder="lunch with Sam next Tue 1pm" autocomplete="off"><button class="add-btn" type="button" data-cal="parse">'+(calDrafting?"Drafting…":"Draft")+'</button></div>';
+    if(calParseErr)h+='<p class="gh-err">'+escapeHtml(calParseErr)+'</p>';
+    if(calDraft){
+      h+='<div class="edit-panel gcal-draft" data-cal-draft="1"><div class="field-row"><div class="field" style="flex:1;min-width:220px;margin-bottom:0"><label for="calD_title">Title</label><input class="inp title" id="calD_title" type="text" value="'+escapeHtml(calDraft.title||"")+'"></div><div class="field" style="margin-bottom:0"><label for="calD_date">Date</label><input class="inp" id="calD_date" type="date" value="'+escapeHtml(calDraft.date||todayKey())+'"></div></div>'+
+        '<div class="field-row"><div class="field" style="margin-bottom:0"><label for="calD_start">Start</label><input class="inp" id="calD_start" type="time" value="'+escapeHtml(calDraft.start||"")+'"></div><div class="field" style="margin-bottom:0"><label for="calD_end">End</label><input class="inp" id="calD_end" type="time" value="'+escapeHtml(calDraft.end||"")+'"></div><label class="hint" style="display:flex;align-items:center;gap:7px;margin:20px 0 0"><input id="calD_allday" type="checkbox"'+(calDraft.allDay?" checked":"")+'> All day</label></div>'+
+        '<div class="field-row"><div class="field" style="flex:1;min-width:180px;margin-bottom:0"><label for="calD_location">Location</label><input class="inp" id="calD_location" type="text" value="'+escapeHtml(calDraft.location||"")+'"></div><div class="field" style="flex:1;min-width:180px;margin-bottom:0"><label for="calD_notes">Notes</label><input class="inp" id="calD_notes" type="text" value="'+escapeHtml(calDraft.notes||"")+'"></div></div>'+
+        '<div class="edit-actions"><button class="add-btn" type="button" data-cal="create">Create</button><button class="btn-ghost" type="button" data-cal="cancel">Cancel</button></div></div>';
+    }
+    h+='<hr class="surface-line"><div class="sec-head" style="margin-top:4px"><p class="section-label">Find a free slot</p></div><div class="gcal-slots"><button class="chip'+(calDur===30?" active":"")+'" type="button" data-cal="dur" data-min="30"'+(calDur===30?' style="background:var(--gold)"':"")+'>30m</button><button class="chip'+(calDur===60?" active":"")+'" type="button" data-cal="dur" data-min="60"'+(calDur===60?' style="background:var(--gold)"':"")+'>60m</button><button class="chip'+(calDur===90?" active":"")+'" type="button" data-cal="dur" data-min="90"'+(calDur===90?' style="background:var(--gold)"':"")+'>90m</button><button class="btn-soft" type="button" data-cal="slots">'+(calSlotBusy?"Finding…":"Find")+'</button></div>';
+    if(calSlots.length){h+='<div class="gcal-slots">';for(var i=0;i<calSlots.length;i++){h+='<button class="chip gcal-slot" type="button" data-cal="slot" data-idx="'+i+'">'+prettyDate(calSlots[i].date)+' · '+fmtTime(calSlots[i].start)+'</button>';}h+='</div>';}
+    else if(!calSlotBusy&&calSlots.searched)h+='<p class="empty">No openings in that window — try a wider range.</p>';
+    h+='</div>';box.innerHTML=h;
+  }
+  function handleCalendarClick(e){
+    var a=e.target.closest("[data-cal]");if(!a)return;
+    var act=a.getAttribute("data-cal");
+    if(act==="connect")calConnectStart();
+    else if(act==="checkoauth")calConnectPoll(0);
+    else if(act==="refresh")loadGcal(true);
+    else if(act==="disconnect")calDisconnect();
+    else if(act==="parse")calParse();
+    else if(act==="create")calCreate();
+    else if(act==="cancel")calDraftCancel();
+    else if(act==="dur"){calDur=parseInt(a.getAttribute("data-min"),10)||60;renderCalCompose();}
+    else if(act==="slots")calFindSlots();
+    else if(act==="slot")calPickSlot(parseInt(a.getAttribute("data-idx"),10)||0);
+  }
+
   function dayItems(k){var out=[];state.events.forEach(function(e){if(e.date===k)out.push({kind:"event",ref:e});});state.items.forEach(function(i){if(i.due===k&&!i.done)out.push({kind:"task",ref:i});});return out;}
   function eventsByDate(){var map={};state.events.forEach(function(e){(map[e.date]=map[e.date]||[]).push({kind:"event",area:e.area});});state.items.forEach(function(i){if(i.due&&!i.done)(map[i.due]=map[i.due]||[]).push({kind:"task",area:i.area});});return map;}
   function sortDay(a,b){var ea=a.kind==="event"?a.ref:null,eb=b.kind==="event"?b.ref:null;var aAll=a.kind==="task"||(ea&&(ea.allDay||!ea.time));var bAll=b.kind==="task"||(eb&&(eb.allDay||!eb.time));if(aAll!==bAll)return aAll?-1:1;var ta=(ea&&ea.time)||"99:99",tb=(eb&&eb.time)||"99:99";return ta<tb?-1:1;}
@@ -1791,7 +1922,11 @@
     $("agendaHead").textContent=prettyDate(calSel);
     var box=$("agendaList");box.innerHTML="";
     var list=dayItems(calSel).sort(sortDay);
-    if(!list.length){box.innerHTML='<p class="empty">Nothing on this day. Add an event below, or import a calendar.</p>';return;}
+    var seenG={},gcalDay=[],gi;
+    state.events.forEach(function(e){if(e.gcalId)seenG[e.gcalId]=true;});
+    for(gi=0;gi<gcalEvents.length;gi++){if(gcalEvents[gi].date===calSel&&!seenG[gcalEvents[gi].id])gcalDay.push(gcalEvents[gi]);}
+    if(!list.length&&!gcalDay.length&&!calOn()){box.innerHTML='<p class="empty">Nothing on this day. Add an event below, or import a calendar.</p>';return;}
+    if(!list.length){box.innerHTML='<p class="empty">Nothing local on this day.</p>';}
     list.forEach(function(d){
       var row=document.createElement("div");row.className="ev-row";
       if(d.kind==="task"){
@@ -1810,6 +1945,19 @@
       }
       box.appendChild(row);
     });
+    if(calOn()){
+      var head=document.createElement("div");head.className="section-label";head.style.margin="18px 0 8px";head.textContent="From Google Calendar";box.appendChild(head);
+      if(gcalLoading){var loading=document.createElement("p");loading.className="empty";loading.textContent="Loading your Google Calendar…";box.appendChild(loading);}
+      else if(!gcalDay.length){var empty=document.createElement("p");empty.className="empty";empty.textContent="Nothing on your Google Calendar.";box.appendChild(empty);}
+      for(gi=0;gi<gcalDay.length;gi++){
+        var ge=gcalDay[gi],grow=document.createElement("div");grow.className="ev-row";
+        var gt=document.createElement("span");if(ge.allDay||!ge.start){gt.className="ev-time allday";gt.textContent="All day";}else{gt.className="ev-time";gt.textContent=fmtTime(ge.start);}grow.appendChild(gt);
+        var gd=document.createElement("span");gd.className="dot";gd.style.background=areaColor("Inbox");grow.appendChild(gd);
+        var gtitle=document.createElement("span");gtitle.className="ev-title";gtitle.textContent=ge.title||"(untitled)";grow.appendChild(gtitle);
+        var gp=document.createElement("span");gp.className="gcal-pill";gp.textContent="GCal";grow.appendChild(gp);
+        box.appendChild(grow);
+      }
+    }
   }
   function renderImported(){
     var box=$("importedChips");box.innerHTML="";var counts={};
@@ -1822,7 +1970,7 @@
       chip.appendChild(x);box.appendChild(chip);
     });
   }
-  function renderCalendar(){renderImported();renderMonth();renderAgenda();renderPending();renderSmartCap();}
+  function renderCalendar(){renderCalConnect();renderCalCompose();renderImported();renderMonth();renderAgenda();renderPending();renderSmartCap();}
   function addEvent(){
     var title=($("evTitle").value||"").trim();var date=$("evDate").value;if(!title||!date)return;
     var time=$("evTime").value||null;
@@ -2503,7 +2651,7 @@
     if(r==="home")renderHome();
     else if(r==="next"){renderNext();maybeAutoBrief();maybeAutoWeekly();}
     else if(r==="tasks")renderTasks();
-    else if(r==="calendar")renderCalendar();
+    else if(r==="calendar"){renderCalendar();if(calOn())loadGcal(false);}
     else if(r==="projects")renderProjects();
     else if(r==="studio")renderBuilds();
     else if(r==="briefs")renderBriefs();
@@ -2637,6 +2785,8 @@
   $("prevMonth").addEventListener("click",function(){calCur.m--;if(calCur.m<0){calCur.m=11;calCur.y--;}renderMonth();});
   $("nextMonth").addEventListener("click",function(){calCur.m++;if(calCur.m>11){calCur.m=0;calCur.y++;}renderMonth();});
   $("todayBtn").addEventListener("click",function(){var n=new Date();calCur={y:n.getFullYear(),m:n.getMonth()};calSel=dateKey(n);renderCalendar();});
+  $("room-calendar").addEventListener("click",handleCalendarClick);
+  $("room-calendar").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="calNL"){e.preventDefault();calParse();}});
   $("importBtn").addEventListener("click",function(){$("fileInput").click();});
   $("fileInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)handleFile(f);e.target.value="";});
   $("smartCap").addEventListener("click",handleSmartClick);
@@ -3024,12 +3174,13 @@
       if(saved.push&&typeof saved.push==="object")state.push=saved.push;
       if(saved.sync&&typeof saved.sync==="object")state.sync=saved.sync;
       if(saved.email&&typeof saved.email==="object")state.email=saved.email;
+      if(saved.calendar&&typeof saved.calendar==="object")state.calendar=saved.calendar;
       if(saved.brief&&typeof saved.brief==="object")state.brief=saved.brief;
       if(saved.weekly&&typeof saved.weekly==="object")state.weekly=saved.weekly;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=26;
+    state.v=29;
     var sharedMsg=ingestShared();
     renderHome();
     vcDetect();
