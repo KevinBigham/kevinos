@@ -1,8 +1,10 @@
 # KevinOS Relay — setup (the fool-proof version)
 
-This is a tiny free server ("Worker") that holds your AI key so your phone/browser never has to. Once it's live, the **Council queue** in KevinOS answers itself.
+For full end-to-end KevinOS setup, start with **[../GETTING_STARTED.md](../GETTING_STARTED.md)**. This file is the relay-focused appendix: Worker deploys, provider secrets, Cloudflare resources, OAuth callbacks, and relay feature notes.
 
-You only do this **once**. ~10 minutes. Everything is free.
+The relay is a tiny free server ("Worker") that holds AI keys and OAuth tokens so your phone/browser never has to. Once it's live, KevinOS can use the **Council queue**, sync, push reminders, GitHub, Gmail, Google Calendar, and AI-powered rooms.
+
+You usually do this once, then redeploy when config changes. The current Kevin stack is live at `https://kevinos-relay.kevinbigham.workers.dev`.
 
 ---
 
@@ -11,19 +13,16 @@ A URL like `https://kevinos-relay.YOURNAME.workers.dev` that you paste into Kevi
 
 ---
 
-## Step 1 — Pick your AI and get ONE key
+## Step 1 — Confirm your AI baseline
 
-**Option A — Claude (recommended, your ecosystem):**
-1. Go to **https://console.anthropic.com** → sign in.
-2. Left sidebar → **API Keys** → **Create Key** → name it `kevinos` → **Copy** it. (Starts with `sk-ant-…`)
-3. Add a few dollars of credit under **Billing** (Haiku is ~pennies; $5 lasts a long time).
+Kevin's current relay uses `PROVIDER = "gemini"` and a multi-seat Council:
 
-**Option B — Gemini (has a free tier, $0 to start):**
-1. Go to **https://aistudio.google.com/app/apikey** → sign in.
-2. **Create API key** → **Copy** it.
-3. If you pick this, open `wrangler.toml` and change `PROVIDER = "claude"` to `PROVIDER = "gemini"`.
+- **Gemini** — enabled by `GEMINI_API_KEY`; also powers the synthesis chair and most AI-powered rooms.
+- **Cloudflare Workers AI** — enabled by the `[ai]` binding; no provider key needed.
+- **Groq, Mistral, OpenRouter** — optional seats enabled by their Worker secrets.
+- **Anthropic** — optional fallback for `/ai` provider switching if `ANTHROPIC_API_KEY` is set.
 
-Keep the key on your clipboard for Step 3.
+For a fresh relay, get at least a Gemini API key from **https://aistudio.google.com/app/apikey**. Add other providers later if you want more Council seats.
 
 ---
 
@@ -42,11 +41,8 @@ cd /Users/kevin/KevinOS/app/relay
 # Log in to Cloudflare (opens your browser → click "Allow")
 npx wrangler login
 
-# Save your API key as a secret (it will prompt you to paste it):
-#   If you chose Claude:
-npx wrangler secret put ANTHROPIC_API_KEY
-#   If you chose Gemini instead, run this one instead of the line above:
-# npx wrangler secret put GEMINI_API_KEY
+# Save your Gemini API key as a secret (it will prompt you to paste it):
+npx wrangler secret put GEMINI_API_KEY
 
 # Ship it
 npx wrangler deploy
@@ -110,7 +106,7 @@ The `/ai` endpoint (one model) still uses `PROVIDER`. Edit `wrangler.toml` → c
 ## Test the relay directly (optional)
 ```sh
 curl https://kevinos-relay.YOURNAME.workers.dev/
-# -> {"ok":true,"service":"kevinos-relay","provider":"claude"}
+# -> JSON with ok:true, service:"kevinos-relay", provider, seats, and capability flags
 ```
 
 ## Phone reminders (Web Push) — already set up (v0.14)
@@ -172,7 +168,7 @@ How it works, and how to reproduce it on a fresh relay:
 2. The `[[d1_databases]]` binding is already in `wrangler.toml`. **Deploy:** `npx wrangler deploy`. `GET /` then shows `"sync":true`.
 3. In KevinOS → footer → **Cross-device sync** → **Connect** → pick any passphrase (or tap **Generate**) → **Start syncing**. Enter the **same** passphrase on your other devices to link them.
 
-The model is **last-write-wins**: the most recent edit wins. **Content** syncs (tasks, notes, projects, calendar, habits, …); **device connections** (the relay URL, push, GitHub) stay per-device. Your passphrase never leaves the device — only `sha256(passphrase)` is sent, and that's the database row key. Backup/restore still works as the escape hatch, and importing a backup never links a device on its own. Cost stays **$0** (Cloudflare D1 free tier — 5 GB, far beyond a personal dataset).
+The current sync model is **server-authoritative by revision**: the relay accepts a push only when its `baseRev` matches the stored `rev`; if another device already advanced the document, the app receives the remote doc, merges by id, and retries so both sides converge without dropping local-only items. **Content** syncs (tasks, notes, projects, calendar, habits, …); **device connections** (the relay URL, push, GitHub, Google sessions, sync settings) stay per-device. Your passphrase never leaves the device — only a salted SHA-256 fingerprint is sent, and that's the database row key. Backup/restore still works as the escape hatch, and importing a backup never links a device on its own. Cost stays **$0** on the intended free-tier path.
 
 ## Calendar / File AI — already set up (v0.17)
 
@@ -180,7 +176,7 @@ The calendar can turn a **photo, a PDF, or pasted text** into events. This rides
 
 ## Email Command Center (Gmail) — register a Google app once (v0.18)
 
-KevinOS can read your Gmail and send AI-drafted replies you approve. This is a one-time Google Cloud registration (~10 min). It's fiddlier than GitHub, so go slow — every step matters. The code is already built and live; it just needs a Client ID + secret to switch on.
+KevinOS can read your Gmail and send AI-drafted replies you approve. The current Kevin relay already has the public Google Client ID in `wrangler.toml` and the client secret stored in Cloudflare, so Gmail is live on the current stack. For a fresh relay, this is a one-time Google Cloud registration (~10 min). It's fiddlier than GitHub, so go slow — every step matters.
 
 1. Go to **https://console.cloud.google.com** → sign in (any of your Google accounts can own this).
 2. **Create a project:** top bar → project dropdown → **New Project** → name it `KevinOS` → Create → make sure it's selected.
@@ -188,18 +184,19 @@ KevinOS can read your Gmail and send AI-drafted replies you approve. This is a o
 4. **OAuth consent screen:** APIs & Services → **OAuth consent screen** → User type **External** → Create.
    - App name `KevinOS`; your email for support + developer contact → Save and continue.
    - **Scopes:** just **Save and continue** (no need to add any here).
-   - **Test users:** **Add users** → add every Gmail address you'll connect (e.g. `Kevin.Bigham@bspowercats.com` + any personal one) → Save.
+   - **Test users:** **Add users** → add every Gmail address you'll connect (work + any personal one) → Save.
    - Leave **Publishing status = Testing**. (Testing mode keeps you off the paid verification/CASA audit — only your listed test-user accounts can connect, which is exactly what you want for a personal tool.)
 5. **Create the OAuth client:** APIs & Services → **Credentials** → **Create credentials → OAuth client ID** → Application type **Web application** → name `KevinOS relay`.
    - Under **Authorized redirect URIs** → **Add URI** → paste **exactly**:
      `https://kevinos-relay.kevinbigham.workers.dev/google/callback`
    - **Create.** A dialog shows your **Client ID** and **Client secret**.
-6. Give me the **Client ID** (it's public — I'll put it in `wrangler.toml`). Set the secret yourself (don't paste it in chat):
+6. Put the **Client ID** in `wrangler.toml` as `GOOGLE_CLIENT_ID` (it's public). Set the secret yourself:
    ```sh
    cd /Users/kevin/KevinOS/app/relay
    npx wrangler secret put GOOGLE_CLIENT_SECRET   # paste the client secret at the prompt
+   npx wrangler deploy
    ```
-   I'll add `GOOGLE_CLIENT_ID` + redeploy. `GET /` then shows `"email":true`.
+   `GET /` then shows `"email":true`.
 7. In KevinOS → **Email** → **Connect Gmail** → pick your account → approve. Google warns "**KevinOS hasn't been verified**" — expected in Testing mode; click **Advanced → Continue** (you're the developer). Connect more accounts with **+ Account**.
 
 Scopes: `gmail.readonly` (read inbox) + `gmail.send` (send the replies you approve) + `calendar.events` / `calendar.readonly` (show, scan, and create calendar events) + `userinfo.email` (label accounts). Tokens are held on the relay and **refreshed automatically — never stored on your phone**, and KevinOS **never sends without your explicit approval**. Disconnecting in-app revokes the token on Google. Cost stays **$0** (Gmail API + Calendar API + Gemini free tiers).

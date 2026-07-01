@@ -79,7 +79,9 @@ async function callClaude(env, system, prompt, model) {
       messages: [{ role: "user", content: prompt }],
     }),
   });
-  const data = await r.json();
+  const raw = await r.text();
+  let data;
+  try { data = JSON.parse(raw); } catch (e) { throw new Error("Claude returned a non-JSON response (HTTP " + r.status + ")"); }
   if (!r.ok) throw new Error((data.error && data.error.message) || "Claude error " + r.status);
   return (data.content || []).map((b) => b.text || "").join("").trim();
 }
@@ -98,7 +100,9 @@ async function callGemini(env, system, prompt, model) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await r.json();
+  const raw = await r.text();
+  let data;
+  try { data = JSON.parse(raw); } catch (e) { throw new Error("Gemini returned a non-JSON response (HTTP " + r.status + ")"); }
   if (!r.ok) throw new Error((data.error && data.error.message) || "Gemini error " + r.status);
   const cand = (data.candidates || [])[0];
   return (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
@@ -115,7 +119,9 @@ async function callOpenAICompatible(opts) {
   if (opts.models && opts.models.length > 1) body.models = opts.models; // OpenRouter fallback routing
   else body.model = opts.model || (opts.models && opts.models[0]);
   const r = await fetch(opts.url, { method: "POST", headers, body: JSON.stringify(body) });
-  const data = await r.json();
+  const raw = await r.text();
+  let data;
+  try { data = JSON.parse(raw); } catch (e) { throw new Error(opts.name + " returned a non-JSON response (HTTP " + r.status + ")"); }
   if (!r.ok) {
     let msg = (data.error && (data.error.message || data.error)) || opts.name + " error " + r.status;
     if (typeof msg !== "string") msg = opts.name + " error " + r.status;
@@ -636,50 +642,54 @@ async function firePush(env) {
   if (!env.PUSH || !env.VAPID_PRIVATE_KEY) return;
   const now = Date.now();
   const grace = 3600 * 1000;
-  const list = await env.PUSH.list({ prefix: "sub:" });
-  for (const k of list.keys) {
-    const raw = await env.PUSH.get(k.name);
-    if (!raw) continue;
-    let rec;
-    try { rec = JSON.parse(raw); } catch (e) { continue; }
-    const all = Array.isArray(rec.reminders) ? rec.reminders : [];
-    const due = all.filter((r) => r.fireAt <= now && r.fireAt > now - grace);
-    const future = all.filter((r) => r.fireAt > now);
-    if (future.length !== all.length) { rec.reminders = future; await env.PUSH.put(k.name, JSON.stringify(rec)); }
-    for (const r of due) {
-      try {
-        let body = r.body, title = r.title, skip = false;
-        if (r.gen === "brief") {
-          // Generate the brief FRESH right now (synced tasks/events + live inbox),
-          // not the static body the app synced days ago. Falls back to r.body.
-          try { body = await buildServerBrief(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
-        } else if (r.gen === "weekly") {
-          // Sunday-evening weekly review, written fresh from the synced week.
-          try { body = await buildWeeklyReview(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
-        } else if (r.gen === "people") {
-          // Weekly relationship nudge, regenerated from the synced people list.
-          try { body = await buildPeopleNudge(env, { syncKey: r.syncKey, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
-        } else if (r.gen === "draft") {
-          // Pre-draft replies to real overnight mail; notify only if there are any.
-          try {
-            const dr = await generateOvernightDrafts(env, r.emailSession, 5);
-            if (!dr.count) skip = true;
-            else { title = "📝 Replies drafted"; body = dr.count + (dr.count === 1 ? " reply is" : " replies are") + " ready to review & send in KevinOS."; }
-          } catch (e) { skip = true; }
-        } else if (r.gen === "habits") {
-          // Evening nudge: count habits still open in the synced doc right now.
-          try {
-            const n = await countOpenHabits(env, r.syncKey, r.dateKey);
-            if (!n) skip = true;
-            else { title = "🔥 Don’t break the chain"; body = n + " habit" + (n === 1 ? "" : "s") + " still open today."; }
-          } catch (e) { body = r.body; }
-        }
-        if (skip) continue;
-        const res = await sendPush(rec.subscription, { title: title, body: body, url: r.url, tag: r.tag }, env, 86400);
-        if (res.status === 404 || res.status === 410) { await env.PUSH.delete(k.name); break; }
-      } catch (e) { /* drop on failure — a missed reminder beats a stuck queue */ }
+  let cursor;
+  do {
+    const list = await env.PUSH.list(cursor ? { prefix: "sub:", cursor } : { prefix: "sub:" });
+    for (const k of list.keys) {
+      const raw = await env.PUSH.get(k.name);
+      if (!raw) continue;
+      let rec;
+      try { rec = JSON.parse(raw); } catch (e) { continue; }
+      const all = Array.isArray(rec.reminders) ? rec.reminders : [];
+      const due = all.filter((r) => r.fireAt <= now && r.fireAt > now - grace);
+      const future = all.filter((r) => r.fireAt > now);
+      if (future.length !== all.length) { rec.reminders = future; await env.PUSH.put(k.name, JSON.stringify(rec)); }
+      for (const r of due) {
+        try {
+          let body = r.body, title = r.title, skip = false;
+          if (r.gen === "brief") {
+            // Generate the brief FRESH right now (synced tasks/events + live inbox),
+            // not the static body the app synced days ago. Falls back to r.body.
+            try { body = await buildServerBrief(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
+          } else if (r.gen === "weekly") {
+            // Sunday-evening weekly review, written fresh from the synced week.
+            try { body = await buildWeeklyReview(env, { syncKey: r.syncKey, emailSession: r.emailSession, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
+          } else if (r.gen === "people") {
+            // Weekly relationship nudge, regenerated from the synced people list.
+            try { body = await buildPeopleNudge(env, { syncKey: r.syncKey, dateKey: r.dateKey, fallback: r.body }); } catch (e) { body = r.body; }
+          } else if (r.gen === "draft") {
+            // Pre-draft replies to real overnight mail; notify only if there are any.
+            try {
+              const dr = await generateOvernightDrafts(env, r.emailSession, 5);
+              if (!dr.count) skip = true;
+              else { title = "📝 Replies drafted"; body = dr.count + (dr.count === 1 ? " reply is" : " replies are") + " ready to review & send in KevinOS."; }
+            } catch (e) { skip = true; }
+          } else if (r.gen === "habits") {
+            // Evening nudge: count habits still open in the synced doc right now.
+            try {
+              const n = await countOpenHabits(env, r.syncKey, r.dateKey);
+              if (!n) skip = true;
+              else { title = "🔥 Don’t break the chain"; body = n + " habit" + (n === 1 ? "" : "s") + " still open today."; }
+            } catch (e) { body = r.body; }
+          }
+          if (skip) continue;
+          const res = await sendPush(rec.subscription, { title: title, body: body, url: r.url, tag: r.tag }, env, 86400);
+          if (res.status === 404 || res.status === 410) { await env.PUSH.delete(k.name); break; }
+        } catch (e) { /* drop on failure — a missed reminder beats a stuck queue */ }
+      }
     }
-  }
+    cursor = list.list_complete ? "" : list.cursor;
+  } while (cursor);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -737,7 +747,12 @@ function gPage(msg) {
 async function gmailGetRec(env, session) {
   if (!env.PUSH || !session) return null;
   const raw = await env.PUSH.get("gml:" + session);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) {
+    // Corrupt record → treat as "not connected" and clear it so it can't wedge every route.
+    try { await env.PUSH.delete("gml:" + session); } catch (e2) { /* best-effort */ }
+    return null;
+  }
 }
 async function gmailPutRec(env, session, rec) { await env.PUSH.put("gml:" + session, JSON.stringify(rec)); }
 function gmailFindAccount(rec, account) {
@@ -746,16 +761,31 @@ function gmailFindAccount(rec, account) {
   return rec.accounts[0];
 }
 // A valid access token for the account, refreshing via the refresh_token if expired.
+// A dead refresh token (Google invalid_grant, or none stored at all) never heals —
+// flag the account for reconnect and throw a "reconnect:<email>" error the routes
+// can turn into a 401 the app understands.
 async function gmailAccessToken(env, acct) {
   if (acct.access && acct.exp && Date.now() < acct.exp - 60000) return acct.access;
+  if (!acct.refresh) { acct.needsReauth = true; throw new Error("reconnect:" + (acct.email || "")); }
   const r = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, refresh_token: acct.refresh, grant_type: "refresh_token" }),
   });
-  const j = await r.json();
-  if (!r.ok || !j.access_token) throw new Error((j && j.error_description) || "token refresh failed");
+  const raw = await r.text();
+  let j = null;
+  try { j = JSON.parse(raw); } catch (e) { /* non-JSON gateway page → generic failure below */ }
+  if (!r.ok || !j || !j.access_token) {
+    if (raw.indexOf("invalid_grant") >= 0) { acct.needsReauth = true; throw new Error("reconnect:" + (acct.email || "")); }
+    throw new Error((j && j.error_description) || "token refresh failed");
+  }
   acct.access = j.access_token; acct.exp = Date.now() + (j.expires_in || 3600) * 1000;
+  delete acct.needsReauth;
   return acct.access;
+}
+function isReconnectError(e) { return !!(e && typeof e.message === "string" && e.message.indexOf("reconnect:") === 0); }
+function reconnectJson(e, origin) {
+  const email = e.message.slice("reconnect:".length);
+  return json({ ok: false, error: "Google account " + (email || "") + " needs to be reconnected (open Email and reconnect).", reconnect: true, email }, 401, origin);
 }
 function b64urlEncode(str) {
   const bytes = new TextEncoder().encode(str);
@@ -1228,742 +1258,820 @@ async function generateOvernightDrafts(env, session, max) {
         } catch (e) { /* skip one message */ }
       }
       await gmailPutRec(env, session, rec);
-    } catch (e) { /* skip one account */ }
+    } catch (e) {
+      if (isReconnectError(e)) { try { await gmailPutRec(env, session, rec); } catch (e2) { /* best-effort */ } }
+      /* skip one account */
+    }
   }
-  await env.PUSH.put("gdraft:" + session, JSON.stringify({ drafts, generatedAt: Date.now() }));
+  await env.PUSH.put("gdraft:" + session, JSON.stringify({ drafts, generatedAt: Date.now() }), { expirationTtl: 172800 });
   return { count: drafts.length, drafts };
+}
+
+async function handleRequest(request, env, origin) {
+  const url = new URL(request.url);
+  const provider = (env.PROVIDER || "claude").toLowerCase();
+
+  if (request.method === "GET" && url.pathname === "/") {
+    const seats = councilSeats(env).map((s) => s.id);
+    return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.PUSH), github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && env.PUSH), sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!(env.GEMINI_API_KEY && env.PUSH && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), launch: !!env.GEMINI_API_KEY, calendar: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), habits: !!(env.SYNC && env.PUSH && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY), email: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), peopleEnrich: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH) }, 200, origin);
+  }
+
+  // Council — fan one prompt out to every configured seat, then synthesize.
+  if (request.method === "POST" && url.pathname === "/council") {
+    let payload;
+    try {
+      payload = await request.json();
+    } catch (e) {
+      return json({ error: "Invalid JSON body" }, 400, origin);
+    }
+    const prompt = ((payload && payload.prompt) || "").toString().trim();
+    const system = ((payload && payload.system) || COUNCIL_SYSTEM).toString();
+    const wantSynth = !payload || payload.synthesize !== false;
+    const wantStream = !!(payload && payload.stream);
+    if (!prompt) return json({ error: "Missing prompt" }, 400, origin);
+
+    const seats = councilSeats(env);
+    if (!seats.length) return json({ error: "No Council seats configured on the relay" }, 500, origin);
+
+    if (wantStream) return streamCouncil(env, seats, system, prompt, wantSynth, origin);
+
+    const results = await Promise.all(seats.map((seat) => runSeat(seat, system, prompt)));
+
+    const answered = results.filter((r) => r.ok);
+    const synthesis = wantSynth ? await synthesize(env, prompt, answered) : null;
+    return json({ seats: results, synthesis, asked: results.length, answered: answered.length }, 200, origin);
+  }
+
+  // Single-model endpoint (kept for back-compat) — uses PROVIDER.
+  if (request.method === "POST" && url.pathname === "/ai") {
+    let payload;
+    try {
+      payload = await request.json();
+    } catch (e) {
+      return json({ error: "Invalid JSON body" }, 400, origin);
+    }
+    const prompt = ((payload && payload.prompt) || "").toString().trim();
+    const system = ((payload && payload.system) || "").toString();
+    if (!prompt) return json({ error: "Missing prompt" }, 400, origin);
+
+    try {
+      let text;
+      if (provider === "gemini") {
+        if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+        text = await withTimeout(callGemini(env, system, prompt), DEFAULTS.seatTimeoutMs, "Gemini");
+      } else {
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY not set on the relay" }, 500, origin);
+        text = await withTimeout(callClaude(env, system, prompt), DEFAULTS.seatTimeoutMs, "Claude");
+      }
+      return json({ text, provider }, 200, origin);
+    } catch (err) {
+      return json({ error: (err && err.message) || "AI request failed" }, 502, origin);
+    }
+  }
+
+  // Calendar / File AI — extract events from text / photo / PDF.
+  if (request.method === "POST" && url.pathname === "/extract") {
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    if (!payload || (!payload.text && !(payload.file && payload.file.dataB64)))
+      return json({ error: "Provide text or a file to extract from" }, 400, origin);
+    try {
+      const events = await extractEvents(env, payload);
+      return json({ ok: true, events }, 200, origin);
+    } catch (e) {
+      return json({ error: (e && e.message) || "extract failed" }, 502, origin);
+    }
+  }
+
+  // Council → action — turn a decision/notes blob into next-action tasks.
+  if (request.method === "POST" && url.pathname === "/actions") {
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    if (!payload || !payload.text) return json({ error: "Provide text to turn into tasks" }, 400, origin);
+    try {
+      const tasks = await extractActions(env, payload);
+      return json({ ok: true, tasks }, 200, origin);
+    } catch (e) {
+      return json({ error: (e && e.message) || "actions failed" }, 502, origin);
+    }
+  }
+
+  // Link Stash — fetch a page server-side and return a concise Gemini TL;DR.
+  if (request.method === "POST" && url.pathname === "/summarize") {
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const target = (payload && payload.url || "").toString().trim();
+    if (!/^https?:\/\//i.test(target)) return json({ ok: false, error: "Not a valid URL", title: "" }, 200, origin);
+    if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+    try {
+      const out = await summarizePage(env, target);
+      return json(out, 200, origin);
+    } catch (e) {
+      return json({ ok: false, error: "Couldn't summarize", title: titleFromUrl(target) }, 200, origin);
+    }
+  }
+
+  // Quick Capture — classify one spoken/typed thought into task, event, or note.
+  if (request.method === "POST" && url.pathname === "/capture") {
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    if (!payload || !payload.text) return json({ error: "Provide text to classify" }, 400, origin);
+    const out = await classifyCapture(env, payload);
+    return json(out, 200, origin);
+  }
+
+  // Web Push — the VAPID public key, so the app never has to hardcode it.
+  if (request.method === "GET" && url.pathname === "/push/key") {
+    return json({ publicKey: env.VAPID_PUBLIC_KEY || "" }, 200, origin);
+  }
+
+  // Web Push — store the subscription + the app's computed reminder set.
+  if (request.method === "POST" && url.pathname === "/push/sync") {
+    if (!env.PUSH) return json({ error: "Push storage not configured on the relay" }, 500, origin);
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const sub = payload && payload.subscription;
+    if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth)
+      return json({ error: "Missing or invalid subscription" }, 400, origin);
+    const reminders = Array.isArray(payload.reminders)
+      ? payload.reminders.filter((r) => r && typeof r.fireAt === "number" && r.title).slice(0, 200)
+      : [];
+    await env.PUSH.put("sub:" + (await sha256Hex(sub.endpoint)), JSON.stringify({ subscription: sub, reminders, updatedAt: Date.now() }));
+    return json({ ok: true, count: reminders.length }, 200, origin);
+  }
+
+  // Web Push — forget a subscription.
+  if (request.method === "POST" && url.pathname === "/push/unsubscribe") {
+    if (!env.PUSH) return json({ error: "Push storage not configured on the relay" }, 500, origin);
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const endpoint = payload && payload.endpoint;
+    if (!endpoint) return json({ error: "Missing endpoint" }, 400, origin);
+    await env.PUSH.delete("sub:" + (await sha256Hex(endpoint)));
+    return json({ ok: true }, 200, origin);
+  }
+
+  // Web Push — send a test notification right now (confirms real device delivery).
+  if (request.method === "POST" && url.pathname === "/push/test") {
+    if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return json({ error: "VAPID keys not configured on the relay" }, 500, origin);
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const sub = payload && payload.subscription;
+    if (!sub || !sub.endpoint || !sub.keys) return json({ error: "Missing subscription" }, 400, origin);
+    try {
+      const res = await sendPush(sub, {
+        title: payload.title || "KevinOS reminders are on ✓",
+        body: payload.body || "You'll get your morning brief and task nudges right here.",
+        url: payload.url || "https://kevinbigham.github.io/kevinos/",
+        tag: "kevinos-test",
+      }, env, 60);
+      return json({ ok: res.status >= 200 && res.status < 300, status: res.status }, 200, origin);
+    } catch (e) {
+      return json({ error: (e && e.message) || "push failed" }, 502, origin);
+    }
+  }
+
+  // GitHub OAuth — start: bounce the browser to GitHub's consent screen.
+  if (request.method === "GET" && url.pathname === "/github/login") {
+    if (!env.GITHUB_CLIENT_ID) return ghHtmlPage("GitHub isn’t configured on the relay yet.");
+    const session = url.searchParams.get("session") || "";
+    if (!session) return ghHtmlPage("Missing session — start from KevinOS.");
+    const params = new URLSearchParams({
+      client_id: env.GITHUB_CLIENT_ID,
+      redirect_uri: url.origin + "/github/callback",
+      scope: "read:user repo",
+      state: session,
+      allow_signup: "false",
+    });
+    return Response.redirect("https://github.com/login/oauth/authorize?" + params.toString(), 302);
+  }
+
+  // GitHub OAuth — callback: exchange the code for a token, store it under the session.
+  if (request.method === "GET" && url.pathname === "/github/callback") {
+    const code = url.searchParams.get("code"), session = url.searchParams.get("state");
+    if (!code || !session) return ghHtmlPage("Authorization was cancelled or incomplete.");
+    if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET || !env.PUSH) return ghHtmlPage("GitHub isn’t fully configured on the relay.");
+    try {
+      const tr = await fetch("https://github.com/login/oauth/access_token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": "kevinos-relay" },
+        body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: url.origin + "/github/callback" }),
+      });
+      const tok = await tr.json();
+      if (!tok.access_token) return ghHtmlPage("GitHub didn’t return a token (" + ((tok.error_description || tok.error || "unknown") + "") + ").");
+      let login = "";
+      try {
+        const ur = await fetch("https://api.github.com/user", { headers: { Authorization: "bearer " + tok.access_token, "User-Agent": "kevinos-relay", Accept: "application/vnd.github+json" } });
+        const uj = await ur.json();
+        login = (uj && uj.login) || "";
+      } catch (e) { /* login is cosmetic */ }
+      await env.PUSH.put("gh:" + session, JSON.stringify({ token: tok.access_token, login: login, createdAt: Date.now() }));
+      return ghHtmlPage(login ? "Connected as @" + login + " ✓" : "GitHub connected ✓");
+    } catch (e) {
+      return ghHtmlPage("Couldn’t complete GitHub sign-in. Please try again.");
+    }
+  }
+
+  // GitHub OAuth — status poll (the app waits on this after opening the consent tab).
+  if (request.method === "GET" && url.pathname === "/github/status") {
+    if (!env.PUSH) return json({ connected: false }, 200, origin);
+    const session = url.searchParams.get("session") || "";
+    const raw = session ? await env.PUSH.get("gh:" + session) : null;
+    let rec = null;
+    try { rec = raw ? JSON.parse(raw) : null; } catch (e) { /* corrupt → not connected */ }
+    return json({ connected: !!(rec && rec.token), login: (rec && rec.login) || "" }, 200, origin);
+  }
+
+  // GitHub — proxy a GraphQL query using the stored token (the browser never sees it).
+  if (request.method === "POST" && url.pathname === "/github/graphql") {
+    if (!env.PUSH) return json({ error: "GitHub not configured on the relay" }, 500, origin);
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const session = payload && payload.session, query = payload && payload.query;
+    if (!session || !query) return json({ error: "Missing session or query" }, 400, origin);
+    const raw = await env.PUSH.get("gh:" + session);
+    let rec = null;
+    try { rec = raw ? JSON.parse(raw) : null; } catch (e) { /* corrupt → not connected */ }
+    if (!rec || !rec.token) return json({ error: "not connected" }, 401, origin);
+    const gr = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: { Authorization: "bearer " + rec.token, "Content-Type": "application/json", "User-Agent": "kevinos-relay" },
+      body: JSON.stringify({ query: query, variables: (payload && payload.variables) || undefined }),
+    });
+    if (gr.status === 401) { await env.PUSH.delete("gh:" + session); return json({ error: "github auth" }, 401, origin); }
+    const data = await gr.json();
+    return json(data, gr.status, origin);
+  }
+
+  // GitHub — disconnect: revoke the token on GitHub, then forget it.
+  if (request.method === "POST" && url.pathname === "/github/logout") {
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const session = payload && payload.session;
+    if (session && env.PUSH) {
+      const raw = await env.PUSH.get("gh:" + session);
+      let rec = null;
+      try { rec = raw ? JSON.parse(raw) : null; } catch (e) { /* corrupt → not connected */ }
+      if (rec && rec.token && env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) await ghRevoke(env, rec.token);
+      await env.PUSH.delete("gh:" + session);
+    }
+    return json({ ok: true }, 200, origin);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Cross-device sync (Phase 3) — one last-write-wins document per passphrase.
+  // The app derives id = sha256(passphrase) client-side and never sends the
+  // phrase itself; the D1 credential lives here, never in the browser.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Sync — pull the current document for a key.
+  if (request.method === "POST" && url.pathname === "/sync/pull") {
+    if (!env.SYNC) return json({ error: "Sync storage not configured on the relay" }, 500, origin);
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const key = ((payload && payload.key) || "").toString();
+    if (!/^[a-f0-9]{16,128}$/.test(key)) return json({ error: "Missing or invalid key" }, 400, origin);
+    const row = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
+    if (!row) return json({ ok: true, doc: null, updatedAt: 0, rev: 0 }, 200, origin);
+    let doc = null;
+    try { doc = JSON.parse(row.doc); } catch (e) { /* corrupt row → treat as empty */ }
+    return json({ ok: true, doc, updatedAt: row.updated_at, rev: row.rev }, 200, origin);
+  }
+
+  // Sync — push a document. Server-authoritative ordering: optimistic
+  // concurrency on `rev` (a server-incremented counter), NEVER the client
+  // wall-clock — two devices' clocks can skew, which silently blocked
+  // propagation (and could wipe the loser on reconcile). A push is accepted
+  // only when its baseRev matches the stored rev (or force=true, or there's
+  // no stored doc); otherwise the app gets the current doc back, merges, and
+  // retries. updated_at is stamped server-side (one clock) for display only.
+  if (request.method === "POST" && url.pathname === "/sync/push") {
+    if (!env.SYNC) return json({ error: "Sync storage not configured on the relay" }, 500, origin);
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const key = ((payload && payload.key) || "").toString();
+    if (!/^[a-f0-9]{16,128}$/.test(key)) return json({ error: "Missing or invalid key" }, 400, origin);
+    const doc = payload && payload.doc;
+    if (!doc || typeof doc !== "object") return json({ error: "Missing or invalid doc" }, 400, origin);
+    const docStr = JSON.stringify(doc);
+    if (docStr.length > 4 * 1024 * 1024) return json({ error: "Doc too large" }, 413, origin);
+    const deviceId = ((payload && payload.deviceId) || "").toString().slice(0, 64);
+    const force = !!(payload && payload.force);
+    // baseRev = the rev this device last had in hand. Back-compat: older app
+    // builds sent `rev` (their last-seen rev) instead of `baseRev`.
+    const baseRev = Number(payload && (payload.baseRev != null ? payload.baseRev : payload.rev)) || 0;
+    const staleFrom = (row) => {
+      let cur = null;
+      try { cur = JSON.parse(row.doc); } catch (e) { /* corrupt → null */ }
+      return json({ ok: false, stale: true, doc: cur, updatedAt: row.updated_at, rev: row.rev }, 200, origin);
+    };
+    const existing = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
+    const updatedAt = Date.now();
+    if (existing && !force) {
+      if (existing.rev !== baseRev) return staleFrom(existing);
+      // Atomic optimistic write — only lands if rev is STILL baseRev, so a
+      // concurrent push can never be silently overwritten.
+      const upd = await env.SYNC.prepare(
+        "UPDATE docs SET doc = ?1, updated_at = ?2, rev = rev + 1, device_id = ?3 WHERE id = ?4 AND rev = ?5"
+      ).bind(docStr, updatedAt, deviceId, key, baseRev).run();
+      if (!upd.meta || !upd.meta.changes) {
+        const row = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
+        if (row) return staleFrom(row);
+        return staleFrom({ doc: "null", updated_at: 0, rev: 0 });
+      }
+      // The winning UPDATE's rev is deterministic (baseRev + 1) — an unconditional
+      // re-read here could observe a later writer and report a rev one ahead of the
+      // doc this client actually holds, making its next pull skip that newer doc.
+      return json({ ok: true, rev: baseRev + 1, updatedAt }, 200, origin);
+    }
+    if (!existing && !force) {
+      try {
+        await env.SYNC.prepare(
+          "INSERT INTO docs (id, doc, updated_at, rev, device_id) VALUES (?1, ?2, ?3, ?4, ?5)"
+        ).bind(key, docStr, updatedAt, 1, deviceId).run();
+      } catch (e) {
+        // Lost the creation race — hand back the winner's doc as stale.
+        const row = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
+        if (row) return staleFrom(row);
+        throw e;
+      }
+      return json({ ok: true, rev: 1, updatedAt }, 200, origin);
+    }
+    // force: unconditional overwrite — rev = the stored rev re-read at write time, +1.
+    const cur = await env.SYNC.prepare("SELECT rev FROM docs WHERE id = ?").bind(key).first();
+    const rev = ((cur && cur.rev) || 0) + 1;
+    await env.SYNC.prepare(
+      "INSERT INTO docs (id, doc, updated_at, rev, device_id) VALUES (?1, ?2, ?3, ?4, ?5) " +
+      "ON CONFLICT(id) DO UPDATE SET doc = ?2, updated_at = ?3, rev = ?4, device_id = ?5"
+    ).bind(key, docStr, updatedAt, rev, deviceId).run();
+    return json({ ok: true, rev, updatedAt }, 200, origin);
+  }
+
+  // Proactive Brief 2.0 — write a fresh morning brief from synced day context
+  // (or the D1 sync doc) + a live inbox peek. The app's brief card calls this;
+  // the 8am push calls buildServerBrief directly inside firePush.
+  if (request.method === "POST" && url.pathname === "/brief") {
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const text = await buildServerBrief(env, {
+      syncKey: (payload && payload.syncKey) || "",
+      emailSession: (payload && payload.emailSession) || "",
+      dateKey: (payload && payload.dateKey) || "",
+      context: (payload && payload.context) || "",
+      fallback: (payload && payload.fallback) || "",
+    });
+    return json({ ok: true, text }, 200, origin);
+  }
+
+  // Weekly review — a Sunday-evening "here's your week" brief from the synced
+  // doc + a live inbox peek. The app's weekly card calls this; the Sunday push
+  // calls buildWeeklyReview directly inside firePush.
+  if (request.method === "POST" && url.pathname === "/weekly") {
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const text = await buildWeeklyReview(env, {
+      syncKey: (payload && payload.syncKey) || "",
+      emailSession: (payload && payload.emailSession) || "",
+      dateKey: (payload && payload.dateKey) || "",
+      context: (payload && payload.context) || "",
+      fallback: (payload && payload.fallback) || "",
+    });
+    return json({ ok: true, text }, 200, origin);
+  }
+
+  // Morning Launch — an on-demand spoken-style day plan from the same synced
+  // day context + inbox peek as the morning brief.
+  if (request.method === "POST" && url.pathname === "/launch") {
+    let payload;
+    try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const text = await buildLaunchPlan(env, {
+      syncKey: (payload && payload.syncKey) || "",
+      emailSession: (payload && payload.emailSession) || "",
+      dateKey: (payload && payload.dateKey) || "",
+      context: (payload && payload.context) || "",
+      fallback: (payload && payload.fallback) || "",
+    });
+    return json({ ok: true, text }, 200, origin);
+  }
+
+  // Spend Pulse — scan connected Gmail inboxes for receipt-like messages and
+  // extract private ledger records. Never sends amounts to push/public surfaces.
+  if (request.method === "POST" && url.pathname === "/spend/scan") {
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+    const rec = await gmailGetRec(env, payload && payload.session);
+    if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+    let messages = [];
+    if (payload && payload.all) {
+      const per = Math.max(8, Math.floor(40 / rec.accounts.length));
+      for (const acct of rec.accounts) {
+        try { messages = messages.concat(await gmailInboxFull(env, acct, per)); } catch (e) { /* skip account */ }
+      }
+    } else {
+      const acct = gmailFindAccount(rec, payload && payload.account);
+      if (!acct) return json({ error: "not connected" }, 401, origin);
+      try { messages = await gmailInboxFull(env, acct, 40); } catch (e) {
+        if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+        messages = [];
+      }
+    }
+    messages = messages.slice(0, 40);
+    await gmailPutRec(env, payload.session, rec);
+    const candidates = messages.filter((m) => RECEIPT_RE.test((m.subject || "") + " " + (m.snippet || "") + " " + (m.body || "")));
+    const parsed = [];
+    for (let i = 0; i < candidates.length; i += 10) {
+      const batch = candidates.slice(i, i + 10);
+      try { parsed.push(...await parseSpendBatch(env, batch)); } catch (e) { /* skip batch */ }
+    }
+    return json({ ok: true, records: normalizeSpendRecords(parsed, candidates), scanned: candidates.length }, 200, origin);
+  }
+
+  // ── Email Command Center (Phase 5) — Gmail OAuth + AI drafts + send ──────────
+
+  // Email — start OAuth (one Google account per pass; call again to add another).
+  if (request.method === "GET" && url.pathname === "/google/login") {
+    if (!env.GOOGLE_CLIENT_ID) return gPage("Email isn’t configured on the relay yet.");
+    const session = url.searchParams.get("session") || "";
+    if (!session) return gPage("Missing session — start from KevinOS.");
+    const params = new URLSearchParams({
+      client_id: env.GOOGLE_CLIENT_ID,
+      redirect_uri: url.origin + "/google/callback",
+      response_type: "code",
+      scope: GOOGLE_SCOPE,
+      access_type: "offline",
+      include_granted_scopes: "true",
+      prompt: "consent select_account",
+      state: session,
+    });
+    return Response.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString(), 302);
+  }
+
+  // Email — OAuth callback: exchange the code, fetch the email, upsert the account.
+  if (request.method === "GET" && url.pathname === "/google/callback") {
+    const code = url.searchParams.get("code"), session = url.searchParams.get("state");
+    if (!code || !session) return gPage("Authorization was cancelled or incomplete.");
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.PUSH) return gPage("Email isn’t fully configured on the relay.");
+    try {
+      const tr = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: url.origin + "/google/callback", grant_type: "authorization_code" }),
+      });
+      const tok = await tr.json();
+      if (!tok.access_token) return gPage("Google didn’t return a token (" + ((tok.error_description || tok.error || "unknown") + "") + ").");
+      let email = "";
+      try {
+        const ur = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", { headers: { Authorization: "Bearer " + tok.access_token } });
+        const uj = await ur.json(); email = (uj && uj.email) || "";
+      } catch (e) { /* email is cosmetic-ish */ }
+      const rec = (await gmailGetRec(env, session)) || { accounts: [] };
+      const exp = Date.now() + (tok.expires_in || 3600) * 1000;
+      const existing = rec.accounts.find((a) => a.email === email);
+      if (existing) { existing.access = tok.access_token; existing.exp = exp; if (tok.refresh_token) existing.refresh = tok.refresh_token; delete existing.needsReauth; }
+      else rec.accounts.push({ email, access: tok.access_token, refresh: tok.refresh_token || "", exp, addedAt: Date.now() });
+      await gmailPutRec(env, session, rec);
+      return gPage(email ? "Connected " + email + " ✓" : "Gmail connected ✓");
+    } catch (e) {
+      return gPage("Couldn’t complete Google sign-in. Please try again.");
+    }
+  }
+
+  // Email — which accounts are connected for this session (the app polls this).
+  if (request.method === "GET" && url.pathname === "/google/status") {
+    const rec = await gmailGetRec(env, url.searchParams.get("session") || "");
+    return json({ accounts: rec && rec.accounts ? rec.accounts.map((a) => ({ email: a.email, needsReauth: !!a.needsReauth })) : [] }, 200, origin);
+  }
+
+  // Email — recent inbox messages for one account, or ALL accounts merged into
+  // one stream (unified inbox) when payload.all is set. Every message carries
+  // its own account so the app can badge it and draft/triage on the right one.
+  if (request.method === "POST" && url.pathname === "/google/threads") {
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const rec = await gmailGetRec(env, payload && payload.session);
+    if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+    try {
+      let messages = [];
+      if (payload && payload.all) {
+        const per = Math.max(5, Math.floor(24 / rec.accounts.length));
+        for (const a of rec.accounts) { try { messages = messages.concat(await gmailInbox(env, a, per)); } catch (e) { /* skip one account, keep the rest */ } }
+        messages.sort((x, y) => (y.ts || 0) - (x.ts || 0));
+        messages = messages.slice(0, 30);
+      } else {
+        const acct = gmailFindAccount(rec, payload && payload.account);
+        if (!acct) return json({ error: "not connected" }, 401, origin);
+        messages = await gmailInbox(env, acct, 12);
+      }
+      await gmailPutRec(env, payload.session, rec);
+      return json({ ok: true, unified: !!(payload && payload.all), accounts: rec.accounts.map((a) => a.email), messages }, 200, origin);
+    } catch (e) {
+      if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+      return json({ error: (e && e.message) || "threads failed" }, 502, origin);
+    }
+  }
+
+  // Email — triage one message: archive (remove INBOX) and/or mark read
+  // (remove UNREAD). The change lands in Gmail itself, so it's instantly
+  // consistent across every device — phone, web, and the unified inbox.
+  if (request.method === "POST" && url.pathname === "/google/modify") {
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const rec = await gmailGetRec(env, payload && payload.session);
+    const acct = gmailFindAccount(rec, payload && payload.account);
+    if (!acct) return json({ error: "not connected" }, 401, origin);
+    if (!payload.id) return json({ error: "Missing message id" }, 400, origin);
+    const remove = [];
+    if (payload.archive) remove.push("INBOX");
+    if (payload.archive || payload.read) remove.push("UNREAD");
+    if (!remove.length) return json({ error: "Nothing to change" }, 400, origin);
+    try {
+      const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
+      const mr = await gmailApi(token, "/messages/" + payload.id + "/modify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ removeLabelIds: remove }) });
+      const mj = await mr.json();
+      if (!mr.ok) return json({ error: (mj.error && mj.error.message) || "modify failed" }, 502, origin);
+      return json({ ok: true, id: payload.id, labelIds: mj.labelIds || [] }, 200, origin);
+    } catch (e) {
+      if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+      return json({ error: (e && e.message) || "modify failed" }, 502, origin);
+    }
+  }
+
+  // Email — AI-draft a reply to a message (returned for review, NOT sent).
+  if (request.method === "POST" && url.pathname === "/google/draft") {
+    if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const rec = await gmailGetRec(env, payload && payload.session);
+    const acct = gmailFindAccount(rec, payload && payload.account);
+    if (!acct) return json({ error: "not connected" }, 401, origin);
+    if (!payload.id) return json({ error: "Missing message id" }, 400, origin);
+    try {
+      const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
+      const mr = await gmailApi(token, "/messages/" + payload.id + "?format=full");
+      const mj = await mr.json();
+      if (!mr.ok) return json({ error: (mj.error && mj.error.message) || "gmail error" }, 502, origin);
+      const hs = mj.payload && mj.payload.headers;
+      const from = gmailHeader(hs, "From"), subject = gmailHeader(hs, "Subject");
+      const msgId = gmailHeader(hs, "Message-ID") || gmailHeader(hs, "Message-Id");
+      const body = gmailBodyText(mj.payload).slice(0, 8000);
+      let toneClause = "";
+      const t = (payload.tone || "").toString();
+      if (t === "warm") toneClause = " Lean into a warm, friendly, appreciative tone — personable and encouraging, but still concise.";
+      else if (t === "terse") toneClause = " Make it terse and efficient — as few words as possible while staying polite; no pleasantries, no filler.";
+      else if (t === "decline") toneClause = " The answer is no: politely decline. Be gracious and brief, give a soft reason, do not over-apologize, and do not leave the door open.";
+      const sys = "You are " + acct.email + ", writing a reply as this person. Draft a clear, warm, concise reply. Return ONLY the reply body text — no subject line, no email headers, a simple sign-off is fine." + toneClause;
+      const prompt = "Reply to this email" + (payload.instructions ? " (extra guidance: " + payload.instructions + ")" : "") + ".\n\nFrom: " + from + "\nSubject: " + subject + "\n\n" + body;
+      const draft = await callGemini(env, sys, prompt);
+      return json({ ok: true, to: from, subject: /^re:/i.test(subject) ? subject : ("Re: " + subject), body: draft, threadId: mj.threadId, messageId: msgId }, 200, origin);
+    } catch (e) {
+      if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+      return json({ error: (e && e.message) || "draft failed" }, 502, origin);
+    }
+  }
+
+  // Email — overnight auto-drafts: generate (or list/remove) AI replies to real
+  // unread mail. The app shows them as review cards; cron pre-runs this nightly.
+  if (request.method === "POST" && url.pathname === "/google/overnight") {
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const session = payload && payload.session;
+    if (!session) return json({ error: "Missing session" }, 400, origin);
+    if (payload.remove) {
+      const raw = await env.PUSH.get("gdraft:" + session);
+      let cur = { drafts: [] };
+      try { if (raw) cur = JSON.parse(raw); } catch (e) { /* corrupt → empty */ }
+      cur.drafts = (cur.drafts || []).filter((d) => d.id !== payload.remove && d.messageId !== payload.remove);
+      await env.PUSH.put("gdraft:" + session, JSON.stringify(cur), { expirationTtl: 172800 });
+      return json({ ok: true, drafts: cur.drafts }, 200, origin);
+    }
+    if (payload.generate) {
+      const r = await generateOvernightDrafts(env, session, 5);
+      return json({ ok: true, count: r.count, drafts: r.drafts }, 200, origin);
+    }
+    const raw = await env.PUSH.get("gdraft:" + session);
+    let cur = { drafts: [], generatedAt: 0 };
+    try { if (raw) cur = JSON.parse(raw); } catch (e) { /* corrupt → empty */ }
+    return json({ ok: true, drafts: cur.drafts || [], generatedAt: cur.generatedAt || 0 }, 200, origin);
+  }
+
+  // Email — send an approved reply (gmail.send). Never reached without a human approve.
+  if (request.method === "POST" && url.pathname === "/google/send") {
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const rec = await gmailGetRec(env, payload && payload.session);
+    const acct = gmailFindAccount(rec, payload && payload.account);
+    if (!acct) return json({ error: "not connected" }, 401, origin);
+    const to = (payload.to || "").toString(), subject = (payload.subject || "").toString(), bodyText = (payload.body || "").toString();
+    if (!to || !bodyText) return json({ error: "Missing recipient or body" }, 400, origin);
+    try {
+      const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
+      const headers = ["From: " + acct.email, "To: " + to, "Subject: " + subject, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8"];
+      if (payload.messageId) { headers.push("In-Reply-To: " + payload.messageId); headers.push("References: " + payload.messageId); }
+      const raw = b64urlEncode(headers.join("\r\n") + "\r\n\r\n" + bodyText);
+      const sr = await gmailApi(token, "/messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw, threadId: payload.threadId || undefined }) });
+      const sj = await sr.json();
+      if (!sr.ok) return json({ error: (sj.error && sj.error.message) || "send failed" }, 502, origin);
+      return json({ ok: true, id: sj.id }, 200, origin);
+    } catch (e) {
+      if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+      return json({ error: (e && e.message) || "send failed" }, 502, origin);
+    }
+  }
+
+  // People Radar — back-fill last-contact dates from Gmail metadata only.
+  if (request.method === "POST" && url.pathname === "/people/enrich") {
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const rec = await gmailGetRec(env, payload && payload.session);
+    if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+    const rawPeople = Array.isArray(payload.people) ? payload.people : [];
+    const people = rawPeople.map((p) => ({ id: ((p && p.id) || "").toString(), email: ((p && p.email) || "").toString().trim().toLowerCase() }));
+    const best = {};
+    for (const p of people) best[p.id] = "";
+    for (const acct of rec.accounts) {
+      let token;
+      try { token = await gmailAccessToken(env, acct); } catch (e) {
+        // One dead account shouldn't block enriching from the others; with a
+        // single account there's nothing else to try, so surface the reconnect.
+        if (isReconnectError(e) && rec.accounts.length === 1) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+        continue;
+      }
+      for (const person of people) {
+        if (!person.email) continue;
+        try {
+          const q = "from:" + person.email + " OR to:" + person.email;
+          const lr = await gmailApi(token, "/messages?q=" + encodeURIComponent(q) + "&maxResults=1");
+          const lj = await lr.json();
+          if (!lr.ok) continue;
+          const msgId = lj.messages && lj.messages[0] && lj.messages[0].id;
+          if (!msgId) continue;
+          const mr = await gmailApi(token, "/messages/" + msgId + "?format=metadata&metadataHeaders=Date");
+          const mj = await mr.json();
+          if (!mr.ok) continue;
+          const hs = mj.payload && mj.payload.headers;
+          const dateStr = gmailHeader(hs, "Date");
+          const ts = Date.parse(dateStr) || (Number(mj.internalDate) || 0);
+          if (!ts) continue;
+          const d = new Date(ts);
+          const key = d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+          if (key > (best[person.id] || "")) best[person.id] = key;
+        } catch (e) { /* leave this person as found:false */ }
+      }
+    }
+    await gmailPutRec(env, payload.session, rec);
+    const results = people.map((p) => ({ id: p.id, email: p.email, lastContact: best[p.id] || "", found: !!best[p.id] }));
+    return json({ ok: true, results }, 200, origin);
+  }
+
+  // Email — disconnect one account (or all) for a session; revoke on Google.
+  if (request.method === "POST" && url.pathname === "/google/logout") {
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const session = payload && payload.session;
+    if (session && env.PUSH) {
+      const rec = await gmailGetRec(env, session);
+      if (rec && rec.accounts) {
+        const toRevoke = payload.account ? rec.accounts.filter((a) => a.email === payload.account) : rec.accounts;
+        for (const a of toRevoke) { try { await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(a.refresh || a.access), { method: "POST" }); } catch (e) { /* best-effort */ } }
+        if (payload.account) { rec.accounts = rec.accounts.filter((a) => a.email !== payload.account); await gmailPutRec(env, session, rec); }
+        else await env.PUSH.delete("gml:" + session);
+      }
+    }
+    return json({ ok: true }, 200, origin);
+  }
+
+  // Calendar — list upcoming Google Calendar events for the connected account.
+  if (request.method === "POST" && url.pathname === "/calendar/list") {
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const rec = await gmailGetRec(env, payload && payload.session);
+    if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+    const acct = gmailFindAccount(rec, payload && payload.account);
+    if (!acct) return json({ error: "not connected" }, 401, origin);
+    try {
+      const token = await gmailAccessToken(env, acct);
+      const calId = ((payload && payload.calId) || "primary").toString();
+      const max = Math.min(50, Math.max(1, (Number(payload && payload.days) || 30)) * 2);
+      const data = await calendarApi(token, "/calendars/" + encodeURIComponent(calId) + "/events?singleEvents=true&orderBy=startTime&timeMin=" + encodeURIComponent(new Date().toISOString()) + "&maxResults=" + max);
+      const events = (data.items || []).map((item) => {
+        const st = item.start || {};
+        const en = item.end || {};
+        const timed = !!st.dateTime;
+        return { id: item.id, title: item.summary || "(untitled)", date: timed ? st.dateTime.slice(0, 10) : st.date, start: timed ? st.dateTime.slice(11, 16) : null, end: en.dateTime ? en.dateTime.slice(11, 16) : null, allDay: !timed, location: item.location || "", notes: item.description || "", htmlLink: item.htmlLink || "" };
+      });
+      await gmailPutRec(env, payload.session, rec);
+      return json({ ok: true, events, account: acct.email }, 200, origin);
+    } catch (e) {
+      if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+      return json({ error: (e && e.message) || "Couldn't read your calendar." }, 502, origin);
+    }
+  }
+
+  // Calendar — read busy blocks and return the first few open slots.
+  if (request.method === "POST" && url.pathname === "/calendar/freebusy") {
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const rec = await gmailGetRec(env, payload && payload.session);
+    if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+    const acct = gmailFindAccount(rec, payload && payload.account);
+    if (!acct) return json({ error: "not connected" }, 401, origin);
+    try {
+      const token = await gmailAccessToken(env, acct);
+      const calId = ((payload && payload.calId) || "primary").toString();
+      const data = await calendarApi(token, "/freeBusy", { method: "POST", body: JSON.stringify({ timeMin: payload.from, timeMax: payload.to, items: [{ id: calId }] }) });
+      const busy = (data.calendars && data.calendars[calId] && data.calendars[calId].busy) || [];
+      const slots = calSlotsFromBusy(busy, payload.from, payload.to, payload.dayStart || "09:00", payload.dayEnd || "18:00", payload.durationMin || 60, payload.tz || payload.timeZone || "UTC");
+      await gmailPutRec(env, payload.session, rec);
+      return json({ ok: true, busy, slots }, 200, origin);
+    } catch (e) {
+      if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+      return json({ error: (e && e.message) || "Couldn't read your calendar." }, 502, origin);
+    }
+  }
+
+  // Calendar — Gemini parses one natural-language phrase into one event.
+  if (request.method === "POST" && url.pathname === "/calendar/parse") {
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
+    const raw = ((payload && payload.text) || "").toString().trim();
+    if (!raw || !/[A-Za-z0-9]/.test(raw)) return json({ ok: false, error: "Couldn't understand that. Try 'lunch with Sam Tue 1pm'." }, 200, origin);
+    try {
+      const instr = 'You are a precise calendar parser for Kevin. Convert ONE natural-language phrase into a single calendar event as STRICT JSON. Output ONLY a JSON object, no prose, no markdown. Schema: {"title":string,"date":"YYYY-MM-DD","start":"HH:MM" 24-hour or null,"end":"HH:MM" 24-hour or null,"allDay":boolean,"location":string,"notes":string}. Resolve relative dates ("today","tomorrow","next Tue","this weekend") against the provided current date and timezone. If a start time is given but no end, set end to one hour after start. If no time is given, set allDay=true and start/end=null. Title should be concise and human ("Lunch with Sam", not "lunch with sam next tue"). Use empty string for unknown location/notes. Never invent attendees.';
+      const user = "Current date: " + ((payload && payload.today) || "") + "\nTimezone: " + ((payload && payload.tz) || "UTC") + "\nPhrase: " + raw;
+      const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
+      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
+      const r = await fetch(apiUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: instr }, { text: user }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }) });
+      const data = await r.json();
+      if (!r.ok) throw new Error("Gemini calendar parse failed");
+      const cand = (data.candidates || [])[0];
+      const txt = (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
+      let obj = null;
+      try { obj = JSON.parse(txt); } catch (e) { const a = txt.indexOf("{"), b = txt.lastIndexOf("}"); if (a >= 0 && b > a) { try { obj = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { obj = null; } } }
+      if (!obj) throw new Error("Calendar JSON parse failed");
+      let date = captureDate(obj.date);
+      const wdDate = captureWeekdayDate(raw, payload && payload.today);
+      if (wdDate) date = wdDate;
+      const start = obj.allDay ? null : (captureTime(obj.start) || null);
+      let end = obj.allDay ? null : (captureTime(obj.end) || null);
+      if (start && !end) end = calAddMinutes(start, 60);
+      const title = ((obj.title || raw) + "").trim().slice(0, 200);
+      if (!title || /^untitled event$/i.test(title) || title === "(untitled)" || !date) throw new Error("Calendar validation failed");
+      return json({ ok: true, event: { title, date, start, end, allDay: !start || !!obj.allDay, location: ((obj.location || "") + "").slice(0, 300), notes: ((obj.notes || "") + "").slice(0, 1000) } }, 200, origin);
+    } catch (e) {
+      return json({ ok: false, error: "Couldn't understand that. Try 'lunch with Sam Tue 1pm'." }, 200, origin);
+    }
+  }
+
+  // Calendar — create a real Google Calendar event.
+  if (request.method === "POST" && url.pathname === "/calendar/create") {
+    if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
+    let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
+    const rec = await gmailGetRec(env, payload && payload.session);
+    if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
+    const acct = gmailFindAccount(rec, payload && payload.account);
+    if (!acct) return json({ error: "not connected" }, 401, origin);
+    const title = ((payload && payload.title) || "").toString().trim();
+    const date = captureDate(payload && payload.date);
+    if (!title || !date) return json({ error: "Missing title or date" }, 400, origin);
+    try {
+      const token = await gmailAccessToken(env, acct);
+      const calId = ((payload && payload.calId) || "primary").toString();
+      const location = ((payload && payload.location) || "").toString();
+      const notes = ((payload && payload.notes) || "").toString();
+      const tz = ((payload && payload.tz) || "UTC").toString();
+      let body;
+      if (payload && payload.allDay) {
+        body = { summary: title, location, description: notes, start: { date }, end: { date: addDaysKey(date, 1) } };
+      } else {
+        const start = captureTime(payload && payload.start);
+        const end = captureTime(payload && payload.end) || (start ? calAddMinutes(start, 60) : "");
+        if (!start) return json({ error: "Missing start time" }, 400, origin);
+        body = { summary: title, location, description: notes, start: { dateTime: date + "T" + start + ":00", timeZone: tz }, end: { dateTime: date + "T" + end + ":00", timeZone: tz } };
+      }
+      const data = await calendarApi(token, "/calendars/" + encodeURIComponent(calId) + "/events", { method: "POST", body: JSON.stringify(body) });
+      await gmailPutRec(env, payload.session, rec);
+      return json({ ok: true, id: data.id, htmlLink: data.htmlLink || "" }, 200, origin);
+    } catch (e) {
+      if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
+      return json({ error: (e && e.message) || "Couldn't create the event." }, 502, origin);
+    }
+  }
+
+  return json({ error: "Not found" }, 404, origin);
 }
 
 export default {
   async fetch(request, env) {
+    // CORS first — it can't throw, so even a crashed route returns readable JSON.
     const origin = env.ALLOW_ORIGIN || "*";
     if (request.method === "OPTIONS") return new Response(null, { headers: cors(origin) });
-
-    const url = new URL(request.url);
-    const provider = (env.PROVIDER || "claude").toLowerCase();
-
-    if (request.method === "GET" && url.pathname === "/") {
-      const seats = councilSeats(env).map((s) => s.id);
-      return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!env.VAPID_PUBLIC_KEY, github: !!env.GITHUB_CLIENT_ID, sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!env.GEMINI_API_KEY, launch: !!env.GEMINI_API_KEY, calendar: !!env.GOOGLE_CLIENT_ID, habits: !!env.SYNC, email: !!env.GOOGLE_CLIENT_ID, peopleEnrich: !!env.GOOGLE_CLIENT_ID }, 200, origin);
+    try {
+      return await handleRequest(request, env, origin);
+    } catch (e) {
+      return json({ ok: false, error: String((e && e.message) || e) }, 500, origin);
     }
-
-    // Council — fan one prompt out to every configured seat, then synthesize.
-    if (request.method === "POST" && url.pathname === "/council") {
-      let payload;
-      try {
-        payload = await request.json();
-      } catch (e) {
-        return json({ error: "Invalid JSON body" }, 400, origin);
-      }
-      const prompt = ((payload && payload.prompt) || "").toString().trim();
-      const system = ((payload && payload.system) || COUNCIL_SYSTEM).toString();
-      const wantSynth = !payload || payload.synthesize !== false;
-      const wantStream = !!(payload && payload.stream);
-      if (!prompt) return json({ error: "Missing prompt" }, 400, origin);
-
-      const seats = councilSeats(env);
-      if (!seats.length) return json({ error: "No Council seats configured on the relay" }, 500, origin);
-
-      if (wantStream) return streamCouncil(env, seats, system, prompt, wantSynth, origin);
-
-      const results = await Promise.all(seats.map((seat) => runSeat(seat, system, prompt)));
-
-      const answered = results.filter((r) => r.ok);
-      const synthesis = wantSynth ? await synthesize(env, prompt, answered) : null;
-      return json({ seats: results, synthesis, asked: results.length, answered: answered.length }, 200, origin);
-    }
-
-    // Single-model endpoint (kept for back-compat) — uses PROVIDER.
-    if (request.method === "POST" && url.pathname === "/ai") {
-      let payload;
-      try {
-        payload = await request.json();
-      } catch (e) {
-        return json({ error: "Invalid JSON body" }, 400, origin);
-      }
-      const prompt = ((payload && payload.prompt) || "").toString().trim();
-      const system = ((payload && payload.system) || "").toString();
-      if (!prompt) return json({ error: "Missing prompt" }, 400, origin);
-
-      try {
-        let text;
-        if (provider === "gemini") {
-          if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
-          text = await callGemini(env, system, prompt);
-        } else {
-          if (!env.ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY not set on the relay" }, 500, origin);
-          text = await callClaude(env, system, prompt);
-        }
-        return json({ text, provider }, 200, origin);
-      } catch (err) {
-        return json({ error: (err && err.message) || "AI request failed" }, 502, origin);
-      }
-    }
-
-    // Calendar / File AI — extract events from text / photo / PDF.
-    if (request.method === "POST" && url.pathname === "/extract") {
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      if (!payload || (!payload.text && !(payload.file && payload.file.dataB64)))
-        return json({ error: "Provide text or a file to extract from" }, 400, origin);
-      try {
-        const events = await extractEvents(env, payload);
-        return json({ ok: true, events }, 200, origin);
-      } catch (e) {
-        return json({ error: (e && e.message) || "extract failed" }, 502, origin);
-      }
-    }
-
-    // Council → action — turn a decision/notes blob into next-action tasks.
-    if (request.method === "POST" && url.pathname === "/actions") {
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      if (!payload || !payload.text) return json({ error: "Provide text to turn into tasks" }, 400, origin);
-      try {
-        const tasks = await extractActions(env, payload);
-        return json({ ok: true, tasks }, 200, origin);
-      } catch (e) {
-        return json({ error: (e && e.message) || "actions failed" }, 502, origin);
-      }
-    }
-
-    // Link Stash — fetch a page server-side and return a concise Gemini TL;DR.
-    if (request.method === "POST" && url.pathname === "/summarize") {
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const target = (payload && payload.url || "").toString().trim();
-      if (!/^https?:\/\//i.test(target)) return json({ ok: false, error: "Not a valid URL", title: "" }, 200, origin);
-      if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
-      try {
-        const out = await summarizePage(env, target);
-        return json(out, 200, origin);
-      } catch (e) {
-        return json({ ok: false, error: "Couldn't summarize", title: titleFromUrl(target) }, 200, origin);
-      }
-    }
-
-    // Quick Capture — classify one spoken/typed thought into task, event, or note.
-    if (request.method === "POST" && url.pathname === "/capture") {
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      if (!payload || !payload.text) return json({ error: "Provide text to classify" }, 400, origin);
-      const out = await classifyCapture(env, payload);
-      return json(out, 200, origin);
-    }
-
-    // Web Push — the VAPID public key, so the app never has to hardcode it.
-    if (request.method === "GET" && url.pathname === "/push/key") {
-      return json({ publicKey: env.VAPID_PUBLIC_KEY || "" }, 200, origin);
-    }
-
-    // Web Push — store the subscription + the app's computed reminder set.
-    if (request.method === "POST" && url.pathname === "/push/sync") {
-      if (!env.PUSH) return json({ error: "Push storage not configured on the relay" }, 500, origin);
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const sub = payload && payload.subscription;
-      if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth)
-        return json({ error: "Missing or invalid subscription" }, 400, origin);
-      const reminders = Array.isArray(payload.reminders)
-        ? payload.reminders.filter((r) => r && typeof r.fireAt === "number" && r.title).slice(0, 200)
-        : [];
-      await env.PUSH.put("sub:" + (await sha256Hex(sub.endpoint)), JSON.stringify({ subscription: sub, reminders, updatedAt: Date.now() }));
-      return json({ ok: true, count: reminders.length }, 200, origin);
-    }
-
-    // Web Push — forget a subscription.
-    if (request.method === "POST" && url.pathname === "/push/unsubscribe") {
-      if (!env.PUSH) return json({ error: "Push storage not configured on the relay" }, 500, origin);
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const endpoint = payload && payload.endpoint;
-      if (!endpoint) return json({ error: "Missing endpoint" }, 400, origin);
-      await env.PUSH.delete("sub:" + (await sha256Hex(endpoint)));
-      return json({ ok: true }, 200, origin);
-    }
-
-    // Web Push — send a test notification right now (confirms real device delivery).
-    if (request.method === "POST" && url.pathname === "/push/test") {
-      if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return json({ error: "VAPID keys not configured on the relay" }, 500, origin);
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const sub = payload && payload.subscription;
-      if (!sub || !sub.endpoint || !sub.keys) return json({ error: "Missing subscription" }, 400, origin);
-      try {
-        const res = await sendPush(sub, {
-          title: payload.title || "KevinOS reminders are on ✓",
-          body: payload.body || "You'll get your morning brief and task nudges right here.",
-          url: payload.url || "https://kevinbigham.github.io/kevinos/",
-          tag: "kevinos-test",
-        }, env, 60);
-        return json({ ok: res.status >= 200 && res.status < 300, status: res.status }, 200, origin);
-      } catch (e) {
-        return json({ error: (e && e.message) || "push failed" }, 502, origin);
-      }
-    }
-
-    // GitHub OAuth — start: bounce the browser to GitHub's consent screen.
-    if (request.method === "GET" && url.pathname === "/github/login") {
-      if (!env.GITHUB_CLIENT_ID) return ghHtmlPage("GitHub isn’t configured on the relay yet.");
-      const session = url.searchParams.get("session") || "";
-      if (!session) return ghHtmlPage("Missing session — start from KevinOS.");
-      const params = new URLSearchParams({
-        client_id: env.GITHUB_CLIENT_ID,
-        redirect_uri: url.origin + "/github/callback",
-        scope: "read:user repo",
-        state: session,
-        allow_signup: "false",
-      });
-      return Response.redirect("https://github.com/login/oauth/authorize?" + params.toString(), 302);
-    }
-
-    // GitHub OAuth — callback: exchange the code for a token, store it under the session.
-    if (request.method === "GET" && url.pathname === "/github/callback") {
-      const code = url.searchParams.get("code"), session = url.searchParams.get("state");
-      if (!code || !session) return ghHtmlPage("Authorization was cancelled or incomplete.");
-      if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET || !env.PUSH) return ghHtmlPage("GitHub isn’t fully configured on the relay.");
-      try {
-        const tr = await fetch("https://github.com/login/oauth/access_token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": "kevinos-relay" },
-          body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: url.origin + "/github/callback" }),
-        });
-        const tok = await tr.json();
-        if (!tok.access_token) return ghHtmlPage("GitHub didn’t return a token (" + ((tok.error_description || tok.error || "unknown") + "") + ").");
-        let login = "";
-        try {
-          const ur = await fetch("https://api.github.com/user", { headers: { Authorization: "bearer " + tok.access_token, "User-Agent": "kevinos-relay", Accept: "application/vnd.github+json" } });
-          const uj = await ur.json();
-          login = (uj && uj.login) || "";
-        } catch (e) { /* login is cosmetic */ }
-        await env.PUSH.put("gh:" + session, JSON.stringify({ token: tok.access_token, login: login, createdAt: Date.now() }));
-        return ghHtmlPage(login ? "Connected as @" + login + " ✓" : "GitHub connected ✓");
-      } catch (e) {
-        return ghHtmlPage("Couldn’t complete GitHub sign-in. Please try again.");
-      }
-    }
-
-    // GitHub OAuth — status poll (the app waits on this after opening the consent tab).
-    if (request.method === "GET" && url.pathname === "/github/status") {
-      if (!env.PUSH) return json({ connected: false }, 200, origin);
-      const session = url.searchParams.get("session") || "";
-      const raw = session ? await env.PUSH.get("gh:" + session) : null;
-      const rec = raw ? JSON.parse(raw) : null;
-      return json({ connected: !!(rec && rec.token), login: (rec && rec.login) || "" }, 200, origin);
-    }
-
-    // GitHub — proxy a GraphQL query using the stored token (the browser never sees it).
-    if (request.method === "POST" && url.pathname === "/github/graphql") {
-      if (!env.PUSH) return json({ error: "GitHub not configured on the relay" }, 500, origin);
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const session = payload && payload.session, query = payload && payload.query;
-      if (!session || !query) return json({ error: "Missing session or query" }, 400, origin);
-      const raw = await env.PUSH.get("gh:" + session);
-      const rec = raw ? JSON.parse(raw) : null;
-      if (!rec || !rec.token) return json({ error: "not connected" }, 401, origin);
-      const gr = await fetch("https://api.github.com/graphql", {
-        method: "POST",
-        headers: { Authorization: "bearer " + rec.token, "Content-Type": "application/json", "User-Agent": "kevinos-relay" },
-        body: JSON.stringify({ query: query, variables: (payload && payload.variables) || undefined }),
-      });
-      if (gr.status === 401) { await env.PUSH.delete("gh:" + session); return json({ error: "github auth" }, 401, origin); }
-      const data = await gr.json();
-      return json(data, gr.status, origin);
-    }
-
-    // GitHub — disconnect: revoke the token on GitHub, then forget it.
-    if (request.method === "POST" && url.pathname === "/github/logout") {
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const session = payload && payload.session;
-      if (session && env.PUSH) {
-        const raw = await env.PUSH.get("gh:" + session);
-        const rec = raw ? JSON.parse(raw) : null;
-        if (rec && rec.token && env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) await ghRevoke(env, rec.token);
-        await env.PUSH.delete("gh:" + session);
-      }
-      return json({ ok: true }, 200, origin);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Cross-device sync (Phase 3) — one last-write-wins document per passphrase.
-    // The app derives id = sha256(passphrase) client-side and never sends the
-    // phrase itself; the D1 credential lives here, never in the browser.
-    // ─────────────────────────────────────────────────────────────────────────
-
-    // Sync — pull the current document for a key.
-    if (request.method === "POST" && url.pathname === "/sync/pull") {
-      if (!env.SYNC) return json({ error: "Sync storage not configured on the relay" }, 500, origin);
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const key = ((payload && payload.key) || "").toString();
-      if (!/^[a-f0-9]{16,128}$/.test(key)) return json({ error: "Missing or invalid key" }, 400, origin);
-      const row = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
-      if (!row) return json({ ok: true, doc: null, updatedAt: 0, rev: 0 }, 200, origin);
-      let doc = null;
-      try { doc = JSON.parse(row.doc); } catch (e) { /* corrupt row → treat as empty */ }
-      return json({ ok: true, doc, updatedAt: row.updated_at, rev: row.rev }, 200, origin);
-    }
-
-    // Sync — push a document. Server-authoritative ordering: optimistic
-    // concurrency on `rev` (a server-incremented counter), NEVER the client
-    // wall-clock — two devices' clocks can skew, which silently blocked
-    // propagation (and could wipe the loser on reconcile). A push is accepted
-    // only when its baseRev matches the stored rev (or force=true, or there's
-    // no stored doc); otherwise the app gets the current doc back, merges, and
-    // retries. updated_at is stamped server-side (one clock) for display only.
-    if (request.method === "POST" && url.pathname === "/sync/push") {
-      if (!env.SYNC) return json({ error: "Sync storage not configured on the relay" }, 500, origin);
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const key = ((payload && payload.key) || "").toString();
-      if (!/^[a-f0-9]{16,128}$/.test(key)) return json({ error: "Missing or invalid key" }, 400, origin);
-      const doc = payload && payload.doc;
-      if (!doc || typeof doc !== "object") return json({ error: "Missing or invalid doc" }, 400, origin);
-      const docStr = JSON.stringify(doc);
-      if (docStr.length > 4 * 1024 * 1024) return json({ error: "Doc too large" }, 413, origin);
-      const deviceId = ((payload && payload.deviceId) || "").toString().slice(0, 64);
-      const force = !!(payload && payload.force);
-      // baseRev = the rev this device last had in hand. Back-compat: older app
-      // builds sent `rev` (their last-seen rev) instead of `baseRev`.
-      const baseRev = Number(payload && (payload.baseRev != null ? payload.baseRev : payload.rev)) || 0;
-      const existing = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
-      if (existing && !force && existing.rev !== baseRev) {
-        let cur = null;
-        try { cur = JSON.parse(existing.doc); } catch (e) { /* corrupt → null */ }
-        return json({ ok: false, stale: true, doc: cur, updatedAt: existing.updated_at, rev: existing.rev }, 200, origin);
-      }
-      const rev = ((existing && existing.rev) || 0) + 1;
-      const updatedAt = Date.now();
-      await env.SYNC.prepare(
-        "INSERT INTO docs (id, doc, updated_at, rev, device_id) VALUES (?1, ?2, ?3, ?4, ?5) " +
-        "ON CONFLICT(id) DO UPDATE SET doc = ?2, updated_at = ?3, rev = ?4, device_id = ?5"
-      ).bind(key, docStr, updatedAt, rev, deviceId).run();
-      return json({ ok: true, rev, updatedAt }, 200, origin);
-    }
-
-    // Proactive Brief 2.0 — write a fresh morning brief from synced day context
-    // (or the D1 sync doc) + a live inbox peek. The app's brief card calls this;
-    // the 8am push calls buildServerBrief directly inside firePush.
-    if (request.method === "POST" && url.pathname === "/brief") {
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const text = await buildServerBrief(env, {
-        syncKey: (payload && payload.syncKey) || "",
-        emailSession: (payload && payload.emailSession) || "",
-        dateKey: (payload && payload.dateKey) || "",
-        context: (payload && payload.context) || "",
-        fallback: (payload && payload.fallback) || "",
-      });
-      return json({ ok: true, text }, 200, origin);
-    }
-
-    // Weekly review — a Sunday-evening "here's your week" brief from the synced
-    // doc + a live inbox peek. The app's weekly card calls this; the Sunday push
-    // calls buildWeeklyReview directly inside firePush.
-    if (request.method === "POST" && url.pathname === "/weekly") {
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const text = await buildWeeklyReview(env, {
-        syncKey: (payload && payload.syncKey) || "",
-        emailSession: (payload && payload.emailSession) || "",
-        dateKey: (payload && payload.dateKey) || "",
-        context: (payload && payload.context) || "",
-        fallback: (payload && payload.fallback) || "",
-      });
-      return json({ ok: true, text }, 200, origin);
-    }
-
-    // Morning Launch — an on-demand spoken-style day plan from the same synced
-    // day context + inbox peek as the morning brief.
-    if (request.method === "POST" && url.pathname === "/launch") {
-      let payload;
-      try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const text = await buildLaunchPlan(env, {
-        syncKey: (payload && payload.syncKey) || "",
-        emailSession: (payload && payload.emailSession) || "",
-        dateKey: (payload && payload.dateKey) || "",
-        context: (payload && payload.context) || "",
-        fallback: (payload && payload.fallback) || "",
-      });
-      return json({ ok: true, text }, 200, origin);
-    }
-
-    // Spend Pulse — scan connected Gmail inboxes for receipt-like messages and
-    // extract private ledger records. Never sends amounts to push/public surfaces.
-    if (request.method === "POST" && url.pathname === "/spend/scan") {
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
-      const rec = await gmailGetRec(env, payload && payload.session);
-      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
-      let messages = [];
-      if (payload && payload.all) {
-        const per = Math.max(8, Math.floor(40 / rec.accounts.length));
-        for (const acct of rec.accounts) {
-          try { messages = messages.concat(await gmailInboxFull(env, acct, per)); } catch (e) { /* skip account */ }
-        }
-      } else {
-        const acct = gmailFindAccount(rec, payload && payload.account);
-        if (!acct) return json({ error: "not connected" }, 401, origin);
-        try { messages = await gmailInboxFull(env, acct, 40); } catch (e) { messages = []; }
-      }
-      messages = messages.slice(0, 40);
-      await gmailPutRec(env, payload.session, rec);
-      const candidates = messages.filter((m) => RECEIPT_RE.test((m.subject || "") + " " + (m.snippet || "") + " " + (m.body || "")));
-      const parsed = [];
-      for (let i = 0; i < candidates.length; i += 10) {
-        const batch = candidates.slice(i, i + 10);
-        try { parsed.push(...await parseSpendBatch(env, batch)); } catch (e) { /* skip batch */ }
-      }
-      return json({ ok: true, records: normalizeSpendRecords(parsed, candidates), scanned: candidates.length }, 200, origin);
-    }
-
-    // ── Email Command Center (Phase 5) — Gmail OAuth + AI drafts + send ──────────
-
-    // Email — start OAuth (one Google account per pass; call again to add another).
-    if (request.method === "GET" && url.pathname === "/google/login") {
-      if (!env.GOOGLE_CLIENT_ID) return gPage("Email isn’t configured on the relay yet.");
-      const session = url.searchParams.get("session") || "";
-      if (!session) return gPage("Missing session — start from KevinOS.");
-      const params = new URLSearchParams({
-        client_id: env.GOOGLE_CLIENT_ID,
-        redirect_uri: url.origin + "/google/callback",
-        response_type: "code",
-        scope: GOOGLE_SCOPE,
-        access_type: "offline",
-        include_granted_scopes: "true",
-        prompt: "consent select_account",
-        state: session,
-      });
-      return Response.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString(), 302);
-    }
-
-    // Email — OAuth callback: exchange the code, fetch the email, upsert the account.
-    if (request.method === "GET" && url.pathname === "/google/callback") {
-      const code = url.searchParams.get("code"), session = url.searchParams.get("state");
-      if (!code || !session) return gPage("Authorization was cancelled or incomplete.");
-      if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.PUSH) return gPage("Email isn’t fully configured on the relay.");
-      try {
-        const tr = await fetch("https://oauth2.googleapis.com/token", {
-          method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: url.origin + "/google/callback", grant_type: "authorization_code" }),
-        });
-        const tok = await tr.json();
-        if (!tok.access_token) return gPage("Google didn’t return a token (" + ((tok.error_description || tok.error || "unknown") + "") + ").");
-        let email = "";
-        try {
-          const ur = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", { headers: { Authorization: "Bearer " + tok.access_token } });
-          const uj = await ur.json(); email = (uj && uj.email) || "";
-        } catch (e) { /* email is cosmetic-ish */ }
-        const rec = (await gmailGetRec(env, session)) || { accounts: [] };
-        const exp = Date.now() + (tok.expires_in || 3600) * 1000;
-        const existing = rec.accounts.find((a) => a.email === email);
-        if (existing) { existing.access = tok.access_token; existing.exp = exp; if (tok.refresh_token) existing.refresh = tok.refresh_token; }
-        else rec.accounts.push({ email, access: tok.access_token, refresh: tok.refresh_token || "", exp, addedAt: Date.now() });
-        await gmailPutRec(env, session, rec);
-        return gPage(email ? "Connected " + email + " ✓" : "Gmail connected ✓");
-      } catch (e) {
-        return gPage("Couldn’t complete Google sign-in. Please try again.");
-      }
-    }
-
-    // Email — which accounts are connected for this session (the app polls this).
-    if (request.method === "GET" && url.pathname === "/google/status") {
-      const rec = await gmailGetRec(env, url.searchParams.get("session") || "");
-      return json({ accounts: rec && rec.accounts ? rec.accounts.map((a) => ({ email: a.email })) : [] }, 200, origin);
-    }
-
-    // Email — recent inbox messages for one account, or ALL accounts merged into
-    // one stream (unified inbox) when payload.all is set. Every message carries
-    // its own account so the app can badge it and draft/triage on the right one.
-    if (request.method === "POST" && url.pathname === "/google/threads") {
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const rec = await gmailGetRec(env, payload && payload.session);
-      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
-      try {
-        let messages = [];
-        if (payload && payload.all) {
-          const per = Math.max(5, Math.floor(24 / rec.accounts.length));
-          for (const a of rec.accounts) { try { messages = messages.concat(await gmailInbox(env, a, per)); } catch (e) { /* skip one account, keep the rest */ } }
-          messages.sort((x, y) => (y.ts || 0) - (x.ts || 0));
-          messages = messages.slice(0, 30);
-        } else {
-          const acct = gmailFindAccount(rec, payload && payload.account);
-          if (!acct) return json({ error: "not connected" }, 401, origin);
-          messages = await gmailInbox(env, acct, 12);
-        }
-        await gmailPutRec(env, payload.session, rec);
-        return json({ ok: true, unified: !!(payload && payload.all), accounts: rec.accounts.map((a) => a.email), messages }, 200, origin);
-      } catch (e) { return json({ error: (e && e.message) || "threads failed" }, 502, origin); }
-    }
-
-    // Email — triage one message: archive (remove INBOX) and/or mark read
-    // (remove UNREAD). The change lands in Gmail itself, so it's instantly
-    // consistent across every device — phone, web, and the unified inbox.
-    if (request.method === "POST" && url.pathname === "/google/modify") {
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const rec = await gmailGetRec(env, payload && payload.session);
-      const acct = gmailFindAccount(rec, payload && payload.account);
-      if (!acct) return json({ error: "not connected" }, 401, origin);
-      if (!payload.id) return json({ error: "Missing message id" }, 400, origin);
-      const remove = [];
-      if (payload.archive) remove.push("INBOX");
-      if (payload.archive || payload.read) remove.push("UNREAD");
-      if (!remove.length) return json({ error: "Nothing to change" }, 400, origin);
-      try {
-        const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
-        const mr = await gmailApi(token, "/messages/" + payload.id + "/modify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ removeLabelIds: remove }) });
-        const mj = await mr.json();
-        if (!mr.ok) return json({ error: (mj.error && mj.error.message) || "modify failed" }, 502, origin);
-        return json({ ok: true, id: payload.id, labelIds: mj.labelIds || [] }, 200, origin);
-      } catch (e) { return json({ error: (e && e.message) || "modify failed" }, 502, origin); }
-    }
-
-    // Email — AI-draft a reply to a message (returned for review, NOT sent).
-    if (request.method === "POST" && url.pathname === "/google/draft") {
-      if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const rec = await gmailGetRec(env, payload && payload.session);
-      const acct = gmailFindAccount(rec, payload && payload.account);
-      if (!acct) return json({ error: "not connected" }, 401, origin);
-      if (!payload.id) return json({ error: "Missing message id" }, 400, origin);
-      try {
-        const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
-        const mr = await gmailApi(token, "/messages/" + payload.id + "?format=full");
-        const mj = await mr.json();
-        if (!mr.ok) return json({ error: (mj.error && mj.error.message) || "gmail error" }, 502, origin);
-        const hs = mj.payload && mj.payload.headers;
-        const from = gmailHeader(hs, "From"), subject = gmailHeader(hs, "Subject");
-        const msgId = gmailHeader(hs, "Message-ID") || gmailHeader(hs, "Message-Id");
-        const body = gmailBodyText(mj.payload).slice(0, 8000);
-        let toneClause = "";
-        const t = (payload.tone || "").toString();
-        if (t === "warm") toneClause = " Lean into a warm, friendly, appreciative tone — personable and encouraging, but still concise.";
-        else if (t === "terse") toneClause = " Make it terse and efficient — as few words as possible while staying polite; no pleasantries, no filler.";
-        else if (t === "decline") toneClause = " The answer is no: politely decline. Be gracious and brief, give a soft reason, do not over-apologize, and do not leave the door open.";
-        const sys = "You are " + acct.email + ", writing a reply as this person. Draft a clear, warm, concise reply. Return ONLY the reply body text — no subject line, no email headers, a simple sign-off is fine." + toneClause;
-        const prompt = "Reply to this email" + (payload.instructions ? " (extra guidance: " + payload.instructions + ")" : "") + ".\n\nFrom: " + from + "\nSubject: " + subject + "\n\n" + body;
-        const draft = await callGemini(env, sys, prompt);
-        return json({ ok: true, to: from, subject: /^re:/i.test(subject) ? subject : ("Re: " + subject), body: draft, threadId: mj.threadId, messageId: msgId }, 200, origin);
-      } catch (e) { return json({ error: (e && e.message) || "draft failed" }, 502, origin); }
-    }
-
-    // Email — overnight auto-drafts: generate (or list/remove) AI replies to real
-    // unread mail. The app shows them as review cards; cron pre-runs this nightly.
-    if (request.method === "POST" && url.pathname === "/google/overnight") {
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const session = payload && payload.session;
-      if (!session) return json({ error: "Missing session" }, 400, origin);
-      if (payload.remove) {
-        const raw = await env.PUSH.get("gdraft:" + session);
-        const cur = raw ? JSON.parse(raw) : { drafts: [] };
-        cur.drafts = (cur.drafts || []).filter((d) => d.id !== payload.remove && d.messageId !== payload.remove);
-        await env.PUSH.put("gdraft:" + session, JSON.stringify(cur));
-        return json({ ok: true, drafts: cur.drafts }, 200, origin);
-      }
-      if (payload.generate) {
-        const r = await generateOvernightDrafts(env, session, 5);
-        return json({ ok: true, count: r.count, drafts: r.drafts }, 200, origin);
-      }
-      const raw = await env.PUSH.get("gdraft:" + session);
-      const cur = raw ? JSON.parse(raw) : { drafts: [], generatedAt: 0 };
-      return json({ ok: true, drafts: cur.drafts || [], generatedAt: cur.generatedAt || 0 }, 200, origin);
-    }
-
-    // Email — send an approved reply (gmail.send). Never reached without a human approve.
-    if (request.method === "POST" && url.pathname === "/google/send") {
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const rec = await gmailGetRec(env, payload && payload.session);
-      const acct = gmailFindAccount(rec, payload && payload.account);
-      if (!acct) return json({ error: "not connected" }, 401, origin);
-      const to = (payload.to || "").toString(), subject = (payload.subject || "").toString(), bodyText = (payload.body || "").toString();
-      if (!to || !bodyText) return json({ error: "Missing recipient or body" }, 400, origin);
-      try {
-        const token = await gmailAccessToken(env, acct); await gmailPutRec(env, payload.session, rec);
-        const headers = ["From: " + acct.email, "To: " + to, "Subject: " + subject, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8"];
-        if (payload.messageId) { headers.push("In-Reply-To: " + payload.messageId); headers.push("References: " + payload.messageId); }
-        const raw = b64urlEncode(headers.join("\r\n") + "\r\n\r\n" + bodyText);
-        const sr = await gmailApi(token, "/messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw, threadId: payload.threadId || undefined }) });
-        const sj = await sr.json();
-        if (!sr.ok) return json({ error: (sj.error && sj.error.message) || "send failed" }, 502, origin);
-        return json({ ok: true, id: sj.id }, 200, origin);
-      } catch (e) { return json({ error: (e && e.message) || "send failed" }, 502, origin); }
-    }
-
-    // People Radar — back-fill last-contact dates from Gmail metadata only.
-    if (request.method === "POST" && url.pathname === "/people/enrich") {
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const rec = await gmailGetRec(env, payload && payload.session);
-      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
-      const rawPeople = Array.isArray(payload.people) ? payload.people : [];
-      const people = rawPeople.map((p) => ({ id: ((p && p.id) || "").toString(), email: ((p && p.email) || "").toString().trim().toLowerCase() }));
-      const best = {};
-      for (const p of people) best[p.id] = "";
-      for (const acct of rec.accounts) {
-        let token;
-        try { token = await gmailAccessToken(env, acct); } catch (e) { continue; }
-        for (const person of people) {
-          if (!person.email) continue;
-          try {
-            const q = "from:" + person.email + " OR to:" + person.email;
-            const lr = await gmailApi(token, "/messages?q=" + encodeURIComponent(q) + "&maxResults=1");
-            const lj = await lr.json();
-            if (!lr.ok) continue;
-            const msgId = lj.messages && lj.messages[0] && lj.messages[0].id;
-            if (!msgId) continue;
-            const mr = await gmailApi(token, "/messages/" + msgId + "?format=metadata&metadataHeaders=Date");
-            const mj = await mr.json();
-            if (!mr.ok) continue;
-            const hs = mj.payload && mj.payload.headers;
-            const dateStr = gmailHeader(hs, "Date");
-            const ts = Date.parse(dateStr) || (Number(mj.internalDate) || 0);
-            if (!ts) continue;
-            const d = new Date(ts);
-            const key = d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
-            if (key > (best[person.id] || "")) best[person.id] = key;
-          } catch (e) { /* leave this person as found:false */ }
-        }
-      }
-      await gmailPutRec(env, payload.session, rec);
-      const results = people.map((p) => ({ id: p.id, email: p.email, lastContact: best[p.id] || "", found: !!best[p.id] }));
-      return json({ ok: true, results }, 200, origin);
-    }
-
-    // Email — disconnect one account (or all) for a session; revoke on Google.
-    if (request.method === "POST" && url.pathname === "/google/logout") {
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const session = payload && payload.session;
-      if (session && env.PUSH) {
-        const rec = await gmailGetRec(env, session);
-        if (rec && rec.accounts) {
-          const toRevoke = payload.account ? rec.accounts.filter((a) => a.email === payload.account) : rec.accounts;
-          for (const a of toRevoke) { try { await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(a.refresh || a.access), { method: "POST" }); } catch (e) { /* best-effort */ } }
-          if (payload.account) { rec.accounts = rec.accounts.filter((a) => a.email !== payload.account); await gmailPutRec(env, session, rec); }
-          else await env.PUSH.delete("gml:" + session);
-        }
-      }
-      return json({ ok: true }, 200, origin);
-    }
-
-    // Calendar — list upcoming Google Calendar events for the connected account.
-    if (request.method === "POST" && url.pathname === "/calendar/list") {
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const rec = await gmailGetRec(env, payload && payload.session);
-      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
-      const acct = gmailFindAccount(rec, payload && payload.account);
-      if (!acct) return json({ error: "not connected" }, 401, origin);
-      try {
-        const token = await gmailAccessToken(env, acct);
-        const calId = ((payload && payload.calId) || "primary").toString();
-        const max = Math.min(50, Math.max(1, (Number(payload && payload.days) || 30)) * 2);
-        const data = await calendarApi(token, "/calendars/" + encodeURIComponent(calId) + "/events?singleEvents=true&orderBy=startTime&timeMin=" + encodeURIComponent(new Date().toISOString()) + "&maxResults=" + max);
-        const events = (data.items || []).map((item) => {
-          const st = item.start || {};
-          const en = item.end || {};
-          const timed = !!st.dateTime;
-          return { id: item.id, title: item.summary || "(untitled)", date: timed ? st.dateTime.slice(0, 10) : st.date, start: timed ? st.dateTime.slice(11, 16) : null, end: en.dateTime ? en.dateTime.slice(11, 16) : null, allDay: !timed, location: item.location || "", notes: item.description || "", htmlLink: item.htmlLink || "" };
-        });
-        await gmailPutRec(env, payload.session, rec);
-        return json({ ok: true, events, account: acct.email }, 200, origin);
-      } catch (e) { return json({ error: (e && e.message) || "Couldn't read your calendar." }, 502, origin); }
-    }
-
-    // Calendar — read busy blocks and return the first few open slots.
-    if (request.method === "POST" && url.pathname === "/calendar/freebusy") {
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const rec = await gmailGetRec(env, payload && payload.session);
-      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
-      const acct = gmailFindAccount(rec, payload && payload.account);
-      if (!acct) return json({ error: "not connected" }, 401, origin);
-      try {
-        const token = await gmailAccessToken(env, acct);
-        const calId = ((payload && payload.calId) || "primary").toString();
-        const data = await calendarApi(token, "/freeBusy", { method: "POST", body: JSON.stringify({ timeMin: payload.from, timeMax: payload.to, items: [{ id: calId }] }) });
-        const busy = (data.calendars && data.calendars[calId] && data.calendars[calId].busy) || [];
-        const slots = calSlotsFromBusy(busy, payload.from, payload.to, payload.dayStart || "09:00", payload.dayEnd || "18:00", payload.durationMin || 60, payload.tz || payload.timeZone || "UTC");
-        await gmailPutRec(env, payload.session, rec);
-        return json({ ok: true, busy, slots }, 200, origin);
-      } catch (e) { return json({ error: "Couldn't read your calendar." }, 502, origin); }
-    }
-
-    // Calendar — Gemini parses one natural-language phrase into one event.
-    if (request.method === "POST" && url.pathname === "/calendar/parse") {
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
-      const raw = ((payload && payload.text) || "").toString().trim();
-      if (!raw || !/[A-Za-z0-9]/.test(raw)) return json({ ok: false, error: "Couldn't understand that. Try 'lunch with Sam Tue 1pm'." }, 200, origin);
-      try {
-        const instr = 'You are a precise calendar parser for Kevin. Convert ONE natural-language phrase into a single calendar event as STRICT JSON. Output ONLY a JSON object, no prose, no markdown. Schema: {"title":string,"date":"YYYY-MM-DD","start":"HH:MM" 24-hour or null,"end":"HH:MM" 24-hour or null,"allDay":boolean,"location":string,"notes":string}. Resolve relative dates ("today","tomorrow","next Tue","this weekend") against the provided current date and timezone. If a start time is given but no end, set end to one hour after start. If no time is given, set allDay=true and start/end=null. Title should be concise and human ("Lunch with Sam", not "lunch with sam next tue"). Use empty string for unknown location/notes. Never invent attendees.';
-        const user = "Current date: " + ((payload && payload.today) || "") + "\nTimezone: " + ((payload && payload.tz) || "UTC") + "\nPhrase: " + raw;
-        const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
-        const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
-        const r = await fetch(apiUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: instr }, { text: user }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }) });
-        const data = await r.json();
-        if (!r.ok) throw new Error("Gemini calendar parse failed");
-        const cand = (data.candidates || [])[0];
-        const txt = (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
-        let obj = null;
-        try { obj = JSON.parse(txt); } catch (e) { const a = txt.indexOf("{"), b = txt.lastIndexOf("}"); if (a >= 0 && b > a) { try { obj = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { obj = null; } } }
-        if (!obj) throw new Error("Calendar JSON parse failed");
-        let date = captureDate(obj.date);
-        const wdDate = captureWeekdayDate(raw, payload && payload.today);
-        if (wdDate) date = wdDate;
-        const start = obj.allDay ? null : (captureTime(obj.start) || null);
-        let end = obj.allDay ? null : (captureTime(obj.end) || null);
-        if (start && !end) end = calAddMinutes(start, 60);
-        const title = ((obj.title || raw) + "").trim().slice(0, 200);
-        if (!title || /^untitled event$/i.test(title) || title === "(untitled)" || !date) throw new Error("Calendar validation failed");
-        return json({ ok: true, event: { title, date, start, end, allDay: !start || !!obj.allDay, location: ((obj.location || "") + "").slice(0, 300), notes: ((obj.notes || "") + "").slice(0, 1000) } }, 200, origin);
-      } catch (e) {
-        return json({ ok: false, error: "Couldn't understand that. Try 'lunch with Sam Tue 1pm'." }, 200, origin);
-      }
-    }
-
-    // Calendar — create a real Google Calendar event.
-    if (request.method === "POST" && url.pathname === "/calendar/create") {
-      if (!env.PUSH) return json({ error: "Email not configured" }, 500, origin);
-      let payload; try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
-      const rec = await gmailGetRec(env, payload && payload.session);
-      if (!rec || !rec.accounts || !rec.accounts.length) return json({ error: "not connected" }, 401, origin);
-      const acct = gmailFindAccount(rec, payload && payload.account);
-      if (!acct) return json({ error: "not connected" }, 401, origin);
-      const title = ((payload && payload.title) || "").toString().trim();
-      const date = captureDate(payload && payload.date);
-      if (!title || !date) return json({ error: "Missing title or date" }, 400, origin);
-      try {
-        const token = await gmailAccessToken(env, acct);
-        const calId = ((payload && payload.calId) || "primary").toString();
-        const location = ((payload && payload.location) || "").toString();
-        const notes = ((payload && payload.notes) || "").toString();
-        const tz = ((payload && payload.tz) || "UTC").toString();
-        let body;
-        if (payload && payload.allDay) {
-          body = { summary: title, location, description: notes, start: { date }, end: { date: addDaysKey(date, 1) } };
-        } else {
-          const start = captureTime(payload && payload.start);
-          const end = captureTime(payload && payload.end) || (start ? calAddMinutes(start, 60) : "");
-          if (!start) return json({ error: "Missing start time" }, 400, origin);
-          body = { summary: title, location, description: notes, start: { dateTime: date + "T" + start + ":00", timeZone: tz }, end: { dateTime: date + "T" + end + ":00", timeZone: tz } };
-        }
-        const data = await calendarApi(token, "/calendars/" + encodeURIComponent(calId) + "/events", { method: "POST", body: JSON.stringify(body) });
-        await gmailPutRec(env, payload.session, rec);
-        return json({ ok: true, id: data.id, htmlLink: data.htmlLink || "" }, 200, origin);
-      } catch (e) { return json({ error: "Couldn't create the event." }, 502, origin); }
-    }
-
-    return json({ error: "Not found" }, 404, origin);
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(firePush(env));
+    // A cron throw must never go unhandled — log and swallow.
+    ctx.waitUntil(firePush(env).catch((e) => console.error("firePush failed: " + ((e && e.message) || e))));
   },
 };

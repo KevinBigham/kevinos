@@ -53,8 +53,9 @@ GITHUB_CLIENT_ID = "Ov23lixf4auBApdAVsRA"
 # on the relay (refreshable), never in the browser. Client ID is public (here);
 # the client secret is a secret. Both come from a Google Cloud OAuth client (Web
 # application) with redirect URI = https://kevinos-relay.kevinbigham.workers.dev/google/callback
-# and scopes gmail.readonly + gmail.send + userinfo.email (keep the app in Testing
-# mode and add your Gmail accounts as test users):
+# and scopes openid + email + gmail.readonly + gmail.send + calendar.events +
+# calendar.readonly (keep the app in Testing mode and add your Gmail accounts as
+# test users):
 #   npx wrangler secret put GOOGLE_CLIENT_SECRET
 GOOGLE_CLIENT_ID = "434623225035-17c7gc0u0u8enhq3snu7st00l5i44kht.apps.googleusercontent.com"
 

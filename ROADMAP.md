@@ -147,7 +147,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 **Shipped (code) v0.15 — GitHub OAuth (token off-device):**
 - [x] **Relay OAuth flow** — `/github/login` (→ GitHub consent), `/github/callback` (code→token exchange, stores the token in KV under the app's session), `/github/status` (poll), `/github/graphql` (proxies the GitHub GraphQL query with the server-side token), `/github/logout` (revokes the token on GitHub + forgets it). **The browser never sees the token.**
 - [x] **App** — a one-tap "Connect with GitHub" (OAuth) in the GitHub room: opens the consent tab, polls `/github/status` until the token lands, then proxies all GitHub data through the relay. The personal-token path is kept as an "Advanced" fallback. `state.v` → 15. Verified in preview (connect → poll → proxied render → disconnect; token never in the browser; zero console errors)
-- [ ] **Activates** once Kevin registers the GitHub OAuth App (callback `https://kevinos-relay.kevinbigham.workers.dev/github/callback`) → `GITHUB_CLIENT_ID` var + `GITHUB_CLIENT_SECRET` secret → redeploy
+- [x] **Activated** — GitHub OAuth App registered (callback `https://kevinos-relay.kevinbigham.workers.dev/github/callback`) → `GITHUB_CLIENT_ID` var + `GITHUB_CLIENT_SECRET` secret set, deployed, live
 - [ ] *(optional)* email-to-self backstop
 
 **Tech:** Cloudflare Worker; Google kept in **Testing mode** (sole user) to dodge the ~$900–1,500/yr CASA audit; treat 7-day token expiry as a calm "Reconnect."
@@ -193,24 +193,24 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 ## ✅ Phase 5 — Email Command Center  *(LIVE — v0.18, Google OAuth client registered 2026-06-23)*
 **Goal:** Read your inbox in the cockpit; AI drafts a reply; you approve and it sends.
 
-**Built & verified (v0.18) — code shipped, awaiting activation:**
+**Built & verified (v0.18) — activated 2026-06-23:**
 - [x] **Multi-account Gmail** via relay OAuth (Kevin's choice; Outlook deferred). `/google/login` → consent → `/google/callback` stores **refreshable** tokens in KV keyed by session+email; `/google/status` (poll); the browser holds only a random session + the account emails, **never a token**. Add more accounts by connecting again.
 - [x] **Inbox in the cockpit** — `/google/threads` lists recent INBOX messages (from/subject/snippet/unread) per account, with an account switcher.
 - [x] **AI-drafted replies → review queue** — `/google/draft` reads a message and Gemini writes a reply; it appears as an **editable** card (To + body). **Send on approval** — `/google/send` sends via `gmail.send` (Kevin's choice: full one-tap send) with `In-Reply-To`/`References`/`threadId` so it threads correctly. **Never auto-sends** — every send is a human tap.
 - [x] **Disconnect** revokes the token on Google and forgets it. Reuses the `PUSH` KV (`gml:` prefix). `GET /` health gained `email:bool`.
 - [x] **Verified:** relay deployed + curl-confirmed it **degrades gracefully** until configured (`email:false`, "not configured" page, 401s); app in preview against a mocked Gmail — connect → inbox list → AI draft → edit → approve→send (correct payload incl. threadId/messageId) → disconnect; zero console errors. `state.v` → 18.
 
-**Activates** the moment Kevin registers a **Google Cloud OAuth client** (Web app; redirect `…/google/callback`; scopes `gmail.readonly gmail.send userinfo.email`; Testing mode + his accounts as test users) → `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` + redeploy. See `relay/RELAY_SETUP.md`.
+**Activated 2026-06-23** — Google Cloud OAuth client registered (Web app; redirect `…/google/callback`; Testing mode + test users; Calendar scopes added in v0.29) → `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` set and deployed. For a fresh rebuild see `relay/RELAY_SETUP.md`.
 **Tech:** relay + the review-queue primitive + Gemini; all earlier phases compounding.
-**Done when:** ~~morning shows ready drafts; approving one sends it.~~ ✅ (pending activation)
+**Done when:** ~~morning shows ready drafts; approving one sends it.~~ ✅
 **Cost:** $0 (Gemini free tier + Gmail API free).
 
 ---
 
 ## Infra & cost summary
-- **Stack:** Cloudflare (Pages + Worker) + Supabase, all free-tier first. Vanilla JS, no framework — add a light build step only when the single file gets unwieldy.
+- **Stack (as shipped):** GitHub Pages (static app) + Cloudflare Worker + KV + D1, all free-tier. Vanilla JS, no framework. *(The original plan named Cloudflare Pages + Supabase; both decisions went the other way — see Phase 3's "Why D1, not Supabase".)*
 - **AI:** Gemini Flash/Flash-Lite for volume; a stronger model reserved for quality drafts.
-- **Trajectory:** $0 to start → ~$25/mo hard ceiling (only if Supabase Pro is ever needed) → AI <$5/mo.
+- **Trajectory:** $0/mo live today → AI <$5/mo if usage ever outgrows free tiers.
 
 ## Security & privacy model
 - Review-queue everywhere; **email never auto-sends**, **events never auto-create**.
@@ -218,12 +218,12 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 - Google **Testing mode** (sole user) avoids the CASA audit cost; 7-day token expiry is a calm reconnect, not a failure.
 
 ## Hardening backlog (carry-over)
-- [ ] `parseICS` ignores DTEND / TZID / RRULE / EXDATE *(scheduled in Phase 4)*
-- [ ] Exported timed events are local-floating → DST drift *(scheduled in Phase 4)*
+- [x] `parseICS` ignores DTEND / TZID / RRULE / EXDATE *(fixed in v0.17 — see Phase 4)*
+- [x] Exported timed events are local-floating → DST drift *(fixed in v0.17 — see Phase 4)*
 
-## Open decisions
-- **Host for Phase 0.5:** GitHub Pages vs Cloudflare Pages (lean GitHub Pages for simplicity + theme fit).
-- **Sync trigger:** ship Phase 3 only once two devices are actively in daily use.
+## Open decisions *(both since decided)*
+- **Host for Phase 0.5:** ~~GitHub Pages vs Cloudflare Pages~~ → GitHub Pages, live.
+- **Sync trigger:** ~~ship Phase 3 only once two devices are actively in daily use~~ → shipped v0.16.
 
 ---
 
@@ -288,6 +288,8 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 
 **Morning Launch Sequence shipped 🌅 (v0.36)** Mission wave #10 is live: a new Launch tab and Home deep-link assemble a morning ritual from a game-plan narration, today's agenda, inbox triage counts, top focus tasks, and inline habit check-offs. Relay `POST /launch` mirrors the server brief engine with a launch-specific prompt, D1 context fallback, Gmail inbox peek, and safe fallback behavior. Verified: relay deployed with `launch:true`; live `/launch` success/empty/malformed probes; worker/SW/app parse; ES5 grep; local mock UI smoke covering task/event/habit/email/narration/refresh/deep-link; footer/SW cache `v0.36` / `kevinos-v0_36`.
 
-**Next wave scoped 🗺️📋 (`MISSION.md`)** A full build brief for the **next 10 features** now lives at [`MISSION.md`](MISSION.md) — written to be handed to an external coding agent (e.g. Codex) and followed literally. Each feature has its own self-contained section (mission · user flow · exact `state`/sync model · relay routes with request/response shapes and the actual Gemini prompt text · ES5 app changes with real function names + line numbers to mirror · runnable curl/preview verification · acceptance checklist · gotchas · Definition of Done), preceded by an **Operating Manual** (architecture, the non-negotiable rules, the standard build/verify/deploy loop, the sync model) and a **recommended build order**. The ten: **#1 ⌘K Command Palette · #2 Voice/Quick Capture · #3 Calendar Room · #4 One-Tap Send · #5 Habits & Streaks · #6 Link Stash + AI TL;DR · #7 People Radar · #8 Spend Pulse · #9 Goals & Weekly Check-In · #10 Morning Launch Sequence.** Authored by a 25-agent workflow that read the live codebase and adversarially fact-checked every spec against the real `index.html` / `worker.js`.
+**Next wave scoped 🗺️📋 (historical)** A full build brief for the **10 mission-wave features** (shipped as v0.27–v0.36) was written to be handed to an external coding agent (e.g. Codex) and followed literally. *(`MISSION.md` on disk has since been repurposed for the — completed — Getting Started docs mission; the feature brief it once held is described here for the record.)* Each feature has its own self-contained section (mission · user flow · exact `state`/sync model · relay routes with request/response shapes and the actual Gemini prompt text · ES5 app changes with real function names + line numbers to mirror · runnable curl/preview verification · acceptance checklist · gotchas · Definition of Done), preceded by an **Operating Manual** (architecture, the non-negotiable rules, the standard build/verify/deploy loop, the sync model) and a **recommended build order**. The ten: **#1 ⌘K Command Palette · #2 Voice/Quick Capture · #3 Calendar Room · #4 One-Tap Send · #5 Habits & Streaks · #6 Link Stash + AI TL;DR · #7 People Radar · #8 Spend Pulse · #9 Goals & Weekly Check-In · #10 Morning Launch Sequence.** Authored by a 25-agent workflow that read the live codebase and adversarially fact-checked every spec against the real `index.html` / `worker.js`.
 
-**Mission wave complete ✅:** all 10 features in [`MISSION.md`](MISSION.md) are shipped. Older backlog still open: **batch triage** (archive/snooze a whole group at once), **send-later / scheduled replies**, and **Outlook**.
+**Mission wave complete ✅:** all 10 features from that brief are shipped. Older backlog still open: **batch triage** (archive/snooze a whole group at once), **send-later / scheduled replies**, and **Outlook**.
+
+**Hardening pass shipped 🛡️ (v0.37)** A reliability release, no new rooms: cross-device sync now merges instead of clobbers — pulls do a dirty-flag merge with per-item newer-wins resolution, deletions leave tombstones so they propagate instead of resurrecting, and pushes use an atomic server-side `rev` check. Backups no longer contain session secrets, and restoring a backup merges into the current dataset instead of rolling back synced devices. Relay errors are now readable (top-level catch, reconnect signals, honest health flags), and the service worker no longer serves cached HTML to failed API calls. Assorted efficiency fixes skip unchanged sync/reminder pushes, add a calendar cache TTL, and cut down full re-renders. Footer/SW cache moved to `v0.37` / `kevinos-v0_37`; `state.v` bumped to `36`.
