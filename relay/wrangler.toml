@@ -19,9 +19,11 @@ binding = "SYNC"
 database_name = "kevinos-sync"
 database_id = "7d0fff71-2b8b-4f90-a23e-5a35049bb2f1"
 
-# Fire due reminders every minute (Phase 2b).
+# Fire due reminders every 2 minutes (Phase 2b). Every cron fire costs one KV
+# list; free tier allows 1,000 lists/day, so every-minute (1,440/day) blew the
+# cap mid-afternoon daily and pushes 429'd until midnight UTC. 720/day fits.
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/2 * * * *"]
 
 # The single-model endpoint (/ai) uses PROVIDER. The Council (/council) uses every
 # seat whose credential is present, independent of PROVIDER.

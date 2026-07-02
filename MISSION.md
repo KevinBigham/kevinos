@@ -323,7 +323,7 @@ Explain:
 - The public VAPID key belongs in `wrangler.toml`.
 - The private VAPID key belongs only in a Worker secret.
 - The `PUSH` KV namespace stores subscriptions/reminder schedules.
-- The cron runs every minute.
+- The cron runs every 2 minutes (each fire costs a KV list; every-minute exceeded the free tier's 1,000 lists/day).
 
 Include reproduction steps:
 

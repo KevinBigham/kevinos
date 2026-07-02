@@ -325,7 +325,7 @@ How it works:
 - The public VAPID key lives in `wrangler.toml` as `VAPID_PUBLIC_KEY`.
 - The private VAPID key lives only as the Worker secret `VAPID_PRIVATE_KEY`.
 - The `PUSH` KV namespace stores push subscriptions and reminder schedules.
-- The Worker cron runs every minute.
+- The Worker cron runs every 2 minutes (each fire costs a KV list; every-minute exceeded the free tier's 1,000 lists/day).
 - The service worker in `sw.js` displays the notification and opens KevinOS on tap.
 
 Fresh setup:
