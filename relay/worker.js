@@ -13,6 +13,7 @@
 //   Groq        -> secret GROQ_API_KEY
 //   Mistral     -> secret MISTRAL_API_KEY
 //   OpenRouter  -> secret OPENROUTER_API_KEY
+//   Z.ai        -> secret ZAI_API_KEY
 //
 // Models are overridable per seat via vars (GEMINI_MODEL, CF_MODEL, GROQ_MODEL, …).
 
@@ -23,6 +24,7 @@ const DEFAULTS = {
   groqModel: "llama-3.3-70b-versatile",
   mistralModel: "mistral-small-latest",
   openrouterModel: "qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-31b-it:free",
+  zaiModel: "glm-4.7-flash",
   maxTokens: 1024,
   seatTimeoutMs: 45000,
 };
@@ -108,7 +110,7 @@ async function callGemini(env, system, prompt, model) {
   return (((cand && cand.content && cand.content.parts) || []).map((p) => p.text || "").join("")).trim();
 }
 
-// Groq, Mistral, and OpenRouter all speak the OpenAI chat-completions dialect.
+// Groq, Mistral, OpenRouter, and Z.ai all speak the OpenAI chat-completions dialect.
 async function callOpenAICompatible(opts) {
   const messages = [];
   if (opts.system) messages.push({ role: "system", content: opts.system });
@@ -118,6 +120,7 @@ async function callOpenAICompatible(opts) {
   const body = { max_tokens: opts.maxTokens, messages };
   if (opts.models && opts.models.length > 1) body.models = opts.models; // OpenRouter fallback routing
   else body.model = opts.model || (opts.models && opts.models[0]);
+  if (opts.extraBody) Object.assign(body, opts.extraBody); // provider-specific params (Z.ai `thinking`)
   const r = await fetch(opts.url, { method: "POST", headers, body: JSON.stringify(body) });
   const raw = await r.text();
   let data;
@@ -133,7 +136,12 @@ async function callOpenAICompatible(opts) {
     throw new Error(msg);
   }
   const choice = (data.choices || [])[0];
-  return (((choice && choice.message && choice.message.content) || "") + "").trim();
+  const message = (choice && choice.message) || {};
+  const text = ((message.content || "") + "").trim();
+  // GLM reasoning models can leave content empty with the answer in reasoning_content —
+  // only seats that opt in (Z.ai) fall back to it; other providers keep their old behavior.
+  if (!text && opts.reasoningFallback) return ((message.reasoning_content || "") + "").trim();
+  return text;
 }
 
 async function callCloudflare(env, system, prompt, model) {
@@ -207,6 +215,20 @@ function councilSeats(env) {
         }),
     });
   }
+  if (env.ZAI_API_KEY)
+    seats.push({
+      id: "zai", label: "Z.ai GLM", lane: "Outside view", provider: "zai",
+      role: "Be the outside view. Answer from first principles: question the assumptions the other advisors probably share, and surface the non-obvious angle or reframing. Be concrete, not contrarian for its own sake.",
+      model: env.ZAI_MODEL || DEFAULTS.zaiModel,
+      run: (system, prompt) =>
+        callOpenAICompatible({
+          name: "Z.ai", url: "https://api.z.ai/api/paas/v4/chat/completions",
+          key: env.ZAI_API_KEY, model: env.ZAI_MODEL || DEFAULTS.zaiModel,
+          system, prompt, maxTokens: maxTokens(env),
+          extraBody: { thinking: { type: "disabled" } }, // GLM thinks by default; skip it for snappy Council answers
+          reasoningFallback: true, // GLM can still answer via reasoning_content even with thinking disabled
+        }),
+    });
   return seats;
 }
 
@@ -222,7 +244,7 @@ async function synthesize(env, prompt, answered) {
   if (!ch || answered.length < 2) return null;
   const system =
     "You are the Chair of Kevin's Council of AIs. Several models answered the same question independently, " +
-    "each from an assigned lane (grounded, fast tactical, research, open-model, devil's advocate). " +
+    "each from an assigned lane (grounded, fast tactical, research, open-model, devil's advocate, outside view). " +
     "Synthesize their answers into one decision-ready brief. Be concise, specific, plain text, no preamble.";
   const body =
     "QUESTION:\n" + prompt + "\n\nThe Council's answers (each tagged with its lane):\n\n" +

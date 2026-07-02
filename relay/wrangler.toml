@@ -36,6 +36,7 @@ CF_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 MISTRAL_MODEL = "mistral-small-latest"
 OPENROUTER_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-31b-it:free"
+ZAI_MODEL = "glm-4.7-flash"
 MAX_TOKENS = "1024"
 
 # Web Push (Phase 2b). The VAPID public key is meant to be public — the app
@@ -66,6 +67,7 @@ GOOGLE_CLIENT_ID = "434623225035-17c7gc0u0u8enhq3snu7st00l5i44kht.apps.googleuse
 #   npx wrangler secret put GROQ_API_KEY         # Groq        https://console.groq.com/keys
 #   npx wrangler secret put MISTRAL_API_KEY      # Mistral     https://console.mistral.ai/api-keys
 #   npx wrangler secret put OPENROUTER_API_KEY   # OpenRouter  https://openrouter.ai/keys
+#   npx wrangler secret put ZAI_API_KEY          # Z.ai        https://z.ai/manage-apikey/apikey-list (GLM-4.7-Flash is free)
 # The Cloudflare seat needs no key — just the [ai] binding above.
 # OPENROUTER_MODEL is a comma-separated fallback chain — OpenRouter routes to the
 # first available model, skipping rate-limited/paid ones. Add current free slugs

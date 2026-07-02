@@ -248,7 +248,7 @@ What `wrangler.toml` defines:
 - D1 binding: `SYNC`
 - Cron trigger: `crons = ["* * * * *"]`
 - Public vars: `PROVIDER`, `ALLOW_ORIGIN`, model vars, `MAX_TOKENS`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`, `GITHUB_CLIENT_ID`, `GOOGLE_CLIENT_ID`
-- Secret names: `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `VAPID_PRIVATE_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`
+- Secret names: `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, `ANTHROPIC_API_KEY`, `VAPID_PRIVATE_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`
 
 Verify:
 
@@ -280,6 +280,7 @@ Optional Council seats:
 - `GROQ_API_KEY`
 - `MISTRAL_API_KEY`
 - `OPENROUTER_API_KEY`
+- `ZAI_API_KEY` for the free GLM-4.7-Flash seat on Z.ai's official API.
 - `ANTHROPIC_API_KEY` for the single-model Claude fallback/provider path if you want to keep it available.
 
 Set secrets interactively only:
@@ -290,6 +291,7 @@ npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put GROQ_API_KEY
 npx wrangler secret put MISTRAL_API_KEY
 npx wrangler secret put OPENROUTER_API_KEY
+npx wrangler secret put ZAI_API_KEY
 npx wrangler secret put ANTHROPIC_API_KEY
 npx wrangler deploy
 ```
@@ -300,7 +302,7 @@ Model changes:
 
 - The single-model endpoint `/ai` follows `PROVIDER`.
 - The Council endpoint `/council` ignores `PROVIDER` and uses every configured seat.
-- Swap models by editing public model vars such as `GEMINI_MODEL`, `CF_MODEL`, `GROQ_MODEL`, `MISTRAL_MODEL`, or `OPENROUTER_MODEL`, then redeploy.
+- Swap models by editing public model vars such as `GEMINI_MODEL`, `CF_MODEL`, `GROQ_MODEL`, `MISTRAL_MODEL`, `OPENROUTER_MODEL`, or `ZAI_MODEL`, then redeploy.
 - `OPENROUTER_MODEL` is a comma-separated fallback chain. Free model slugs can go stale; refresh them from OpenRouter if that seat starts returning model errors.
 
 Checkpoint:

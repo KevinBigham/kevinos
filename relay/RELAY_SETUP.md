@@ -19,7 +19,7 @@ Kevin's current relay uses `PROVIDER = "gemini"` and a multi-seat Council:
 
 - **Gemini** — enabled by `GEMINI_API_KEY`; also powers the synthesis chair and most AI-powered rooms.
 - **Cloudflare Workers AI** — enabled by the `[ai]` binding; no provider key needed.
-- **Groq, Mistral, OpenRouter** — optional seats enabled by their Worker secrets.
+- **Groq, Mistral, OpenRouter, Z.ai** — optional seats enabled by their Worker secrets.
 - **Anthropic** — optional fallback for `/ai` provider switching if `ANTHROPIC_API_KEY` is set.
 
 For a fresh relay, get at least a Gemini API key from **https://aistudio.google.com/app/apikey**. Add other providers later if you want more Council seats.
@@ -74,7 +74,7 @@ The Council asks **every seat that has a credential**, in parallel, then a "chai
 - **Gemini** — already set (your `GEMINI_API_KEY`).
 - **Cloudflare** — no key needed; it's the `[ai]` binding already in `wrangler.toml`.
 
-To add the other three, make a free key and store it as a secret, then redeploy. Each new seat joins automatically — no app or code change.
+To add the others, make a free key and store it as a secret, then redeploy. Each new seat joins automatically — no app or code change.
 
 ```sh
 cd /Users/kevin/KevinOS/app/relay
@@ -88,17 +88,22 @@ npx wrangler secret put MISTRAL_API_KEY
 # OpenRouter — https://openrouter.ai/keys
 npx wrangler secret put OPENROUTER_API_KEY
 
+# Z.ai (free GLM) — https://z.ai/manage-apikey/apikey-list
+npx wrangler secret put ZAI_API_KEY
+
 npx wrangler deploy
 ```
+
+- **Z.ai seat (free GLM):** GLM-4.7-Flash is completely free on Z.ai's official API. Create a free API key at **z.ai**, run `npx wrangler secret put ZAI_API_KEY`, then `npx wrangler deploy` — the seat joins as the Council's "outside view" lane.
 
 Check which seats are live any time:
 
 ```sh
 curl https://kevinos-relay.YOURNAME.workers.dev/
-# -> {"ok":true,"service":"kevinos-relay","provider":"gemini","seats":["gemini","cloudflare","groq","mistral","openrouter"]}
+# -> {"ok":true,"service":"kevinos-relay","provider":"gemini","seats":["gemini","cloudflare","groq","mistral","openrouter","zai"]}
 ```
 
-Swap any seat's model by editing the matching var in `wrangler.toml` (`GROQ_MODEL`, `MISTRAL_MODEL`, `OPENROUTER_MODEL`, …) and redeploying. If the OpenRouter default ever 404s, copy a current free slug from <https://openrouter.ai/models?max_price=0>.
+Swap any seat's model by editing the matching var in `wrangler.toml` (`GROQ_MODEL`, `MISTRAL_MODEL`, `OPENROUTER_MODEL`, `ZAI_MODEL`, …) and redeploying. If the OpenRouter default ever 404s, copy a current free slug from <https://openrouter.ai/models?max_price=0>.
 
 ## Switching the single-model endpoint later
 The `/ai` endpoint (one model) still uses `PROVIDER`. Edit `wrangler.toml` → change `PROVIDER`, set the matching secret (Step 3), then `npx wrangler deploy` again. The Council (`/council`) ignores `PROVIDER` — it always uses every seat.
