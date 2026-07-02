@@ -21,9 +21,9 @@ What is already live for Kevin:
 
 - Static app: https://kevinbigham.github.io/kevinos/
 - Relay: https://kevinos-relay.kevinbigham.workers.dev
-- App version shown in the footer: `KevinOS v0.37`
-- Service worker cache: `kevinos-v0_37`
-- Persisted schema stamp: `state.v = 36`
+- App version shown in the footer: `KevinOS v0.38`
+- Service worker cache: `kevinos-v0_38`
+- Persisted schema stamp: `state.v = 37`
 - Relay name: `kevinos-relay`
 - Relay entrypoint: `relay/worker.js`
 - Relay config: `relay/wrangler.toml`
@@ -172,7 +172,7 @@ Local CORS caveat:
 Checkpoint:
 
 - The page opens.
-- The footer shows `KevinOS v0.37`.
+- The footer shows `KevinOS v0.38`.
 - Local edits save in the browser.
 - No relay-dependent feature is expected to work until a relay URL is connected.
 
@@ -203,8 +203,8 @@ This guide shows the commit commands for later use. Do not commit from an automa
 Checkpoint:
 
 - GitHub Pages opens at https://kevinbigham.github.io/kevinos/
-- The current footer still says `KevinOS v0.37` if only docs changed.
-- `sw.js` still has `var CACHE = "kevinos-v0_37";` if only docs changed.
+- The current footer still says `KevinOS v0.38` if only docs changed.
+- `sw.js` still has `var CACHE = "kevinos-v0_38";` if only docs changed.
 
 ## Part 3: Deploy The Cloudflare Relay
 
@@ -487,7 +487,7 @@ Checkpoint:
 
 ## Part 8: Configure Google OAuth For Gmail And Calendar
 
-Google OAuth powers both Gmail and Google Calendar through the same relay-held token record.
+Google OAuth powers Gmail, Google Calendar, and the read-only Google Sheets digest through the same relay-held token record.
 
 Create or configure the Google app:
 
@@ -495,18 +495,19 @@ Create or configure the Google app:
 2. Create or select a project named `KevinOS`.
 3. Enable **Gmail API**.
 4. Enable **Google Calendar API**.
-5. Configure the OAuth consent screen.
-6. Keep the app in **Testing** mode for personal use.
-7. Add every Gmail account you want to connect as a test user.
-8. Create an OAuth Client ID with application type **Web application**.
-9. Add this redirect URI exactly:
+5. Enable **Google Sheets API**.
+6. Configure the OAuth consent screen.
+7. Keep the app in **Testing** mode for personal use.
+8. Add every Gmail account you want to connect as a test user.
+9. Create an OAuth Client ID with application type **Web application**.
+10. Add this redirect URI exactly:
 
 ```text
 https://kevinos-relay.kevinbigham.workers.dev/google/callback
 ```
 
-10. Copy the Client ID. This value is public and belongs in `wrangler.toml` as `GOOGLE_CLIENT_ID`.
-11. Store the client secret privately.
+11. Copy the Client ID. This value is public and belongs in `wrangler.toml` as `GOOGLE_CLIENT_ID`.
+12. Store the client secret privately.
 
 ```sh
 cd /Users/kevin/KevinOS/app/relay
@@ -526,9 +527,12 @@ The Worker implements:
 - `POST /google/modify`
 - `POST /google/logout`
 - `POST /calendar/list`
+- `POST /calendar/calendars`
 - `POST /calendar/freebusy`
 - `POST /calendar/parse`
 - `POST /calendar/create`
+- `POST /swim/scan`
+- `POST /sheets/digest`
 
 The current worker requests:
 
@@ -538,6 +542,7 @@ The current worker requests:
 - Gmail send.
 - Calendar events.
 - Calendar readonly.
+- Spreadsheets readonly.
 
 Google warning:
 
@@ -554,10 +559,10 @@ App steps:
 5. Open the **Calendar** room.
 6. Choose **Connect Google Calendar** if Calendar is not already connected.
 
-Calendar reconnect note:
+Calendar/Sheets reconnect note:
 
-- If Gmail was connected before Calendar scopes were added, reconnect the Google account once from the Calendar room.
-- No new Worker secret is needed for Calendar; it reuses the Google OAuth setup.
+- If Gmail was connected before the Calendar or Sheets scopes were added, reconnect the Google account once (Calendar room, or the reconnect prompt on the Launch Sheets card).
+- No new Worker secret is needed for Calendar or Sheets; both reuse the Google OAuth setup.
 
 Checkpoint:
 
@@ -603,7 +608,7 @@ Checkpoint:
 
 | Area | Setup needed | How to verify | Common fix |
 | --- | --- | --- | --- |
-| Static app | GitHub Pages or local HTTP | Open the app and confirm footer `KevinOS v0.37` | Hard refresh or clear stale service worker cache |
+| Static app | GitHub Pages or local HTTP | Open the app and confirm footer `KevinOS v0.38` | Hard refresh or clear stale service worker cache |
 | Service worker/PWA install | `manifest.json`, `sw.js`, HTTPS or local HTTP | Install to Home Screen or app shell opens offline | Use HTTPS/live URL, not `file://` |
 | Relay health | Worker deployed | `curl https://kevinos-relay.kevinbigham.workers.dev/` | Deploy from `relay/`; check Cloudflare account |
 | Council | Relay URL plus AI seats | Next -> Council queue -> ask a test | Set `GEMINI_API_KEY`, confirm `[ai]`, redeploy |

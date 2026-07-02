@@ -180,7 +180,7 @@ KevinOS can read your Gmail and send AI-drafted replies you approve. The current
 
 1. Go to **https://console.cloud.google.com** → sign in (any of your Google accounts can own this).
 2. **Create a project:** top bar → project dropdown → **New Project** → name it `KevinOS` → Create → make sure it's selected.
-3. **Enable the Google APIs:** left menu → **APIs & Services → Library** → search **Gmail API** → **Enable**, then search **Google Calendar API** → **Enable**.
+3. **Enable the Google APIs:** left menu → **APIs & Services → Library** → search **Gmail API** → **Enable**, then **Google Calendar API** → **Enable**, then **Google Sheets API** → **Enable**.
 4. **OAuth consent screen:** APIs & Services → **OAuth consent screen** → User type **External** → Create.
    - App name `KevinOS`; your email for support + developer contact → Save and continue.
    - **Scopes:** just **Save and continue** (no need to add any here).
@@ -199,7 +199,7 @@ KevinOS can read your Gmail and send AI-drafted replies you approve. The current
    `GET /` then shows `"email":true`.
 7. In KevinOS → **Email** → **Connect Gmail** → pick your account → approve. Google warns "**KevinOS hasn't been verified**" — expected in Testing mode; click **Advanced → Continue** (you're the developer). Connect more accounts with **+ Account**.
 
-Scopes: `gmail.readonly` (read inbox) + `gmail.send` (send the replies you approve) + `calendar.events` / `calendar.readonly` (show, scan, and create calendar events) + `userinfo.email` (label accounts). Tokens are held on the relay and **refreshed automatically — never stored on your phone**, and KevinOS **never sends without your explicit approval**. Disconnecting in-app revokes the token on Google. Cost stays **$0** (Gmail API + Calendar API + Gemini free tiers).
+Scopes: `gmail.readonly` (read inbox) + `gmail.send` (send the replies you approve) + `calendar.events` / `calendar.readonly` (show, scan, and create calendar events) + `spreadsheets.readonly` (read the sheets you point Launch at — never writes) + `userinfo.email` (label accounts). Tokens are held on the relay and **refreshed automatically — never stored on your phone**, and KevinOS **never sends without your explicit approval**. Disconnecting in-app revokes the token on Google. Cost stays **$0** (Gmail API + Calendar API + Sheets API + Gemini free tiers).
 
 ## Google Calendar Room — reconnect once (v0.29)
 
@@ -242,6 +242,18 @@ Weekly Review reuses the existing `POST /weekly` endpoint and `GEMINI_API_KEY`. 
 The Launch room is a device-local morning ritual layered over existing KevinOS data: today’s events/tasks, connected Gmail inbox metadata, and synced habits. The narration cache lives in `state.launch` and is intentionally not synced; habit check-offs still mutate synced `state.habits[]`.
 
 Relay `POST /launch` reuses `GEMINI_API_KEY`, the existing `SYNC` D1 binding, and the Gmail token store used by `/brief`. `GET /` shows `"launch":true` when Gemini is configured. No new Cloudflare binding, OAuth scope, secret, env var, cron, or setup step is needed.
+
+## Life intake & whole-life Launch — Sheets needs one reconnect (v0.38)
+
+Most of v0.38 rides on existing setup: the profile intake (`POST /intake`) and the brief/launch/weekly "About Kevin" context reuse `GEMINI_API_KEY` + the `SYNC` D1 doc; the swim desk (`POST /swim/scan`) reuses the Gmail token and its existing `gmail.readonly` scope; the multi-calendar picker (`POST /calendar/calendars` + `calIds` on `/calendar/list`) reuses the Calendar scopes. Nothing to configure for any of those — `GET /` shows `"intake"`, `"swim"`, and `"sheets"` flags.
+
+The **Google Sheets digest** (`POST /sheets/digest`) is the one new-scope feature: `GOOGLE_SCOPE` now includes `spreadsheets.readonly`, so
+
+1. Enable the **Google Sheets API** in the same Google Cloud project (see the Gmail setup section above).
+2. Deploy the relay after the `GOOGLE_SCOPE` change.
+3. Reconnect each connected Google account once — tokens minted before the scope change get a 403 from Sheets, and the app's Launch card offers **"Reconnect Google to enable Sheets"**.
+
+Sheets access is strictly read-only (`A1:H50` per sheet, up to 3 sheets) — the relay never writes a sheet.
 
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.

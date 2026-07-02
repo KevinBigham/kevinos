@@ -98,6 +98,7 @@
   .un-kind svg{width:15px;height:15px}
 
   .sweep-card{display:flex;align-items:center;gap:16px;width:100%;text-align:left;cursor:pointer;background:linear-gradient(135deg,#EFE7F6,#F4EACF);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;transition:transform .14s ease, box-shadow .16s ease;margin-top:8px}
+  .sweep-card[hidden]{display:none} /* display:flex above beats the UA [hidden] rule — restore it */
   .sweep-card:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
   .sweep-card .sw-ico{flex:none;width:40px;height:40px;border-radius:11px;background:var(--accent);display:grid;place-items:center}
   .sweep-card .sw-ico svg{width:21px;height:21px;color:#fff}
@@ -465,6 +466,7 @@
   .ci-prog{width:72px;flex:0 0 auto}
   .ci-note{flex:1;min-width:160px}
   .launch-greet{font-family:var(--font-display);font-size:22px;color:var(--ink);margin:6px 0 14px}
+  .launch-wx{font-size:13px;color:var(--ink-soft);margin:-10px 0 14px}
   .launch-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px}
   .launch-card.plan{background:linear-gradient(135deg,rgba(91,59,140,.10),rgba(184,144,31,.12))}
   .launch-card.plan .lc-body{font-family:var(--font-serif);font-style:italic;color:var(--ink);line-height:1.5}
@@ -552,6 +554,11 @@
       <button class="sweep-card fade-up d4" type="button" id="sweepCardHome">
         <span class="sw-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg></span>
         <span class="sw-txt"><span class="sw-title">Run a Life Sweep</span><span class="sw-sub">Clear your head, area by area — turn it into your real to-do list.</span></span>
+        <span class="sw-arrow"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+      </button>
+      <button class="sweep-card fade-up d4" type="button" id="intakeCardHome" hidden style="margin-top:12px">
+        <span class="sw-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg></span>
+        <span class="sw-txt"><span class="sw-title">Get to know me</span><span class="sw-sub">Answer a few quick questions — KevinOS uses them to personalize your briefs and plans.</span></span>
         <span class="sw-arrow"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
       </button>
     </div>
@@ -785,6 +792,7 @@
         <button id="peopleAddBtn" class="add-btn" type="button">Add</button>
       </div>
       <div id="peopleList"></div>
+      <div id="profileList"></div>
     </div>
 
     <div class="cmdk-overlay" id="cmdkOverlay">
@@ -804,7 +812,7 @@
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px">KevinOS v0.37 · Sync & reliability hardening · Morning Launch Sequence · Goals & Weekly Check-In · Spend Pulse · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px">KevinOS v0.38 · Life intake & whole-life Launch · Morning Launch Sequence · Goals & Weekly Check-In · Spend Pulse · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -814,6 +822,10 @@
 
   <div class="sweep-overlay" id="windOverlay" role="dialog" aria-label="Wind down">
     <div class="sweep-inner" id="windInner"></div>
+  </div>
+
+  <div class="sweep-overlay" id="intakeOverlay" role="dialog" aria-label="Get to know me">
+    <div class="sweep-inner" id="intakeInner"></div>
   </div>
 
 <script>
@@ -890,7 +902,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},deleted:{},lastBackupAt:0,lastShutdown:"",v:36};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},swim:{at:0,items:[]},sheetsCache:{at:0,text:""},weatherLoc:null,deleted:{},lastBackupAt:0,lastShutdown:"",v:37};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
@@ -904,6 +916,7 @@
   var promptSearch="", promptCatFilter="All", editingPromptId=null, promptAddCat="General";
   var noteSearch="", noteFilter="All", noteView="para", editingNoteId=null, noteAddPara="Resource", stashFilter="", stashTag="", editingHabitId=null, editingGoalId="", peopleEnriching=false, editingPersonId="";
   var calCur, calSel, gcalEvents=[], gcalLoading=false, gcalError="", calDraft=null, calDrafting=false, calSlots=[], calSlotBusy=false, calParseErr="", calDur=60, calConnecting=false;
+  var calListOpen=false, calList=[], calListLoading=false, calListErr="", gcalTriedAt=0;
 
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
@@ -1160,7 +1173,7 @@
       row.appendChild(kind);box.appendChild(row);
     });
   }
-  function renderHome(){if(room!=="home")return;renderHomeToday();renderUpNext();renderGithubNudge();renderHomeNudges();}
+  function renderHome(){if(room!=="home")return;renderHomeToday();renderUpNext();renderGithubNudge();renderHomeNudges();renderIntakeCard();}
 
   /* ---------- NEXT (to-do hub) ---------- */
   function projSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';}
@@ -1233,7 +1246,7 @@
     if(briefBusy)return;briefBusy=true;renderNext();
     var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
     // /brief folds in a live inbox peek too — the relay writes it and the 8am push reuses the same engine.
-    relayPost("/brief",{emailSession:es,dateKey:dk,tz:tz,context:briefContextText(dk),fallback:briefBodyShort(dk)}).then(function(j){
+    relayPost("/brief",{syncKey:(syncOn()?state.sync.key:""),emailSession:es,dateKey:dk,tz:tz,context:briefContextText(dk),fallback:briefBodyShort(dk)}).then(function(j){
       briefBusy=false;state.brief={date:dk,text:(j&&j.text)?j.text:""};persist();renderNext();
     }).catch(function(){briefBusy=false;state.brief={date:dk,text:""};persist();renderNext();});
   }
@@ -1261,9 +1274,14 @@
   }
   function launchAgendaCardHTML(){
     if(typeof renderCalendar!=="function"||!state.events)return launchSectionPlaceholder("Today","Calendar not set up yet.","calendar");
-    var evs=dayDigest(todayKey()).events,h="",i,e;
-    if(!evs.length)h='<p class="empty">No events today.</p>';
-    else{for(i=0;i<evs.length;i++){e=evs[i];h+='<div class="lc-row"><span>'+escapeHtml(e.time?fmtTime(e.time):"all day")+'</span><span>·</span><span>'+escapeHtml(e.title||"(untitled)")+'</span></div>';}}
+    var evs=dayDigest(todayKey()).events,h="",i,e,tk=todayKey();
+    var rows=[],seenG={};
+    for(i=0;i<evs.length;i++){e=evs[i];rows.push({t:e.time||"",title:e.title,chip:""});}
+    state.events.forEach(function(ev){if(ev.gcalId)seenG[ev.gcalId]=true;});
+    for(i=0;i<gcalEvents.length;i++){e=gcalEvents[i];if(e.date===tk&&!seenG[e.id])rows.push({t:e.allDay?"":(e.start||""),title:e.title,chip:calChipName(e)});}
+    rows.sort(function(a,b){return (a.t||"99:99")<(b.t||"99:99")?-1:1;});
+    if(!rows.length)h='<p class="empty">No events today.</p>';
+    else{for(i=0;i<rows.length;i++){e=rows[i];h+='<div class="lc-row"><span>'+escapeHtml(e.t?fmtTime(e.t):"all day")+'</span><span>·</span><span>'+escapeHtml(e.title||"(untitled)")+'</span>'+(e.chip?'<span class="gcal-pill">'+escapeHtml(e.chip)+'</span>':"")+'</div>';}}
     return '<div class="launch-card">'+launchHeadHTML("Today","calendar","")+h+'</div>';
   }
   function launchInboxCardHTML(){
@@ -1297,14 +1315,34 @@
   }
   function renderLaunch(){
     var box=$("launchView");if(!box)return;
-    box.innerHTML='<div class="launch-greet">'+escapeHtml(launchGreeting())+'</div>'+
-      launchPlanCardHTML()+launchAgendaCardHTML()+launchInboxCardHTML()+launchFocusCardHTML()+launchHabitsCardHTML();
+    if(isEditing()&&box.contains(document.activeElement))return; // don't wipe a half-typed intake answer mid-edit — next render retries
+    maybeLaunchIntake();
+    var ta=$("launchIntakeAnswer"),keep=ta?ta.value:"";
+    box.innerHTML='<div class="launch-greet">'+escapeHtml(launchGreeting())+'</div>'+launchWeatherHTML()+
+      launchPlanCardHTML()+launchAgendaCardHTML()+launchInboxCardHTML()+launchSwimCardHTML()+launchSheetsCardHTML()+launchFocusCardHTML()+launchHabitsCardHTML()+launchIntakeCardHTML();
+    if(keep){ta=$("launchIntakeAnswer");if(ta)ta.value=keep;}
     if(emailOn()&&relayOn()&&!emailLoaded&&!emailLoading)loadThreads(false);
+    if(calOn())loadGcal(false);
+    maybeFetchWeather();
+    maybeSwimScan(false);
+    maybeSheetsDigest(false);
     maybeAutoLaunch();
   }
   function handleLaunchClick(ev){
     var rf=ev.target.closest("[data-launch-refresh]");
     if(rf){generateLaunch(true);return;}
+    var isv=ev.target.closest("[data-intake-save]");
+    if(isv){launchIntakeSave();return;}
+    var isk=ev.target.closest("[data-intake-skip]");
+    if(isk){var im=intakeMeta();im.q="";im.lastAskAt=Date.now();persist();renderLaunch();return;}
+    var wx=ev.target.closest("[data-launch-weather]");
+    if(wx){weatherLocate();return;}
+    var sw=ev.target.closest("[data-swim-refresh]");
+    if(sw){maybeSwimScan(true);return;}
+    var shr=ev.target.closest("[data-sheets-refresh]");
+    if(shr){maybeSheetsDigest(true);return;}
+    var shc=ev.target.closest("[data-sheets-reconnect]");
+    if(shc){go("email");emailOAuthStart();return;}
     var g=ev.target.closest("[data-launch-goto]");
     if(g){go(g.getAttribute("data-launch-goto"));return;}
     var hp=ev.target.closest("[data-launch-habit]");
@@ -1489,7 +1527,7 @@
     var es=(state.email&&state.email.session&&state.email.accounts&&state.email.accounts.length)?state.email.session:"";
     if(weeklyBusy)return;weeklyBusy=true;renderNext();
     var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
-    relayPost("/weekly",{emailSession:es,dateKey:dk,tz:tz,context:weeklyContextText(dk),fallback:weeklyBodyShort(dk)}).then(function(j){
+    relayPost("/weekly",{syncKey:(syncOn()?state.sync.key:""),emailSession:es,dateKey:dk,tz:tz,context:weeklyContextText(dk),fallback:weeklyBodyShort(dk)}).then(function(j){
       var ci=(state.weekly&&state.weekly.checkinWeek)||"";weeklyBusy=false;state.weekly={weekKey:wk,date:dk,text:(j&&j.text)?j.text:"",checkinWeek:ci};persist();renderNext();
     }).catch(function(){var ci=(state.weekly&&state.weekly.checkinWeek)||"";weeklyBusy=false;state.weekly={weekKey:wk,date:dk,text:"",checkinWeek:ci};persist();renderNext();});
   }
@@ -1772,7 +1810,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,v:1};
   var _syncPushT=null,_syncBusy=false,_lastPushedDoc=null;
   function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
   function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
@@ -1787,7 +1825,7 @@
   function buildSyncDoc(){var d={},k,cut=Date.now()-2592000000;if(!state.deleted||typeof state.deleted!=="object")state.deleted={};for(k in state.deleted){if(state.deleted.hasOwnProperty(k)&&state.deleted[k]<cut)delete state.deleted[k];}for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}d.deleted=state.deleted;return d;}
   // Tombstones (id -> deletedAt ms) keep a deletion from resurrecting via merge; kept 30 days.
   function unionDeleted(m){if(!m||typeof m!=="object")return;if(!state.deleted||typeof state.deleted!=="object")state.deleted={};var k;for(k in m){if(m.hasOwnProperty(k)&&(m[k]||0)>(state.deleted[k]||0))state.deleted[k]=m[k];}}
-  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending"];
+  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"];
   function applySyncDoc(doc){
     if(!doc||typeof doc!=="object")return false;
     unionDeleted(doc.deleted); // arrays below are authoritative; the tombstones still union so nothing resurrects later
@@ -1976,11 +2014,14 @@
     h+=councilTasksHTML(q);
     return h;
   }
+  var COUNCIL_SYS="You are one voice on Kevin's Council inside KevinOS, his calm personal operating system. Answer the question directly, concisely, and practically. Lead with your recommendation, then the why. Plain text, no preamble.";
   function runCouncil(id){
     var base=relayBase();if(!base)return;
     var q=findCouncil(id);if(!q)return;
     q.status="running";q.error="";q.seats=null;q.synthesis=null;q.answer="";q.provider="";q.streaming=false;renderNext();
-    fetch(base+"/council",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:q.text,synthesize:true,stream:true})})
+    var body={prompt:q.text,synthesize:true,stream:true},pd=profileDigest();
+    if(pd)body.system=COUNCIL_SYS+"\nContext about Kevin: "+pd;
+    fetch(base+"/council",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
       .then(function(r){
         if(r.status===404){runCouncilLegacy(id);return;}
         if(!r.ok){return r.json().then(function(j){councilFail(id,(j&&j.error)||"No answer from the relay");},function(){councilFail(id,"No answer from the relay");});}
@@ -2062,7 +2103,8 @@
   }
   function runCouncilLegacy(id){
     var base=relayBase();if(!base)return;var q=findCouncil(id);if(!q)return;
-    fetch(base+"/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:q.text,system:"You are the Council inside KevinOS, Kevin's calm personal operating system. Answer directly, concisely, and practically. Lead with the recommendation, then the why. Plain text, no preamble."})})
+    var pd=profileDigest();
+    fetch(base+"/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:q.text,system:"You are the Council inside KevinOS, Kevin's calm personal operating system. Answer directly, concisely, and practically. Lead with the recommendation, then the why. Plain text, no preamble."+(pd?"\nContext about Kevin: "+pd:"")})})
       .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};},function(){return {ok:false,j:null};});})
       .then(function(res){
         var cur=findCouncil(id);if(!cur)return;
@@ -2235,7 +2277,7 @@
     else if(a==="rollall"){windItems().forEach(function(it){it.due=tm;it.today=false;touch(it);});save();renderWind();}
   }
 
-  function calCfg(){if(!state.calendar)state.calendar={connected:false,calId:"primary",lastSyncAt:0};if(!state.calendar.calId)state.calendar.calId="primary";return state.calendar;}
+  function calCfg(){if(!state.calendar)state.calendar={connected:false,calId:"primary",lastSyncAt:0};if(!state.calendar.calId)state.calendar.calId="primary";if(!isArr(state.calendar.calIds)||!state.calendar.calIds.length)state.calendar.calIds=[state.calendar.calId];return state.calendar;}
   function calOn(){return !!(state.calendar&&state.calendar.connected);}
   function calSession(){return (state.email&&state.email.session)||"";}
   function calAccount(){var a=(typeof emailActive==="function")?emailActive():"";return a===UNIFIED?((state.email&&state.email.accounts&&state.email.accounts[0])||""):a;}
@@ -2264,13 +2306,60 @@
   function loadGcal(force){
     if(!calOn()||!relayBase())return;
     if(gcalLoading&&!force)return;
-    if(!force&&gcalEvents.length&&calCfg().lastSyncAt&&(Date.now()-calCfg().lastSyncAt)<5*60*1000)return; // synced <5m ago — keep the cached events
+    if(!force&&gcalTriedAt&&(Date.now()-gcalTriedAt)<5*60*1000)return; // tried <5m ago — keep the cached events (and don't re-loop from Launch)
+    gcalTriedAt=Date.now();
     gcalLoading=true;gcalError="";renderCalendar();
-    relayPost("/calendar/list",{session:calSession(),account:calAccount(),calId:calCfg().calId,days:30}).then(function(j){
+    relayPost("/calendar/list",{session:calSession(),account:calAccount(),calId:calCfg().calId,calIds:calCfg().calIds.slice(0,6),days:30}).then(function(j){
       if(!j||!j.ok)gcalError=(j&&j.error)||"Couldn’t load your calendar.";
       else{gcalEvents=j.events||[];calCfg().lastSyncAt=Date.now();}
-      gcalLoading=false;persist();renderCalendar();
-    }).catch(function(){gcalLoading=false;gcalError="Couldn’t reach the relay.";renderCalendar();});
+      gcalLoading=false;persist();renderCalendar();if(room==="launch")renderLaunch();
+    }).catch(function(){gcalLoading=false;gcalError="Couldn’t reach the relay.";renderCalendar();if(room==="launch")renderLaunch();});
+  }
+  /* multi-calendar (v0.38) — pick which Google calendars feed the agenda */
+  function calChipName(ev){ // "" for primary-calendar events; otherwise the short calendar name
+    if(!ev||!ev.calName)return "";
+    if(ev.primary||ev.calId==="primary")return "";
+    var acct=(calAccount()||"").toLowerCase();
+    if(acct&&acct.indexOf(String(ev.calName).toLowerCase())===0)return ""; // primary calendars are named after the account email
+    return String(ev.calName);
+  }
+  function loadCalList(force){
+    if(calListLoading)return;
+    if(!force&&calList.length)return;
+    calListLoading=true;calListErr="";renderCalConnect();
+    relayPost("/calendar/calendars",{session:calSession(),account:calAccount()}).then(function(j){
+      calListLoading=false;
+      if(j&&j.ok&&isArr(j.calendars))calList=j.calendars;
+      else calListErr=(j&&j.error)||"Couldn’t load your calendar list.";
+      renderCalConnect();
+    }).catch(function(){calListLoading=false;calListErr="Couldn’t reach the relay.";renderCalConnect();});
+  }
+  function calIdPicked(c){var ids=calCfg().calIds;return ids.indexOf(c.id)>=0||(!!c.primary&&ids.indexOf("primary")>=0);}
+  function calPickToggle(id){
+    var c=null,i;for(i=0;i<calList.length;i++){if(calList[i].id===id){c=calList[i];break;}}
+    if(!c)return;
+    var cfg=calCfg(),key=c.primary?"primary":c.id,ids=cfg.calIds.filter(function(x){return x!==c.id&&!(c.primary&&x==="primary");});
+    if(!calIdPicked(c)){ // wasn't picked — add it
+      if(ids.length>=6){toast("Up to 6 calendars.");renderCalConnect();return;}
+      ids.push(key);
+    }
+    if(!ids.length)ids=["primary"]; // never zero calendars — fall back to primary
+    cfg.calIds=ids;save();renderCalConnect();loadGcal(true);
+  }
+  function calPickerHTML(){
+    if(!calListOpen)return "";
+    var h='<div class="edit-panel"><div class="sec-head"><p class="section-label">Choose calendars</p></div>';
+    if(calListLoading)h+='<p class="empty">Loading your calendars…</p>';
+    else if(calListErr)h+='<p class="gh-err">'+escapeHtml(calListErr)+' <button class="linklike" type="button" data-cal="callist-retry">Try again</button></p>';
+    else if(!calList.length)h+='<p class="empty">No calendars found.</p>';
+    else{
+      for(var i=0;i<calList.length;i++){
+        var c=calList[i];
+        h+='<label class="hint" style="display:flex;align-items:center;gap:7px;margin:4px 0"><input type="checkbox" data-cal="pick" data-calid="'+escapeHtml(c.id)+'"'+(calIdPicked(c)?" checked":"")+'> '+escapeHtml(c.summary||c.id)+(c.primary?' <span class="metatag">primary</span>':"")+'</label>';
+      }
+      h+='<p class="hint" style="margin-top:6px">Events from every checked calendar show in the agenda and Launch (up to 6).</p>';
+    }
+    return h+'</div>';
   }
   function calParse(){
     if(!relayBase()){calParseErr="Connect the relay first.";renderCalendar();return;}
@@ -2321,7 +2410,7 @@
     if(calConnecting){box.innerHTML='<div class="gcal-card"><div class="sec-head"><p class="section-label">Connect Google Calendar</p></div><p class="gh-lead">Waiting for Google… approve the calendar re-consent in the tab that opened, then come back here.</p>'+err+'<div class="edit-actions"><button class="add-btn" type="button" data-cal="checkoauth">I’ve authorized — check now</button><button class="btn-soft" type="button" data-cal="disconnect">Cancel</button></div></div>';return;}
     if(!calOn()){box.innerHTML='<div class="gcal-card"><div class="sec-head"><p class="section-label">Connect Google Calendar</p></div><p class="gh-lead">Bring your real Google Calendar into this room. This uses the same Google session as Email, but needs one quick reconnect to grant calendar access.</p>'+err+'<div class="edit-actions" style="margin-top:14px"><button class="add-btn" type="button" data-cal="connect">Connect Google Calendar ↗</button></div><p class="hint">No new secret is stored in the browser; the relay keeps Google tokens server-side.</p></div>';return;}
     var acct=calAccount()||"primary account";
-    box.innerHTML='<div class="gcal-strip"><div class="gcal-strip-main"><span class="gcal-dot"></span><span class="section-label" style="margin:0">Google Calendar</span><span>'+escapeHtml(acct)+'</span>'+(gcalLoading?'<span class="gh-syncing">Syncing…</span>':(calCfg().lastSyncAt?'<span class="gh-synced" style="margin:0">Synced '+ghAgo(new Date(calCfg().lastSyncAt).toISOString())+'</span>':""))+'</div><div class="gcal-inline" style="gap:6px"><button class="btn-soft" type="button" data-cal="refresh">↻ Refresh</button><button class="btn-soft" type="button" data-cal="disconnect">Disconnect</button></div></div>'+err;
+    box.innerHTML='<div class="gcal-strip"><div class="gcal-strip-main"><span class="gcal-dot"></span><span class="section-label" style="margin:0">Google Calendar</span><span>'+escapeHtml(acct)+'</span>'+(gcalLoading?'<span class="gh-syncing">Syncing…</span>':(calCfg().lastSyncAt?'<span class="gh-synced" style="margin:0">Synced '+ghAgo(new Date(calCfg().lastSyncAt).toISOString())+'</span>':""))+'</div><div class="gcal-inline" style="gap:6px"><button class="btn-soft" type="button" data-cal="choose">'+(calListOpen?"Hide calendars":"Choose calendars")+'</button><button class="btn-soft" type="button" data-cal="refresh">↻ Refresh</button><button class="btn-soft" type="button" data-cal="disconnect">Disconnect</button></div></div>'+err+calPickerHTML();
   }
   function renderCalCompose(){
     var box=$("calCompose");if(!box)return;
@@ -2345,6 +2434,9 @@
     var act=a.getAttribute("data-cal");
     if(act==="connect")calConnectStart();
     else if(act==="checkoauth")calConnectPoll(0);
+    else if(act==="choose"){calListOpen=!calListOpen;if(calListOpen)loadCalList(false);renderCalConnect();}
+    else if(act==="pick")calPickToggle(a.getAttribute("data-calid"));
+    else if(act==="callist-retry")loadCalList(true);
     else if(act==="refresh")loadGcal(true);
     else if(act==="disconnect")calDisconnect();
     else if(act==="parse")calParse();
@@ -2409,7 +2501,7 @@
         var gt=document.createElement("span");if(ge.allDay||!ge.start){gt.className="ev-time allday";gt.textContent="All day";}else{gt.className="ev-time";gt.textContent=fmtTime(ge.start);}grow.appendChild(gt);
         var gd=document.createElement("span");gd.className="dot";gd.style.background=areaColor("Inbox");grow.appendChild(gd);
         var gtitle=document.createElement("span");gtitle.className="ev-title";gtitle.textContent=ge.title||"(untitled)";grow.appendChild(gtitle);
-        var gp=document.createElement("span");gp.className="gcal-pill";gp.textContent="GCal";grow.appendChild(gp);
+        var gp=document.createElement("span");gp.className="gcal-pill";gp.textContent=calChipName(ge)||"GCal";grow.appendChild(gp); // textContent — no HTML injection path
         box.appendChild(grow);
       }
     }
@@ -2676,6 +2768,249 @@
     else if(a==="commit")sweepCommit();
   }
   var sweep={active:false,step:0,data:{}};
+
+  /* ---------- profile intake (v0.38) — getting-to-know-you facts ---------- */
+  var INTAKE_STARTERS=[
+    "What does your typical weekday look like, start to finish?",
+    "Who are the people you spend the most time with?",
+    "What roles do you juggle right now — work, family, community?",
+    "What's one goal you're working toward this quarter?",
+    "What part of your week always feels crowded?",
+    "When do you do your best focused work — morning, afternoon, or night?",
+    "What do your weekends usually revolve around?",
+    "What's a commitment you never miss?",
+    "What are you building or making right now?",
+    "How do you like your day summarized — headlines or details?",
+    "Who counts on you the most day to day?",
+    "What's one habit you're trying to keep alive?",
+    "What does a great, calm day look like for you?",
+    "What tools or apps are open on your screen most of the day?",
+    "What's coming up in the next month that matters to you?"
+  ];
+  var INTAKE_CATS={role:1,people:1,schedule:1,preference:1,goal:1,context:1};
+  var intakeActive=false,intakeBusy=false,intakeQ="",intakeIdx=0,launchIntakeBusy=false;
+  function profileFactTexts(){if(!isArr(state.profile))state.profile=[];var out=[],i;for(i=0;i<state.profile.length&&i<50;i++){if(state.profile[i]&&state.profile[i].t)out.push(String(state.profile[i].t));}return out;}
+  function profileDigest(){
+    if(!isArr(state.profile)||!state.profile.length)return "";
+    var cats=["role","people","schedule","preference","goal","context"],by={},i,f,c,n=0,parts=[];
+    for(i=0;i<state.profile.length&&n<20;i++){f=state.profile[i];if(!f||!f.t)continue;c=INTAKE_CATS[f.cat]?f.cat:"context";if(!by[c])by[c]=[];by[c].push(String(f.t));n++;}
+    for(i=0;i<cats.length;i++){if(by[cats[i]])parts.push(cats[i]+": "+by[cats[i]].join(" "));}
+    var s=parts.join(" | ");
+    if(s.length>700)s=s.slice(0,700);
+    return s;
+  }
+  function intakeFallbackQ(){var q=INTAKE_STARTERS[intakeIdx%INTAKE_STARTERS.length];intakeIdx++;return q;}
+  function addLocalFact(t){var f={id:uid(),t:t,cat:"context",createdAt:Date.now()};touch(f);state.profile.push(f);return f;}
+  // Sends question+answer to the relay; appends extracted facts; cb(nextQ, addedCount). Falls back to a raw local fact when the relay can't extract.
+  function intakeSubmit(question,answer,cb){
+    relayPost("/intake",{profile:profileFactTexts(),question:question,answer:answer}).then(function(j){
+      var added=0;
+      if(j&&j.ok&&isArr(j.facts)){j.facts.forEach(function(x){if(!x||!x.t)return;var f={id:uid(),t:String(x.t),cat:INTAKE_CATS[x.cat]?x.cat:"context",createdAt:Date.now()};touch(f);state.profile.push(f);added++;});}
+      if(!added){addLocalFact(answer);added=1;}
+      save();cb((j&&j.q)?String(j.q):"",added);
+    }).catch(function(){addLocalFact(answer);save();cb("",1);});
+  }
+  /* interview overlay — same look and flow as the Life Sweep */
+  function startIntake(){intakeActive=true;$("intakeOverlay").classList.add("active");document.body.style.overflow="hidden";if(intakeQ)renderIntake();else intakeAsk();}
+  function exitIntake(){intakeActive=false;$("intakeOverlay").classList.remove("active");document.body.style.overflow="";renderHome();if(room==="people")renderPeople();}
+  function intakeAsk(){
+    if(!relayOn()){intakeQ=intakeFallbackQ();renderIntake();return;}
+    intakeBusy=true;renderIntake();
+    relayPost("/intake",{profile:profileFactTexts()}).then(function(j){intakeBusy=false;intakeQ=(j&&j.ok&&j.q)?String(j.q):intakeFallbackQ();renderIntake();})
+      .catch(function(){intakeBusy=false;intakeQ=intakeFallbackQ();renderIntake();});
+  }
+  function renderIntake(){
+    var inner=$("intakeInner");if(!inner)return;
+    var n=isArr(state.profile)?state.profile.length:0;
+    var top='<div class="sweep-top"><p class="sweep-eyebrow">Get to know me · '+n+' fact'+(n===1?'':'s')+'</p><button class="sweep-exit" type="button" data-intake="exit">Done</button></div>';
+    if(intakeBusy){inner.innerHTML=top+'<h1 class="sweep-q">Thinking…</h1><p class="sweep-prompt">One moment.</p>';return;}
+    inner.innerHTML=top+'<h1 class="sweep-q">'+escapeHtml(intakeQ||"")+'</h1><p class="sweep-prompt">One sentence is plenty — your answers become facts KevinOS can use in briefs and plans. <span class="sweep-serif">You can prune any fact later in People.</span></p>'+
+      '<textarea class="inp" id="intakeAnswer" rows="3" placeholder="Type your answer…"></textarea>'+
+      '<div class="sweep-nav"><button class="add-btn" type="button" data-intake="save">Save</button><button class="btn-ghost sweep-skip" type="button" data-intake="skip">Skip</button></div>';
+    var ta=$("intakeAnswer");if(ta)ta.focus();
+  }
+  function intakeSaveAnswer(){
+    var ta=$("intakeAnswer"),ans=((ta&&ta.value)||"").trim();
+    if(!ans){toast("Type an answer first — or Skip.");return;}
+    var q=intakeQ;
+    if(!relayOn()){addLocalFact(ans);save();toast("Saved.");intakeQ=intakeFallbackQ();renderIntake();return;}
+    intakeBusy=true;renderIntake();
+    intakeSubmit(q,ans,function(nextQ,added){
+      intakeBusy=false;toast("Added "+added+" fact"+(added===1?"":"s")+".");
+      intakeQ=nextQ;if(intakeQ)renderIntake();else intakeAsk();
+    });
+  }
+  function handleIntake(e){
+    var t=e.target.closest("[data-intake]");if(!t)return;
+    var a=t.getAttribute("data-intake");
+    if(a==="exit")exitIntake();
+    else if(a==="save")intakeSaveAnswer();
+    else if(a==="skip"){intakeQ="";intakeAsk();}
+  }
+  function renderIntakeCard(){var b=$("intakeCardHome");if(b)b.hidden=!(isArr(state.profile)&&state.profile.length<5);}
+  /* daily drip question in the Launch sequence */
+  function intakeMeta(){if(!state.intake||typeof state.intake!=="object")state.intake={lastAskAt:0,q:""};return state.intake;}
+  function intakeAskedToday(){var m=intakeMeta();return !!(m.lastAskAt&&dateKey(new Date(m.lastAskAt))===todayKey());}
+  function maybeLaunchIntake(){
+    var m=intakeMeta();
+    if(m.q||launchIntakeBusy||intakeAskedToday())return;
+    if(!relayOn()){m.q=intakeFallbackQ();m.lastAskAt=Date.now();persist();return;}
+    launchIntakeBusy=true;
+    relayPost("/intake",{profile:profileFactTexts()}).then(function(j){
+      launchIntakeBusy=false;var mm=intakeMeta();mm.q=(j&&j.ok&&j.q)?String(j.q):intakeFallbackQ();mm.lastAskAt=Date.now();persist();renderLaunch();
+    }).catch(function(){launchIntakeBusy=false;var mm=intakeMeta();mm.q=intakeFallbackQ();mm.lastAskAt=Date.now();persist();renderLaunch();});
+  }
+  function launchIntakeCardHTML(){
+    var m=intakeMeta(),n=isArr(state.profile)?state.profile.length:0;
+    var head=launchHeadHTML("Getting to know you · "+n+" facts",null,"");
+    if(m.q){
+      return '<div class="launch-card">'+head+'<div class="lc-body">'+escapeHtml(m.q)+'</div>'+
+        '<textarea class="inp" id="launchIntakeAnswer" rows="2" placeholder="One sentence…" style="margin-top:8px"></textarea>'+
+        '<div style="display:flex;gap:8px;margin-top:8px"><button class="add-btn" type="button" data-intake-save="1">Save</button><button class="btn-ghost" type="button" data-intake-skip="1">Skip</button></div></div>';
+    }
+    if(launchIntakeBusy)return '<div class="launch-card">'+head+'<p class="empty">Picking a question…</p></div>';
+    return '<div class="launch-card">'+head+'<p class="empty">Done for today — next question tomorrow.</p></div>';
+  }
+  function launchIntakeSave(){
+    var ta=$("launchIntakeAnswer"),ans=((ta&&ta.value)||"").trim(),m=intakeMeta();
+    if(!ans||!m.q)return;
+    var q=m.q;m.q="";m.lastAskAt=Date.now();
+    if(!relayOn()){addLocalFact(ans);save();renderLaunch();toast("Saved.");return;}
+    persist();renderLaunch();
+    intakeSubmit(q,ans,function(nextQ,added){toast("Added "+added+" fact"+(added===1?"":"s")+".");if(room==="launch")renderLaunch();});
+  }
+  function renderProfileList(){
+    var box=$("profileList");if(!box)return;
+    if(!isArr(state.profile))state.profile=[];
+    var h='<div class="sec-head" style="margin-top:24px"><p class="section-label">About Kevin · '+state.profile.length+' fact'+(state.profile.length===1?'':'s')+'</p></div>';
+    if(!state.profile.length){box.innerHTML=h+'<p class="empty">No facts yet. Answer the “Get to know me” questions on Home or in Launch.</p>';return;}
+    var i,f;
+    for(i=0;i<state.profile.length;i++){
+      f=state.profile[i];if(!f)continue;
+      h+='<div class="sw-item"><span class="metatag">'+escapeHtml(f.cat||"context")+'</span><span class="swt">'+escapeHtml(f.t||"")+'</span><button class="icon-btn" style="opacity:1" type="button" data-fact-del="'+escapeHtml(f.id)+'" aria-label="Delete fact">'+delSvg()+'</button></div>';
+    }
+    box.innerHTML=h;
+  }
+  function handleProfileClick(e){
+    var d=e.target.closest("[data-fact-del]");if(!d)return;
+    var id=d.getAttribute("data-fact-del");
+    bury(id);state.profile=state.profile.filter(function(x){return x.id!==id;});
+    renderProfileList();renderHome();save();
+  }
+
+  /* ---------- whole-life Launch cards (v0.38) — weather, swim desk, sheets ---------- */
+  var WEATHER_WORDS={0:"sunny",1:"mostly sunny",2:"partly cloudy",3:"cloudy",45:"foggy",48:"foggy",51:"drizzle",53:"drizzle",55:"drizzle",56:"freezing drizzle",57:"freezing drizzle",61:"rain",63:"rain",65:"heavy rain",66:"freezing rain",67:"freezing rain",71:"snow",73:"snow",75:"heavy snow",77:"snow",80:"showers",81:"showers",82:"heavy showers",85:"snow showers",86:"snow showers",95:"thunderstorms",96:"thunderstorms",99:"thunderstorms"};
+  var weatherWx={at:0,line:""},weatherBusy=false,weatherDenied=false; // module-var cache — device + session local
+  function launchWeatherHTML(){
+    if(state.weatherLoc)return weatherWx.line?'<div class="launch-wx">'+escapeHtml(weatherWx.line)+'</div>':"";
+    if(weatherDenied||!navigator.geolocation)return "";
+    return '<div class="launch-wx"><button class="linklike" type="button" data-launch-weather="1">Set weather location</button></div>';
+  }
+  function maybeFetchWeather(){
+    var loc=state.weatherLoc;
+    if(!loc||weatherBusy)return;
+    if(weatherWx.at&&(Date.now()-weatherWx.at)<30*60*1000)return; // cached <30m ago
+    weatherBusy=true;
+    fetch("https://api.open-meteo.com/v1/forecast?latitude="+encodeURIComponent(loc.lat)+"&longitude="+encodeURIComponent(loc.lon)+"&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto")
+      .then(function(r){return r.json();}).then(function(j){
+        weatherBusy=false;weatherWx.at=Date.now();
+        var c=j&&j.current;
+        if(c&&typeof c.temperature_2m==="number"){var w=WEATHER_WORDS[c.weather_code]||"";weatherWx.line=Math.round(c.temperature_2m)+"°"+(w?" · "+w:"");}
+        else weatherWx.line="";
+        if(room==="launch")renderLaunch();
+      }).catch(function(){weatherBusy=false;weatherWx.at=Date.now();}); // silent — try again in 30m
+  }
+  function weatherLocate(){
+    if(!navigator.geolocation){weatherDenied=true;renderLaunch();return;}
+    navigator.geolocation.getCurrentPosition(function(pos){
+      state.weatherLoc={lat:Math.round(pos.coords.latitude*100)/100,lon:Math.round(pos.coords.longitude*100)/100,label:""};
+      persist();if(room==="launch")renderLaunch();
+    },function(){weatherDenied=true;if(room==="launch")renderLaunch();}); // denied — stop offering for this session
+  }
+  /* swim desk — CommitSwimming email digest via the relay */
+  var swimBusy=false;
+  function swimMeta(){if(!state.swim||typeof state.swim!=="object")state.swim={at:0,items:[]};if(!isArr(state.swim.items))state.swim.items=[];return state.swim;}
+  function maybeSwimScan(force){
+    var m=swimMeta();
+    if(!relayOn()||!(state.email&&state.email.session)||swimBusy)return;
+    if(!force&&m.at&&(Date.now()-m.at)<6*60*60*1000)return; // scanned <6h ago
+    swimBusy=true;if(force&&room==="launch")renderLaunch();
+    relayPost("/swim/scan",{session:state.email.session,account:calAccount()}).then(function(j){
+      swimBusy=false;var mm=swimMeta();mm.at=Date.now();
+      if(j&&j.ok&&isArr(j.items))mm.items=j.items.slice(0,6);
+      persist();if(room==="launch")renderLaunch();
+    }).catch(function(){swimBusy=false;var mm=swimMeta();mm.at=Date.now();persist();if(room==="launch")renderLaunch();});
+  }
+  function launchSwimCardHTML(){
+    var m=swimMeta();
+    if(!(state.email&&state.email.session)||!m.items.length)return "";
+    var extra=swimBusy?'<span class="cq-prov">scanning…</span>':(relayOn()?'<button class="linklike" type="button" data-swim-refresh="1">↻</button>':"");
+    var h="",i,it;
+    for(i=0;i<m.items.length&&i<6;i++){
+      it=m.items[i];if(!it)continue;
+      h+='<div class="lc-row"><span class="gcal-pill">'+escapeHtml(it.kind||"info")+'</span><span>'+escapeHtml(it.title||"")+'</span>'+(it.detail?'<span>—</span><span>'+escapeHtml(it.detail)+'</span>':"")+(it.date?'<span class="metatag">'+escapeHtml(it.date)+'</span>':"")+'</div>';
+    }
+    return '<div class="launch-card">'+launchHeadHTML("Swim desk",null,extra)+h+'</div>';
+  }
+  /* sheets — digest of connected Google Sheets via the relay */
+  var sheetsBusy=false,sheetsReconnect=false;
+  function sheetsCacheMeta(){if(!state.sheetsCache||typeof state.sheetsCache!=="object")state.sheetsCache={at:0,text:""};return state.sheetsCache;}
+  function maybeSheetsDigest(force){
+    var sc=sheetsCacheMeta();
+    if(!relayOn()||!(state.email&&state.email.session)||sheetsBusy)return;
+    if(!isArr(state.sheets)||!state.sheets.length)return;
+    if(!force&&sc.at&&(Date.now()-sc.at)<6*60*60*1000)return; // refreshed <6h ago
+    sheetsBusy=true;if(force&&room==="launch")renderLaunch();
+    var list=[],i;
+    for(i=0;i<state.sheets.length&&i<3;i++)list.push({sheetId:state.sheets[i].sheetId,label:state.sheets[i].label||""});
+    relayPost("/sheets/digest",{session:state.email.session,account:calAccount(),sheets:list}).then(function(j){
+      sheetsBusy=false;var c=sheetsCacheMeta();c.at=Date.now();
+      if(j&&j.reconnect)sheetsReconnect=true;
+      else if(j&&j.ok){sheetsReconnect=false;c.text=String(j.text||"");}
+      persist();if(room==="launch")renderLaunch();
+    }).catch(function(){sheetsBusy=false;var c=sheetsCacheMeta();c.at=Date.now();persist();if(room==="launch")renderLaunch();});
+  }
+  function launchSheetsCardHTML(){
+    if(!isArr(state.sheets)||!state.sheets.length)return "";
+    var sc=sheetsCacheMeta();
+    var extra=sheetsBusy?'<span class="cq-prov">reading…</span>':(relayOn()?'<button class="linklike" type="button" data-sheets-refresh="1">↻</button>':"");
+    var h;
+    if(sheetsReconnect)h='<p class="hint"><button class="linklike" type="button" data-sheets-reconnect="1">Reconnect Google to enable Sheets (new read-only permission)</button></p>';
+    else if(sc.text)h='<div class="lc-body">'+escapeHtml(sc.text)+'</div>';
+    else h='<p class="empty">'+(sheetsBusy?"Reading your sheets…":(relayOn()?"No digest yet — hit ↻ to read your sheets.":"No digest yet — connect the relay to read your sheets."))+'</p>';
+    return '<div class="launch-card">'+launchHeadHTML("Sheets",null,extra)+h+'</div>';
+  }
+  /* sheet manager — lives with the Google connection settings in the Email room */
+  function sheetsManagerHTML(){
+    if(!isArr(state.sheets))state.sheets=[];
+    var h='<hr class="surface-line"><div class="sec-head" style="margin-top:12px"><p class="section-label">Google Sheets · '+state.sheets.length+'</p></div>'+
+      '<p class="hint">Paste a Google Sheets link and Launch shows a small daily digest of it. Read-only — nothing is ever written.</p>';
+    var i,s;
+    for(i=0;i<state.sheets.length;i++){
+      s=state.sheets[i];if(!s)continue;
+      h+='<div class="lc-row"><span>'+escapeHtml(s.label||"(untitled)")+'</span><span class="metatag">'+escapeHtml(String(s.sheetId||"").slice(0,10))+'…</span><button class="linklike" type="button" data-em="sheetdel" data-id="'+escapeHtml(s.id)+'">delete</button></div>';
+    }
+    if(state.sheets.length<3)h+='<div class="add-row" style="margin-top:8px"><input id="sheetUrl" class="capture-input" type="text" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off" aria-label="Google Sheets URL"><input id="sheetLabel" class="capture-input" type="text" placeholder="Label — e.g. Budget" autocomplete="off" aria-label="Sheet label" style="flex:0 1 160px"><button class="add-btn" type="button" data-em="sheetadd">Add</button></div>';
+    else h+='<p class="hint">Up to 3 sheets — delete one to add another.</p>';
+    return h;
+  }
+  function sheetAdd(){
+    var u=$("sheetUrl"),l=$("sheetLabel"),url=((u&&u.value)||"").trim(),label=((l&&l.value)||"").trim();
+    var m=url.match(/\/d\/([-\w]+)/);
+    if(!m){toast("Paste a Google Sheets link (…/spreadsheets/d/…).");return;}
+    if(!isArr(state.sheets))state.sheets=[];
+    if(state.sheets.length>=3){toast("Up to 3 sheets.");return;}
+    var s={id:uid(),sheetId:m[1],label:label||("Sheet "+(state.sheets.length+1))};
+    touch(s);state.sheets.push(s);
+    sheetsCacheMeta().at=0; // new sheet — next Launch refresh reads it
+    save();renderEmail();maybeSheetsDigest(true);
+  }
+  function sheetDelete(id){
+    bury(id);state.sheets=state.sheets.filter(function(x){return x.id!==id;});
+    var c=sheetsCacheMeta();c.at=0;if(!state.sheets.length)c.text="";
+    save();renderEmail();
+    if(state.sheets.length)maybeSheetsDigest(true);
+  }
 
   function optChips(box,opts,getSel,onPick){box.innerHTML="";opts.forEach(function(o){var b=document.createElement("button");b.type="button";b.className="chip"+(o.key===getSel()?" active":"");b.textContent=o.label||o.key;if(o.key===getSel())b.style.background=o.color||"var(--ink-soft)";b.addEventListener("click",function(){onPick(o.key);});box.appendChild(b);});}
   function chipPicker(boxId,opts,getSel,setSel){var box=$(boxId);if(!box)return;optChips(box,opts,getSel,function(k){setSel(k);chipPicker(boxId,opts,getSel,setSel);});}
@@ -3081,12 +3416,13 @@
     var box=$("peopleList"),i,p,groups={overdue:[],due:[],ok:[]},h="";
     if(!box)return;
     h='<div class="sec-head" style="margin-top:16px"><p class="section-label">Relationships</p>'+(relayOn()&&emailOn()?'<button class="sec-link" type="button" data-people="enrich">'+(peopleEnriching?"Checking…":"Enrich from Gmail")+'</button>':"")+'</div>';
-    if(!state.people.length){box.innerHTML=h+'<p class="empty">No people yet. Add someone above.</p>';return;}
+    if(!state.people.length){box.innerHTML=h+'<p class="empty">No people yet. Add someone above.</p>';renderProfileList();return;}
     for(i=0;i<state.people.length;i++){p=state.people[i];groups[personStatus(p)].push(p);}
     h+=peopleBucketHTML("Overdue",groups.overdue);
     h+=peopleBucketHTML("Due soon",groups.due);
     h+=peopleBucketHTML("OK",groups.ok);
     box.innerHTML=h;
+    renderProfileList();
   }
   function handlePeopleClick(e){
     var sv=e.target.closest("[data-person-save]"),cn=e.target.closest("[data-person-cancel]"),dl=e.target.closest("[data-person-delete]"),b,id,p,t,cad,last,bday,note;
@@ -3475,6 +3811,8 @@
   var goBtns=document.querySelectorAll("[data-goto]");for(var gi=0;gi<goBtns.length;gi++){goBtns[gi].addEventListener("click",function(){go(this.dataset.goto);});}
   $("sweepCardHome").addEventListener("click",startSweep);
   $("sweepCardTasks").addEventListener("click",startSweep);
+  $("intakeCardHome").addEventListener("click",startIntake);
+  $("intakeInner").addEventListener("click",handleIntake);
 
   $("taskAddBtn").addEventListener("click",function(){addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat","taskDueTime");});
   $("taskInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat","taskDueTime");}});
@@ -3513,7 +3851,7 @@
   $("sweepInner").addEventListener("click",handleSweep);
   $("sweepInner").addEventListener("keydown",function(e){if(e.key==="Enter"){var step=SWEEP_STEPS[sweep.step];if(step&&step.type==="area"){e.preventDefault();sweepAdd();}}});
   $("windInner").addEventListener("click",handleWind);
-  document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(sweep.active)exitSweep();else if(windActive)closeWind();}});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(sweep.active)exitSweep();else if(windActive)closeWind();else if(intakeActive)exitIntake();}});
 
   $("projAddBtn").addEventListener("click",addProject);
   $("projInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addProject();}});
@@ -3548,6 +3886,7 @@
   $("peopleName").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addPerson();}});
   $("peopleEmail").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addPerson();}});
   $("peopleList").addEventListener("click",handlePeopleClick);
+  $("profileList").addEventListener("click",handleProfileClick);
   $("ghView").addEventListener("click",handleGithubClick);
   $("ghView").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="ghTokenInput"){e.preventDefault();ghConnect();}});
 
@@ -3801,7 +4140,7 @@
           emailGroupHTML("🔕 Noise",groups.noise,"noise",false)+snz;
       }
     }
-    box.innerHTML=head+body;
+    box.innerHTML=head+body+sheetsManagerHTML();
   }
   function handleEmailClick(ev){
     var a=ev.target.closest("[data-em]");if(!a)return;
@@ -3823,6 +4162,8 @@
     else if(act==="snooze"){emailSnoozeOpen=id;renderEmail();}
     else if(act==="snoozeset")snoozeMsg(id,a.getAttribute("data-when"));
     else if(act==="snoozecancel"){emailSnoozeOpen="";renderEmail();}
+    else if(act==="sheetadd")sheetAdd();
+    else if(act==="sheetdel")sheetDelete(id);
     else if(act==="wake")wakeSnooze(id);
     else if(act==="disconnect"){
       if(isUnified()){if(window.confirm("Disconnect ALL Gmail accounts? Every sign-in is revoked on Google and removed from the relay."))emailDisconnect(null);}
@@ -3850,7 +4191,7 @@
       var saved;try{saved=JSON.parse(String(reader.result));}catch(e){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!saved||typeof saved!=="object"){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!window.confirm("Import this backup? It replaces everything in KevinOS on this device. Tip: export a backup first. If cross-device sync is on, the restored data will be MERGED with your synced data, not replace it."))return;
-      ["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
+      ["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"].forEach(function(k){if(Array.isArray(saved[k]))state[k]=saved[k];});
       if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
@@ -3935,6 +4276,12 @@
       if(saved.github&&typeof saved.github==="object")state.github=saved.github;
       if(isArr(saved.council))state.council=saved.council;
       if(isArr(saved.pending))state.pending=saved.pending;
+      if(isArr(saved.profile))state.profile=saved.profile;
+      if(isArr(saved.sheets))state.sheets=saved.sheets;
+      if(saved.intake&&typeof saved.intake==="object")state.intake=saved.intake;
+      if(saved.swim&&typeof saved.swim==="object")state.swim=saved.swim;
+      if(saved.sheetsCache&&typeof saved.sheetsCache==="object")state.sheetsCache=saved.sheetsCache;
+      if(saved.weatherLoc&&typeof saved.weatherLoc==="object")state.weatherLoc=saved.weatherLoc;
       if(saved.relay&&typeof saved.relay==="object")state.relay=saved.relay;
       if(typeof saved.lastBackupAt==="number")state.lastBackupAt=saved.lastBackupAt;
       if(typeof saved.lastShutdown==="string")state.lastShutdown=saved.lastShutdown;
@@ -3951,7 +4298,16 @@
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();
-    state.v=36; // existing devices are at 35; the next migration must gate on prevV<37
+    if(prevV<37){ // v0.38: profile intake + sheets, plus device-local caches (swim, sheets digest, weather)
+      if(!isArr(state.profile))state.profile=[];
+      if(!isArr(state.sheets))state.sheets=[];
+      if(!state.intake||typeof state.intake!=="object")state.intake={lastAskAt:0,q:""};
+      if(!state.swim||typeof state.swim!=="object")state.swim={at:0,items:[]};
+      if(!state.sheetsCache||typeof state.sheetsCache!=="object")state.sheetsCache={at:0,text:""};
+      if(!state.calendar||typeof state.calendar!=="object")state.calendar={connected:false,calId:"primary",lastSyncAt:0};
+      if(!isArr(state.calendar.calIds)||!state.calendar.calIds.length)state.calendar.calIds=[state.calendar.calId||"primary"];
+    }
+    state.v=37; // existing devices are at 36; the next migration must gate on prevV<38
     var sharedMsg=ingestShared();
     renderHome();
     vcDetect();

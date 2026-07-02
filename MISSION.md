@@ -409,26 +409,27 @@ Document carefully:
 1. Create/select Google Cloud project.
 2. Enable Gmail API.
 3. Enable Google Calendar API.
-4. Configure OAuth consent screen.
-5. Keep app in Testing mode for personal use.
-6. Add all Gmail accounts as test users.
-7. Create OAuth Client ID, type Web application.
-8. Add redirect URI:
+4. Enable Google Sheets API.
+5. Configure OAuth consent screen.
+6. Keep app in Testing mode for personal use.
+7. Add all Gmail accounts as test users.
+8. Create OAuth Client ID, type Web application.
+9. Add redirect URI:
 
 ```text
 https://kevinos-relay.kevinbigham.workers.dev/google/callback
 ```
 
-9. Put public Client ID in `wrangler.toml` as `GOOGLE_CLIENT_ID`.
-10. Store secret:
+10. Put public Client ID in `wrangler.toml` as `GOOGLE_CLIENT_ID`.
+11. Store secret:
 
 ```sh
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler deploy
 ```
 
-11. In KevinOS -> Email -> Connect Gmail.
-12. In KevinOS -> Calendar -> Connect Google Calendar if needed.
+12. In KevinOS -> Email -> Connect Gmail.
+13. In KevinOS -> Calendar -> Connect Google Calendar if needed.
 
 Explain expected Google warning:
 
@@ -436,9 +437,9 @@ Explain expected Google warning:
 - That is expected for a personal app owned by Kevin.
 - Use Advanced -> Continue only for your own app/accounts.
 
-Mention Calendar scope reconnect:
+Mention Calendar/Sheets scope reconnect:
 
-- If Gmail was connected before Calendar scopes were added, reconnect the Google account once.
+- If Gmail was connected before the Calendar or Sheets (`spreadsheets.readonly`) scopes were added, reconnect the Google account once.
 
 ### Connect Everything In-App
 
