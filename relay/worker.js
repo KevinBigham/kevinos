@@ -38,7 +38,7 @@ function cors(origin) {
   return {
     "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-KevinOS-Token",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -48,6 +48,45 @@ function json(data, status, origin) {
     status: status || 200,
     headers: { "Content-Type": "application/json", ...cors(origin) },
   });
+}
+
+const PUBLIC_ROUTES = new Set([
+  "/",
+  "/push/key",
+  "/github/login",
+  "/github/callback",
+  "/github/status",
+  "/google/login",
+  "/google/callback",
+  "/google/status",
+]);
+
+let relayTokenMissingWarned = false;
+
+function timingSafeEqual(a, b) {
+  const left = String(a || "");
+  const right = String(b || "");
+  const len = Math.max(left.length, right.length);
+  let diff = left.length ^ right.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (left.charCodeAt(i) || 0) ^ (right.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
+function ownerSecretGate(request, env, origin, pathname) {
+  if (PUBLIC_ROUTES.has(pathname)) return null;
+  const expected = String((env && env.RELAY_TOKEN) || "");
+  if (!expected) {
+    if (!relayTokenMissingWarned) {
+      relayTokenMissingWarned = true;
+      console.warn("RELAY_TOKEN is not set; owner-secret gate is fail-open for migration safety.");
+    }
+    return null;
+  }
+  const provided = request.headers.get("X-KevinOS-Token") || "";
+  if (!timingSafeEqual(provided, expected)) return json({ error: "unauthorized" }, 401, origin);
+  return null;
 }
 
 function maxTokens(env) {
@@ -1403,6 +1442,9 @@ async function handleRequest(request, env, origin) {
     const seats = councilSeats(env).map((s) => s.id);
     return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.PUSH), github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && env.PUSH), sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!(env.GEMINI_API_KEY && env.PUSH && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), launch: !!env.GEMINI_API_KEY, calendar: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), habits: !!(env.SYNC && env.PUSH && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY), email: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), peopleEnrich: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), intake: !!env.GEMINI_API_KEY, swim: !!(env.GEMINI_API_KEY && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), sheets: !!(env.GEMINI_API_KEY && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH) }, 200, origin);
   }
+
+  const auth = ownerSecretGate(request, env, origin, url.pathname);
+  if (auth) return auth;
 
   // Council — fan one prompt out to every configured seat, then synthesize.
   if (request.method === "POST" && url.pathname === "/council") {

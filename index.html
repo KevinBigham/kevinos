@@ -902,7 +902,7 @@
   ];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},swim:{at:0,items:[]},sheetsCache:{at:0,text:""},weatherLoc:null,deleted:{},lastBackupAt:0,lastShutdown:"",v:37};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",cache:null,fetchedAt:0},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},swim:{at:0,items:[]},sheetsCache:{at:0,text:""},weatherLoc:null,deleted:{},lastBackupAt:0,lastShutdown:"",v:37};
   var room="home", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var paletteOpen=false, paletteSel=0, paletteResults=[];
   var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
@@ -1659,7 +1659,7 @@
     var on=relayOn();
     var cq='<hr class="surface-line"><div class="sec-head" style="margin-top:6px"><p class="section-label">Council queue</p><button class="sec-link" type="button" data-relay-toggle="1">'+(on?"AI connected ✓":"Connect AI")+'</button></div>';
     if(relayOpen){
-      cq+='<div class="edit-panel"><div class="field"><label for="relayUrl">Relay URL</label><input class="inp" id="relayUrl" type="text" placeholder="https://kevinos-relay.…workers.dev" value="'+escapeHtml((state.relay&&state.relay.url)||"")+'" autocomplete="off" spellcheck="false"></div><div class="edit-actions"><button class="add-btn" type="button" data-relay-save="1">Save</button>'+(on?'<button class="btn-ghost danger" type="button" data-relay-clear="1">Disconnect</button>':'')+'</div><p class="hint">Paste your Cloudflare Worker URL (see <code>relay/RELAY_SETUP.md</code>). Your AI key stays on the relay, never in the browser. Leave blank to stay fully offline.</p></div>';
+      cq+='<div class="edit-panel"><div class="field"><label for="relayUrl">Relay URL</label><input class="inp" id="relayUrl" type="text" placeholder="https://kevinos-relay.…workers.dev" value="'+escapeHtml((state.relay&&state.relay.url)||"")+'" autocomplete="off" spellcheck="false"></div><div class="field"><label for="relayToken">Relay token (paste the value you set with wrangler secret put RELAY_TOKEN)</label><input class="inp" id="relayToken" type="password" value="'+escapeHtml((state.relay&&state.relay.token)||"")+'" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></div><div class="edit-actions"><button class="add-btn" type="button" data-relay-save="1">Save</button>'+(on?'<button class="btn-ghost danger" type="button" data-relay-clear="1">Disconnect</button>':'')+'</div><p class="hint">Paste your Cloudflare Worker URL (see <code>relay/RELAY_SETUP.md</code>). Your AI key stays on the relay, never in the browser. Leave blank to stay fully offline.</p></div>';
     }
     cq+='<div class="capture-row"><input id="councilInput" class="capture-input" type="text" placeholder="Ask the Council something…" autocomplete="off" aria-label="Council question"><button class="add-btn" type="button" data-council-add="1">'+(on?"Ask":"Queue")+'</button></div>';
     if(state.council&&state.council.length){
@@ -1695,7 +1695,9 @@
   }
   function relayBase(){var u=((state.relay&&state.relay.url)||"").trim();return u.replace(/\/+$/,"");}
   function relayOn(){return !!relayBase();}
-  function relayPost(path,body){return fetch(relayBase()+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.json();});}
+  function relayToken(){return ((state.relay&&state.relay.token)||"").trim();}
+  function relayHeaders(){var h={"Content-Type":"application/json"},t=relayToken();if(t)h["X-KevinOS-Token"]=t;return h;}
+  function relayPost(path,body){return fetch(relayBase()+path,{method:"POST",headers:relayHeaders(),body:JSON.stringify(body)}).then(function(r){return r.json();});}
   // shared OAuth connect poll: hit a status URL every 2.5s, up to 60 tries (calendar, email, GitHub)
   function oauthPoll(n,o){
     if(!o.active())return;
@@ -1707,7 +1709,7 @@
       else o.onTimeout();
     }).catch(function(){if(n<60)setTimeout(function(){oauthPoll(n+1,o);},2500);else if(o.onNetFail)o.onNetFail();});
   }
-  function saveRelayUrl(){var ri=$("relayUrl");if(ri){if(!state.relay)state.relay={url:""};state.relay.url=(ri.value||"").trim();}relayOpen=false;renderNext();save();renderSync();if(relayOn())runQueuedCouncil();}
+  function saveRelayUrl(){var ri=$("relayUrl"),ti=$("relayToken");if(ri||ti){if(!state.relay)state.relay={url:"",token:""};if(ri)state.relay.url=(ri.value||"").trim();if(ti)state.relay.token=(ti.value||"").trim();}relayOpen=false;renderNext();save();renderSync();if(relayOn())runQueuedCouncil();}
 
   /* ---------- phone reminders / Web Push (v0.14) ---------- */
   var _syncT=null;
@@ -1751,7 +1753,7 @@
       if(!sub)return;
       var body=JSON.stringify({subscription:sub.toJSON(),reminders:buildReminders()});
       if(body===_lastRemindersJson)return; // nothing changed since the last successful sync — skip the POST
-      return fetch(base+"/push/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:body}).then(function(r){if(r&&r.ok){_lastRemindersJson=body;if(state.push)state.push.syncedAt=Date.now();}});
+      return fetch(base+"/push/sync",{method:"POST",headers:relayHeaders(),body:body}).then(function(r){if(r&&r.ok){_lastRemindersJson=body;if(state.push)state.push.syncedAt=Date.now();}});
     }).catch(function(){});
   }
   function scheduleReminderSync(){if(!state.push||!state.push.enabled)return;if(_syncT)clearTimeout(_syncT);_syncT=setTimeout(function(){_syncT=null;syncReminders();},1500);}
@@ -1769,7 +1771,7 @@
         if(!sub)return;
         if(!state.push)state.push={enabled:false,endpoint:"",hour:8,syncedAt:0};
         state.push.enabled=true;state.push.endpoint=sub.endpoint;_lastRemindersJson=null;
-        return fetch(base+"/push/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON(),reminders:buildReminders()})});
+        return fetch(base+"/push/sync",{method:"POST",headers:relayHeaders(),body:JSON.stringify({subscription:sub.toJSON(),reminders:buildReminders()})});
       }).then(function(){save();renderNext();toast("Reminders on. Send a test to confirm.");}).catch(function(){toast("Couldn’t turn on reminders.");});
     }).catch(function(){toast("Couldn’t turn on reminders.");});
   }
@@ -1778,7 +1780,7 @@
     if(navigator.serviceWorker){
       navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(sub){
         if(!sub)return;var ep=sub.endpoint;sub.unsubscribe().catch(function(){});
-        if(base)fetch(base+"/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:ep})}).catch(function(){});
+        if(base)fetch(base+"/push/unsubscribe",{method:"POST",headers:relayHeaders(),body:JSON.stringify({endpoint:ep})}).catch(function(){});
       }).catch(function(){});
     }
     if(state.push){state.push.enabled=false;state.push.endpoint="";}
@@ -2021,7 +2023,7 @@
     q.status="running";q.error="";q.seats=null;q.synthesis=null;q.answer="";q.provider="";q.streaming=false;renderNext();
     var body={prompt:q.text,synthesize:true,stream:true},pd=profileDigest();
     if(pd)body.system=COUNCIL_SYS+"\nContext about Kevin: "+pd;
-    fetch(base+"/council",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    fetch(base+"/council",{method:"POST",headers:relayHeaders(),body:JSON.stringify(body)})
       .then(function(r){
         if(r.status===404){runCouncilLegacy(id);return;}
         if(!r.ok){return r.json().then(function(j){councilFail(id,(j&&j.error)||"No answer from the relay");},function(){councilFail(id,"No answer from the relay");});}
@@ -2104,7 +2106,7 @@
   function runCouncilLegacy(id){
     var base=relayBase();if(!base)return;var q=findCouncil(id);if(!q)return;
     var pd=profileDigest();
-    fetch(base+"/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:q.text,system:"You are the Council inside KevinOS, Kevin's calm personal operating system. Answer directly, concisely, and practically. Lead with the recommendation, then the why. Plain text, no preamble."+(pd?"\nContext about Kevin: "+pd:"")})})
+    fetch(base+"/ai",{method:"POST",headers:relayHeaders(),body:JSON.stringify({prompt:q.text,system:"You are the Council inside KevinOS, Kevin's calm personal operating system. Answer directly, concisely, and practically. Lead with the recommendation, then the why. Plain text, no preamble."+(pd?"\nContext about Kevin: "+pd:"")})})
       .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};},function(){return {ok:false,j:null};});})
       .then(function(res){
         var cur=findCouncil(id);if(!cur)return;
@@ -2190,7 +2192,7 @@
     if(e.target.closest("[data-push-off]")){disablePush();return;}
     if(e.target.closest("[data-relay-toggle]")){relayOpen=!relayOpen;renderNext();return;}
     if(e.target.closest("[data-relay-save]")){saveRelayUrl();return;}
-    if(e.target.closest("[data-relay-clear]")){state.relay={url:""};relayOpen=false;renderNext();save();renderSync();return;}
+    if(e.target.closest("[data-relay-clear]")){state.relay={url:"",token:""};relayOpen=false;renderNext();save();renderSync();return;}
     var crun=e.target.closest("[data-council-run]");if(crun){runCouncil(crun.getAttribute("data-council-run"));return;}
     var cseats=e.target.closest("[data-council-seats]");if(cseats){var sid=cseats.getAttribute("data-council-seats");councilSeatsOpen[sid]=!(councilSeatsOpen[sid]===true);renderNext();return;}
     var csyn=e.target.closest("[data-cpy-synth]");if(csyn){var qs2=findCouncil(csyn.getAttribute("data-cpy-synth"));if(qs2&&qs2.synthesis&&qs2.synthesis.text){copyText(qs2.synthesis.text);flashCopied(csyn);}return;}
@@ -2401,7 +2403,7 @@
   function calPickSlot(idx){var s=calSlots[idx];if(!s)return;calDraft={title:"",date:s.date,start:s.start,end:s.end,allDay:false,location:"",notes:""};renderCalendar();}
   function calDisconnect(){
     if(!window.confirm("Disconnect Google Calendar on this device?"))return;
-    if(!emailOn()&&relayBase()&&calSession()){fetch(relayBase()+"/google/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:calSession()})}).catch(function(){});}
+    if(!emailOn()&&relayBase()&&calSession()){fetch(relayBase()+"/google/logout",{method:"POST",headers:relayHeaders(),body:JSON.stringify({session:calSession()})}).catch(function(){});}
     calCfg().connected=false;gcalEvents=[];calDraft=null;calSlots=[];save();renderCalendar();
   }
   function renderCalConnect(){
@@ -3503,7 +3505,7 @@
     if(gh.session){
       var base=relayBase();
       if(!base){var e0=new Error("relay");e0.kind="auth";return Promise.reject(e0);}
-      return fetch(base+"/github/graphql",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:gh.session,query:q})})
+      return fetch(base+"/github/graphql",{method:"POST",headers:relayHeaders(),body:JSON.stringify({session:gh.session,query:q})})
         .then(function(r){if(r.status===401){var ea=new Error("auth");ea.kind="auth";throw ea;}return r.json();})
         .then(ghParse);
     }
@@ -3554,7 +3556,7 @@
   }
   function ghClear(){
     var gh=state.github||{},base=relayBase();
-    if(gh.session&&base){fetch(base+"/github/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:gh.session})}).catch(function(){});}
+    if(gh.session&&base){fetch(base+"/github/logout",{method:"POST",headers:relayHeaders(),body:JSON.stringify({session:gh.session})}).catch(function(){});}
     state.github={token:"",cache:null,fetchedAt:0};ghError=null;ghLoading=false;save();renderGithub();
   }
   function handleGithubClick(e){
@@ -3790,7 +3792,7 @@
   $("homeNudges").addEventListener("click",function(e){var g=e.target.closest("[data-go]");if(g){go(g.getAttribute("data-go"));return;}if(e.target.closest("[data-openwind]")){openWind();return;}if(e.target.closest("[data-backup]")){exportBackup();}});
   $("nextView").addEventListener("click",handleNextClick);
   $("launchView").addEventListener("click",handleLaunchClick);
-  $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}else if(t&&t.id==="relayUrl"){e.preventDefault();saveRelayUrl();}});
+  $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}else if(t&&(t.id==="relayUrl"||t.id==="relayToken")){e.preventDefault();saveRelayUrl();}});
   $("nextView").addEventListener("change",function(e){var t=e.target;if(t&&t.id==="briefHour"){if(!state.push)state.push={enabled:false,endpoint:"",hour:8,syncedAt:0};state.push.hour=parseInt(t.value,10)||8;save();renderNext();}});
   $("nav").addEventListener("click",function(e){var t=e.target.closest(".tab");if(t)go(t.dataset.room);});
   $("cmdkBtn").addEventListener("click",function(){openPalette();});
@@ -3974,7 +3976,7 @@
     var out=[];emailOvernight.forEach(function(d){if(!have[d.id])out.push({id:d.id,threadId:d.threadId,account:d.account,from:d.from||d.to,subject:d.subject||"",snippet:d.snippet||"",unread:true,category:"primary"});});
     return out;
   }
-  function clearOvernight(id){var base=relayBase();if(base&&state.email&&state.email.session)fetch(base+"/google/overnight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:state.email.session,remove:id})}).catch(function(){});emailOvernight=emailOvernight.filter(function(d){return d.id!==id;});}
+  function clearOvernight(id){var base=relayBase();if(base&&state.email&&state.email.session)fetch(base+"/google/overnight",{method:"POST",headers:relayHeaders(),body:JSON.stringify({session:state.email.session,remove:id})}).catch(function(){});emailOvernight=emailOvernight.filter(function(d){return d.id!==id;});}
   function emailOAuthStart(){
     var base=relayBase();
     if(!base){emailError="Connect the relay first (Next → Connect AI).";renderEmail();return;}
@@ -4053,7 +4055,7 @@
   function discardDraft(id){if(emailDrafts[id]&&emailDrafts[id].overnight)clearOvernight(id);delete emailDrafts[id];delete emailConfirm[id];delete emailTone[id];delete emailRewriting[id];renderEmail();}
   function emailDisconnect(account){
     var base=relayBase(),e=emailCfg();
-    if(e.session&&base)fetch(base+"/google/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:e.session,account:account||undefined})}).catch(function(){});
+    if(e.session&&base)fetch(base+"/google/logout",{method:"POST",headers:relayHeaders(),body:JSON.stringify({session:e.session,account:account||undefined})}).catch(function(){});
     if(account){e.accounts=(e.accounts||[]).filter(function(a){return a!==account;});if(e.active===account)e.active=e.accounts[0]||"";if(!e.accounts.length){e.session="";e.pendingOAuth=false;}}
     else{state.email={session:"",accounts:[],active:""};}
     emailThreads=[];emailLoaded=false;emailDrafts={};emailOvernight=[];emailTone={};emailConfirm={};emailRewriting={};save();renderEmail();
