@@ -246,7 +246,7 @@ What `wrangler.toml` defines:
 - Worker AI binding: `[ai] binding = "AI"`
 - KV binding: `PUSH`
 - D1 binding: `SYNC`
-- Cron trigger: `crons = ["* * * * *"]`
+- Cron trigger: `crons = ["*/2 * * * *"]`
 - Public vars: `PROVIDER`, `ALLOW_ORIGIN`, model vars, `MAX_TOKENS`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`, `GITHUB_CLIENT_ID`, `GOOGLE_CLIENT_ID`
 - Secret names: `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, `ANTHROPIC_API_KEY`, `VAPID_PRIVATE_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`
 
@@ -364,7 +364,7 @@ id = "PASTE_KV_NAMESPACE_ID_HERE"
 
 ```toml
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/2 * * * *"]
 ```
 
 7. Deploy.

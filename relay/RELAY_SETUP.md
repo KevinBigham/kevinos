@@ -130,7 +130,7 @@ KevinOS can push a **morning brief** and **per-task due reminders** to the insta
    ```sh
    npx wrangler kv namespace create PUSH
    ```
-4. The cron is already in `wrangler.toml` (`[triggers] crons = ["* * * * *"]`). **Deploy:** `npx wrangler deploy`.
+4. The cron is already in `wrangler.toml` (`[triggers] crons = ["*/2 * * * *"]`) and runs every 2 minutes. **Deploy:** `npx wrangler deploy`.
 5. In KevinOS → **Next** → **Phone reminders** → **Turn on** (needs KevinOS added to your iPhone home screen, and the relay connected above). Tap **Send test** to confirm a notification lands.
 
 The keys never touch the app or the repo: the **private** key is a Cloudflare secret; the app fetches the **public** key from `GET /push/key`. There's **no `web-push` library** — the relay does VAPID signing + RFC-8291 payload encryption in WebCrypto (verified against the RFC test vector). Cost stays **$0** (KV + Cron free tier).

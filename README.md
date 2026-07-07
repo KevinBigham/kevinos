@@ -22,6 +22,8 @@ Open `index.html` directly, or use the hosted version. All data is stored locall
 
 Live: **https://kevinbigham.github.io/kevinos/**
 
+License: all rights reserved. See [LICENSE](LICENSE).
+
 ## Repo layout
 - `index.html` — the whole app (one file, ES5-style vanilla JS, zero deps). `manifest.json` + `sw.js` make it an offline PWA.
 - `GETTING_STARTED.md` — full end-to-end setup tutorial and verification checklist.

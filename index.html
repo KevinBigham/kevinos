@@ -921,6 +921,18 @@
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
   function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+  function secureId(){
+    var c=(window.crypto||window.msCrypto);
+    if(c&&c.randomUUID)return c.randomUUID();
+    if(c&&c.getRandomValues){
+      var a=new Uint8Array(16);c.getRandomValues(a);
+      a[6]=(a[6]&15)|64;a[8]=(a[8]&63)|128;
+      var h=[],i;for(i=0;i<a.length;i++)h.push((a[i]+256).toString(16).slice(1));
+      return h[0]+h[1]+h[2]+h[3]+"-"+h[4]+h[5]+"-"+h[6]+h[7]+"-"+h[8]+h[9]+"-"+h[10]+h[11]+h[12]+h[13]+h[14]+h[15];
+    }
+    // Legacy fallback only; modern installed PWA contexts should use Web Crypto.
+    return uid()+uid()+uid();
+  }
   function touch(it){if(it)it.u=Date.now();}
   function bury(id){if(id!=null)state.deleted[String(id)]=Date.now();}
   function save(){scheduleReminderSync();scheduleSyncPush();return store.save(state);}
@@ -1816,7 +1828,7 @@
   var _syncPushT=null,_syncBusy=false,_lastPushedDoc=null;
   function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
   function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
-  function syncDeviceId(){var s=syncCfg();if(!s.deviceId)s.deviceId=uid()+uid();return s.deviceId;}
+  function syncDeviceId(){var s=syncCfg();if(!s.deviceId)s.deviceId=secureId();return s.deviceId;}
   function sha256Hex(str){
     return crypto.subtle.digest("SHA-256",new TextEncoder().encode(str)).then(function(buf){
       var b=new Uint8Array(buf),h="",i;for(i=0;i<b.length;i++)h+=(b[i]<16?"0":"")+b[i].toString(16);return h;
@@ -1965,7 +1977,7 @@
   }
   function handleSyncClick(e){
     if(e.target.closest("[data-sync-toggle]")){syncOpen=!syncOpen;renderSync();if(syncOpen){var i=$("syncPass");if(i)i.focus();}return;}
-    if(e.target.closest("[data-sync-gen]")){var g=$("syncPass");if(g){g.type="text";g.value=(uid()+uid()).replace(/[^a-z0-9]/g,"").slice(0,16);}return;}
+    if(e.target.closest("[data-sync-gen]")){var g=$("syncPass");if(g){g.type="text";g.value=secureId().replace(/[^a-z0-9]/g,"").slice(0,16);}return;}
     if(e.target.closest("[data-sync-connect]")){var p=$("syncPass");connectSync(p?p.value:"");return;}
     if(e.target.closest("[data-sync-now]")){syncNow();return;}
     if(e.target.closest("[data-sync-off]")){disconnectSync();return;}
@@ -2286,7 +2298,7 @@
   function calConnectStart(){
     var base=relayBase();
     if(!base){gcalError="Connect the relay first (Next → Connect AI).";renderCalendar();return;}
-    emailCfg();if(!state.email.session)state.email.session=uid()+uid()+uid();
+    emailCfg();if(!state.email.session)state.email.session=secureId();
     calConnecting=true;gcalError="";save();
     try{window.open(base+"/google/login?session="+encodeURIComponent(state.email.session),"_blank");}catch(e){}
     renderCalendar();calConnectPoll(0);
@@ -3532,7 +3544,7 @@
   function ghOAuthStart(){
     var base=relayBase();
     if(!base){ghError="Connect the relay first (Next → Connect AI).";renderGithub();return;}
-    var sid=uid()+uid()+uid();
+    var sid=secureId();
     if(!state.github)state.github={token:"",cache:null,fetchedAt:0};
     state.github.session=sid;state.github.token="";state.github.cache=null;state.github.fetchedAt=0;state.github.pendingOAuth=true;ghError=null;save();
     try{window.open(base+"/github/login?session="+encodeURIComponent(sid),"_blank");}catch(e){}
@@ -3980,7 +3992,7 @@
   function emailOAuthStart(){
     var base=relayBase();
     if(!base){emailError="Connect the relay first (Next → Connect AI).";renderEmail();return;}
-    var e=emailCfg();if(!e.session)e.session=uid()+uid()+uid();
+    var e=emailCfg();if(!e.session)e.session=secureId();
     e.pendingOAuth=true;emailError="";save();
     try{window.open(base+"/google/login?session="+encodeURIComponent(e.session),"_blank");}catch(x){}
     renderEmail();emailOAuthPoll(0);

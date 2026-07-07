@@ -50,16 +50,63 @@ function json(data, status, origin) {
   });
 }
 
-const PUBLIC_ROUTES = new Set([
-  "/",
-  "/push/key",
-  "/github/login",
-  "/github/callback",
-  "/github/status",
-  "/google/login",
-  "/google/callback",
-  "/google/status",
-]);
+const ROUTES = {
+  "GET /": { class: "public", name: "health" },
+  "GET /push/key": { class: "public", name: "vapid-public-key" },
+  "GET /github/login": { class: "public", name: "github-oauth-start" },
+  "GET /github/callback": { class: "public", name: "github-oauth-callback" },
+  "GET /github/status": { class: "public", name: "github-oauth-status" },
+  "GET /google/login": { class: "public", name: "google-oauth-start" },
+  "GET /google/callback": { class: "public", name: "google-oauth-callback" },
+  "GET /google/status": { class: "public", name: "google-oauth-status" },
+  "POST /council": { class: "owner", name: "council" },
+  "POST /ai": { class: "owner", name: "ai" },
+  "POST /extract": { class: "owner", name: "extract" },
+  "POST /actions": { class: "owner", name: "actions" },
+  "POST /summarize": { class: "owner", name: "summarize" },
+  "POST /capture": { class: "owner", name: "capture" },
+  "POST /intake": { class: "owner", name: "intake" },
+  "POST /push/sync": { class: "owner", name: "push-sync" },
+  "POST /push/unsubscribe": { class: "owner", name: "push-unsubscribe" },
+  "POST /push/test": { class: "owner", name: "push-test" },
+  "POST /github/graphql": { class: "session", name: "github-graphql" },
+  "POST /github/logout": { class: "session", name: "github-logout" },
+  "POST /sync/pull": { class: "owner", name: "sync-pull" },
+  "POST /sync/push": { class: "owner", name: "sync-push" },
+  "POST /brief": { class: "owner", name: "brief" },
+  "POST /weekly": { class: "owner", name: "weekly" },
+  "POST /launch": { class: "owner", name: "launch" },
+  "POST /spend/scan": { class: "session", name: "spend-scan" },
+  "POST /swim/scan": { class: "session", name: "swim-scan" },
+  "POST /sheets/digest": { class: "session", name: "sheets-digest" },
+  "POST /google/threads": { class: "session", name: "google-threads" },
+  "POST /google/modify": { class: "session", name: "google-modify" },
+  "POST /google/draft": { class: "session", name: "google-draft" },
+  "POST /google/overnight": { class: "session", name: "google-overnight" },
+  "POST /google/send": { class: "session", name: "google-send" },
+  "POST /people/enrich": { class: "session", name: "people-enrich" },
+  "POST /google/logout": { class: "session", name: "google-logout" },
+  "POST /calendar/calendars": { class: "session", name: "calendar-calendars" },
+  "POST /calendar/list": { class: "session", name: "calendar-list" },
+  "POST /calendar/freebusy": { class: "session", name: "calendar-freebusy" },
+  "POST /calendar/parse": { class: "owner", name: "calendar-parse" },
+  "POST /calendar/create": { class: "session", name: "calendar-create" },
+};
+
+// `scheduled()` is cron/internal, not an HTTP route, and intentionally remains
+// outside this table.
+function routeKey(method, pathname) {
+  return String(method || "").toUpperCase() + " " + String(pathname || "");
+}
+
+function routePolicy(method, pathname) {
+  return ROUTES[routeKey(method, pathname)] || null;
+}
+
+function isPublicRoute(method, pathname) {
+  const policy = routePolicy(method, pathname);
+  return !!(policy && policy.class === "public");
+}
 
 let relayTokenMissingWarned = false;
 
@@ -74,8 +121,8 @@ function timingSafeEqual(a, b) {
   return diff === 0;
 }
 
-function ownerSecretGate(request, env, origin, pathname) {
-  if (PUBLIC_ROUTES.has(pathname)) return null;
+function ownerSecretGate(request, env, origin, policy) {
+  if (policy && policy.class === "public") return null;
   const expected = String((env && env.RELAY_TOKEN) || "");
   if (!expected) {
     if (!relayTokenMissingWarned) {
@@ -470,19 +517,252 @@ function titleFromUrl(u) {
   }
 }
 
-async function summarizePage(env, target) {
-  let res;
-  try {
-    res = await fetch(target, { headers: { "User-Agent": "Mozilla/5.0 (KevinOS Link Stash)" }, redirect: "follow", signal: AbortSignal.timeout(10000) });
-  } catch (e) {
-    return { ok: false, error: "Couldn't reach that page", title: titleFromUrl(target) };
+const SUMMARIZE_FETCH_TIMEOUT_MS = 10000;
+const SUMMARIZE_MAX_BYTES = 1572864;
+const SUMMARIZE_MAX_REDIRECTS = 3;
+
+function normalizeHostname(hostname) {
+  let host = String(hostname || "").trim().toLowerCase();
+  if (host[0] === "[" && host[host.length - 1] === "]") host = host.slice(1, -1);
+  const pct = host.indexOf("%");
+  if (pct >= 0) host = host.slice(0, pct);
+  return host.replace(/\.$/, "");
+}
+
+function parseIPv4Literal(hostname) {
+  const host = normalizeHostname(hostname);
+  if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return null;
+  const parts = host.split(".").map((p) => Number(p));
+  for (const n of parts) if (!Number.isInteger(n) || n < 0 || n > 255) return null;
+  return parts;
+}
+
+function parseIPv6Literal(hostname) {
+  let input = normalizeHostname(hostname);
+  if (input.indexOf(":") === -1) return null;
+  const ipv4Tail = input.match(/^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (ipv4Tail) {
+    const ipv4 = parseIPv4Literal(ipv4Tail[2]);
+    if (!ipv4) return null;
+    input = ipv4Tail[1] + ((ipv4[0] << 8) | ipv4[1]).toString(16) + ":" + ((ipv4[2] << 8) | ipv4[3]).toString(16);
   }
+  if ((input.match(/::/g) || []).length > 1) return null;
+  const split = input.split("::");
+  const left = split[0] ? split[0].split(":") : [];
+  const right = split.length > 1 && split[1] ? split[1].split(":") : [];
+  const fill = split.length > 1 ? 8 - left.length - right.length : 0;
+  if (split.length === 1 && left.length !== 8) return null;
+  if (fill < 0) return null;
+  const words = left.concat(new Array(fill).fill("0"), right);
+  if (words.length !== 8) return null;
+  const groups = [];
+  for (const word of words) {
+    if (!/^[0-9a-f]{1,4}$/i.test(word)) return null;
+    groups.push(parseInt(word, 16));
+  }
+  return groups;
+}
+
+function isBlockedIPv4(parts) {
+  if (!parts) return false;
+  const a = parts[0], b = parts[1], c = parts[2], d = parts[3];
+  if (a === 0) return true;
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 192 && b === 0 && c === 0) return true;
+  if (a === 192 && b === 0 && c === 2) return true;
+  if (a === 192 && b === 88 && c === 99) return true;
+  if (a === 198 && (b === 18 || b === 19)) return true;
+  if (a === 198 && b === 51 && c === 100) return true;
+  if (a === 203 && b === 0 && c === 113) return true;
+  if (a >= 224) return true;
+  return false;
+}
+
+function ipv4FromIPv6Groups(groups) {
+  if (!groups || groups.length !== 8) return null;
+  const mapped = groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff;
+  if (!mapped) return null;
+  return [groups[6] >> 8, groups[6] & 255, groups[7] >> 8, groups[7] & 255];
+}
+
+function isBlockedIPv6(groups) {
+  if (!groups) return false;
+  if (groups.every((g) => g === 0)) return true;
+  if (groups.slice(0, 7).every((g) => g === 0) && groups[7] === 1) return true;
+  const ipv4 = ipv4FromIPv6Groups(groups);
+  if (ipv4) return isBlockedIPv4(ipv4);
+  if ((groups[0] & 0xffc0) === 0xfe80) return true;
+  if ((groups[0] & 0xfe00) === 0xfc00) return true;
+  if ((groups[0] & 0xff00) === 0xff00) return true;
+  if (groups[0] === 0x0100 && groups.slice(1).every((g) => g === 0)) return true;
+  if (groups[0] === 0x2001 && groups[1] === 0x0db8) return true;
+  if (groups[0] === 0x2001 && groups[1] >= 0x0010 && groups[1] <= 0x001f) return true;
+  if ((groups[0] & 0xe000) !== 0x2000) return true;
+  return false;
+}
+
+function isBlockedSummarizeHost(hostname) {
+  const host = normalizeHostname(hostname);
+  if (!host) return true;
+  if (host === "localhost" || host === "localhost.localdomain" || host === "local") return true;
+  if (host.endsWith(".localhost") || host.endsWith(".local")) return true;
+  if (isBlockedIPv4(parseIPv4Literal(host))) return true;
+  if (isBlockedIPv6(parseIPv6Literal(host))) return true;
+  return false;
+}
+
+function summarizeLiteralAddress(hostname) {
+  const host = normalizeHostname(hostname);
+  if (parseIPv4Literal(host)) return host;
+  if (parseIPv6Literal(host)) return host;
+  return "";
+}
+
+function isBlockedResolvedAddress(address) {
+  const host = normalizeHostname(address);
+  const ipv4 = parseIPv4Literal(host);
+  if (ipv4) return isBlockedIPv4(ipv4);
+  const ipv6 = parseIPv6Literal(host);
+  if (ipv6) return isBlockedIPv6(ipv6);
+  return true;
+}
+
+function summarizeResolver(env) {
+  const resolver = env && env.SUMMARIZE_DNS_RESOLVER;
+  return typeof resolver === "function" ? resolver : null;
+}
+
+function resolverAddresses(value) {
+  const raw = Array.isArray(value) ? value : (value && Array.isArray(value.addresses) ? value.addresses : []);
+  return raw.map((item) => {
+    if (typeof item === "string") return item;
+    if (item && typeof item.address === "string") return item.address;
+    return "";
+  }).filter(Boolean);
+}
+
+function validateSummarizeUrl(target) {
+  let parsed;
+  try { parsed = new URL(target); } catch (e) { return { ok: false, error: "Not a valid URL" }; }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return { ok: false, error: "Not a valid URL" };
+  return { ok: true, url: parsed };
+}
+
+async function resolveHostnameForSafety(hostname, env, ctx) {
+  const host = normalizeHostname(hostname);
+  const literal = summarizeLiteralAddress(host);
+  if (literal) return [literal];
+  const resolver = summarizeResolver(env);
+  if (!resolver) throw new Error("No summarize DNS resolver configured");
+  const addresses = resolverAddresses(await resolver(host, ctx || {}));
+  if (!addresses.length) throw new Error("No DNS answers");
+  return addresses;
+}
+
+async function assertSafeResolvedHost(url, env, ctx) {
+  const check = validateSummarizeUrl(url);
+  if (!check.ok) return check;
+  const parsed = check.url;
+  if (isBlockedSummarizeHost(parsed.hostname)) return { ok: false, error: "That link is not allowed." };
+  let addresses;
+  try { addresses = await resolveHostnameForSafety(parsed.hostname, env, ctx); } catch (e) {
+    return { ok: false, error: "That link is not allowed." };
+  }
+  if (!addresses.length) return { ok: false, error: "That link is not allowed." };
+  for (const address of addresses) {
+    if (isBlockedResolvedAddress(address)) return { ok: false, error: "That link is not allowed." };
+  }
+  return { ok: true, url: parsed, addresses };
+}
+
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== "undefined" && AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
+function redirectTarget(res, currentUrl) {
+  if (res.status < 300 || res.status > 399) return null;
+  const location = res.headers.get("location");
+  if (!location) return null;
+  try { return new URL(location, currentUrl).toString(); } catch (e) { return ""; }
+}
+
+async function fetchSummarizePage(target, env, ctx) {
+  let check = await assertSafeResolvedHost(target, env, ctx);
+  if (!check.ok) return { ok: false, error: check.error };
+  let current = check.url.toString();
+  for (let hop = 0; hop <= SUMMARIZE_MAX_REDIRECTS; hop++) {
+    let res;
+    try {
+      res = await fetch(current, {
+        headers: { "User-Agent": "Mozilla/5.0 (KevinOS Link Stash)" },
+        redirect: "manual",
+        signal: timeoutSignal(SUMMARIZE_FETCH_TIMEOUT_MS),
+      });
+    } catch (e) {
+      return { ok: false, error: "Couldn't reach that page" };
+    }
+    const next = redirectTarget(res, current);
+    if (next === "") return { ok: false, error: "Couldn't reach that page" };
+    if (next) {
+      if (hop >= SUMMARIZE_MAX_REDIRECTS) return { ok: false, error: "Too many redirects" };
+      check = await assertSafeResolvedHost(next, env, ctx);
+      if (!check.ok) return { ok: false, error: check.error };
+      current = check.url.toString();
+      continue;
+    }
+    return { ok: true, res, url: current };
+  }
+  return { ok: false, error: "Too many redirects" };
+}
+
+async function readLimitedText(res, maxBytes) {
+  const lenRaw = (res.headers.get("content-length") || "").trim();
+  if (lenRaw) {
+    const len = Number(lenRaw);
+    if (Number.isFinite(len) && len > maxBytes) throw new Error("response too large");
+  }
+  if (!res.body || !res.body.getReader) {
+    const text = await res.text();
+    if (new TextEncoder().encode(text).length > maxBytes) throw new Error("response too large");
+    return text;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = "";
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    const value = chunk.value || new Uint8Array(0);
+    total += value.byteLength || value.length || 0;
+    if (total > maxBytes) {
+      try { await reader.cancel(); } catch (e) { /* best-effort */ }
+      throw new Error("response too large");
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  text += decoder.decode();
+  return text;
+}
+
+async function summarizePage(env, target) {
+  const fetched = await fetchSummarizePage(target, env);
+  if (!fetched.ok) return { ok: false, error: fetched.error, title: titleFromUrl(target) };
+  const res = fetched.res;
   if (!res.ok) return { ok: false, error: "Page blocked or paywalled", title: titleFromUrl(target) };
   const contentType = (res.headers.get("content-type") || "").toLowerCase();
   if (contentType.indexOf("text/html") === -1) return { ok: false, error: "Not a readable web page", title: titleFromUrl(target) };
 
   let html = "";
-  try { html = await res.text(); } catch (e) { return { ok: false, error: "Couldn't read that page", title: titleFromUrl(target) }; }
+  try { html = await readLimitedText(res, SUMMARIZE_MAX_BYTES); } catch (e) { return { ok: false, error: (e && e.message === "response too large") ? "That page is too large" : "Couldn't read that page", title: titleFromUrl(target) }; }
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const htmlTitle = titleMatch ? decodeHtmlLite(titleMatch[1]).replace(/\s+/g, " ").trim().slice(0, 90) : "";
   const text = decodeHtmlLite(
@@ -502,7 +782,7 @@ async function summarizePage(env, target) {
       "\"title\": a short plain-text title for the page (max 90 chars),\n" +
       "\"summary\": a 3-line TL;DR — exactly three short lines separated by newline characters, each line a single clear sentence, no bullets or numbering,\n" +
       "\"tags\": an array of 2 to 5 lowercase one-or-two-word topic tags (no \"#\").\n\n" +
-      "URL: " + target + "\n\n" +
+      "URL: " + fetched.url + "\n\n" +
       "PAGE TEXT:\n" + text;
     const r = await fetch(apiUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: userPrompt }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, generationConfig: { responseMimeType: "application/json", temperature: 0.2 } }) });
     const data = await r.json();
@@ -804,6 +1084,48 @@ async function firePush(env) {
 // in KV under the app's session id, and the app proxies GraphQL through /github/
 // graphql. Disconnect revokes the token on GitHub and forgets it.
 // ─────────────────────────────────────────────────────────────────────────────
+
+function newOAuthState() {
+  const c = globalThis.crypto;
+  if (c && c.randomUUID) return c.randomUUID();
+  if (c && c.getRandomValues) {
+    const bytes = new Uint8Array(32);
+    c.getRandomValues(bytes);
+    return Array.from(bytes).map((b) => (b + 256).toString(16).slice(1)).join("");
+  }
+  throw new Error("Secure random state is unavailable");
+}
+
+function oauthStateKey(state) {
+  return "oauth:state:" + state;
+}
+
+async function storeOAuthState(env, provider, session) {
+  const now = Date.now();
+  const state = newOAuthState();
+  await env.PUSH.put(oauthStateKey(state), JSON.stringify({
+    provider,
+    session,
+    createdAt: now,
+    expiresAt: now + 600000,
+  }), { expirationTtl: 600 });
+  return state;
+}
+
+async function consumeOAuthState(env, provider, state) {
+  if (!env.PUSH || !state) return null;
+  const key = oauthStateKey(state);
+  const raw = await env.PUSH.get(key);
+  if (raw) {
+    try { await env.PUSH.delete(key); } catch (e) { /* best-effort single-use cleanup */ }
+  }
+  if (!raw) return null;
+  let rec = null;
+  try { rec = JSON.parse(raw); } catch (e) { return null; }
+  if (!rec || rec.provider !== provider || !rec.session) return null;
+  if ((Number(rec.expiresAt) || 0) < Date.now()) return null;
+  return rec;
+}
 
 function ghEsc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
@@ -1437,14 +1759,16 @@ async function generateOvernightDrafts(env, session, max) {
 async function handleRequest(request, env, origin) {
   const url = new URL(request.url);
   const provider = (env.PROVIDER || "claude").toLowerCase();
+  const policy = routePolicy(request.method, url.pathname);
+  if (!policy) return json({ error: "Not found" }, 404, origin);
+
+  const auth = ownerSecretGate(request, env, origin, policy);
+  if (auth) return auth;
 
   if (request.method === "GET" && url.pathname === "/") {
     const seats = councilSeats(env).map((s) => s.id);
     return json({ ok: true, service: "kevinos-relay", provider, seats, push: !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.PUSH), github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && env.PUSH), sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!(env.GEMINI_API_KEY && env.PUSH && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), launch: !!env.GEMINI_API_KEY, calendar: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), habits: !!(env.SYNC && env.PUSH && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY), email: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), peopleEnrich: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), intake: !!env.GEMINI_API_KEY, swim: !!(env.GEMINI_API_KEY && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), sheets: !!(env.GEMINI_API_KEY && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH) }, 200, origin);
   }
-
-  const auth = ownerSecretGate(request, env, origin, url.pathname);
-  if (auth) return auth;
 
   // Council — fan one prompt out to every configured seat, then synthesize.
   if (request.method === "POST" && url.pathname === "/council") {
@@ -1617,14 +1941,16 @@ async function handleRequest(request, env, origin) {
 
   // GitHub OAuth — start: bounce the browser to GitHub's consent screen.
   if (request.method === "GET" && url.pathname === "/github/login") {
-    if (!env.GITHUB_CLIENT_ID) return ghHtmlPage("GitHub isn’t configured on the relay yet.");
+    if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET || !env.PUSH) return ghHtmlPage("GitHub isn’t fully configured on the relay.");
     const session = url.searchParams.get("session") || "";
     if (!session) return ghHtmlPage("Missing session — start from KevinOS.");
+    let state;
+    try { state = await storeOAuthState(env, "github", session); } catch (e) { return ghHtmlPage("Couldn’t start GitHub sign-in. Please try again."); }
     const params = new URLSearchParams({
       client_id: env.GITHUB_CLIENT_ID,
       redirect_uri: url.origin + "/github/callback",
       scope: "read:user repo",
-      state: session,
+      state,
       allow_signup: "false",
     });
     return Response.redirect("https://github.com/login/oauth/authorize?" + params.toString(), 302);
@@ -1632,9 +1958,12 @@ async function handleRequest(request, env, origin) {
 
   // GitHub OAuth — callback: exchange the code for a token, store it under the session.
   if (request.method === "GET" && url.pathname === "/github/callback") {
-    const code = url.searchParams.get("code"), session = url.searchParams.get("state");
-    if (!code || !session) return ghHtmlPage("Authorization was cancelled or incomplete.");
+    const code = url.searchParams.get("code"), state = url.searchParams.get("state");
+    if (!code || !state) return ghHtmlPage("Authorization was cancelled or incomplete.");
     if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET || !env.PUSH) return ghHtmlPage("GitHub isn’t fully configured on the relay.");
+    const oauth = await consumeOAuthState(env, "github", state);
+    if (!oauth) return ghHtmlPage("Authorization expired or invalid. Please try again.");
+    const session = oauth.session;
     try {
       const tr = await fetch("https://github.com/login/oauth/access_token", {
         method: "POST",
@@ -1937,9 +2266,11 @@ async function handleRequest(request, env, origin) {
 
   // Email — start OAuth (one Google account per pass; call again to add another).
   if (request.method === "GET" && url.pathname === "/google/login") {
-    if (!env.GOOGLE_CLIENT_ID) return gPage("Email isn’t configured on the relay yet.");
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.PUSH) return gPage("Email isn’t fully configured on the relay.");
     const session = url.searchParams.get("session") || "";
     if (!session) return gPage("Missing session — start from KevinOS.");
+    let state;
+    try { state = await storeOAuthState(env, "google", session); } catch (e) { return gPage("Couldn’t start Google sign-in. Please try again."); }
     const params = new URLSearchParams({
       client_id: env.GOOGLE_CLIENT_ID,
       redirect_uri: url.origin + "/google/callback",
@@ -1948,16 +2279,19 @@ async function handleRequest(request, env, origin) {
       access_type: "offline",
       include_granted_scopes: "true",
       prompt: "consent select_account",
-      state: session,
+      state,
     });
     return Response.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString(), 302);
   }
 
   // Email — OAuth callback: exchange the code, fetch the email, upsert the account.
   if (request.method === "GET" && url.pathname === "/google/callback") {
-    const code = url.searchParams.get("code"), session = url.searchParams.get("state");
-    if (!code || !session) return gPage("Authorization was cancelled or incomplete.");
+    const code = url.searchParams.get("code"), state = url.searchParams.get("state");
+    if (!code || !state) return gPage("Authorization was cancelled or incomplete.");
     if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.PUSH) return gPage("Email isn’t fully configured on the relay.");
+    const oauth = await consumeOAuthState(env, "google", state);
+    if (!oauth) return gPage("Authorization expired or invalid. Please try again.");
+    const session = oauth.session;
     try {
       const tr = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
