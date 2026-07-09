@@ -8,3 +8,4 @@ relay/.wrangler/
 # node
 node_modules/
 .claude/
+.playwright-cli/

@@ -1,0 +1,319 @@
+HELL YES. Codex did the marathon. Now we do the coach’s film review before you trust it with your real life OS.
+Based on the transcript, Codex claims it implemented P1–P10, passed syntax checks, added a missing relay auth test, ran a browser smoke test, and updated MISSION.md. That is a huge win. But I would treat this as a candidate implementation, not a final merge, until the hard safety gates pass.
+The original plan correctly made P1–P3 the trust foundation: save/load guardrails, credential-safe portable backups, cache dehydration, and snapshots. Those were the “do not lose Kevin’s life data” layers.   The final architecture also depended on specific details like stripping connection state from portable docs, preserving device connections on import/restore, and using SCHEMA_VERSION as the only source of truth.   Codex says it did all of that, but the next step is to verify the actual diff against those contracts.
+My read
+This is probably a strong implementation pass. The transcript shows good signs:
+	•	Codex noticed the repo layout mismatch and adjusted root paths.
+	•	It ran syntax checks repeatedly.
+	•	It added the missing relay auth test.
+	•	It smoke-tested Today, capture, Tasks, Library, More/Attic, corrupt-load emergency, clean console, and cache dehydration.
+	•	It documented remaining manual tests.
+But I would not deploy or daily-drive this yet until you run one focused review pass. The risk is not “does it boot?” The risk is whether it quietly introduced a new data-loss, sync, backup, auth, or navigation edge case.
+The biggest yellow flags:
+	1	It implemented P1–P10 in one run. That is exactly what we asked for, but it means the diff is probably large. Large diffs need review even when tests pass.
+	2	It touched the relay worker. The mission originally said no new required backend and P1 “should not need” worker changes. Codex added optional worker auth. That may be good, but it must be reviewed carefully because deploy config, CORS, OAuth callbacks, and public/private route boundaries matter.
+	3	Manual tests are still open. Codex itself listed live relay token rejection, correct-token relay features, mobile bottom nav, forced quota failure, and downloaded backup inspection as manual-needed. Those are not optional before you trust it.
+	4	The app layout mismatch matters. Codex found root files (index.html, sw.js, relay/worker.js) instead of app/index.html, app/sw.js, and app/relay/worker.js. That is fine if this repo really is root-layout, but you need to make sure deploy scripts and GitHub Pages/Cloudflare expectations match.
+
+⸻
+
+Next move: run a post-marathon audit prompt
+Send this to Codex next. This is not “add more features.” This is diff review, safety verification, and cleanup.
+/goal
+
+You are Codex acting as the post-marathon implementation auditor for KevinOS.
+
+You previously completed the KevinOS P1-P10 marathon. This pass is NOT for new feature work unless a bug fix is required. Your job is to verify the implementation against the mission contracts, find regressions, fix only critical issues, and produce a merge/deploy readiness report.
+
+MISSION:
+Audit the actual diff and live code after the marathon implementation. Treat the app as a candidate release, not done. Protect KevinOS data safety first.
+
+HARD RULES:
+- Do not add new features.
+- Do not refactor for style.
+- Fix only correctness, data-safety, auth, sync, backup/import, boot, routing, and broken-UI issues.
+- If a test cannot be run, mark it MANUAL-UNVERIFIED with exact steps.
+- Do not claim readiness unless the gates below pass.
+
+FILES:
+This checkout appears to use root layout:
+- index.html
+- sw.js
+- relay/worker.js
+- relay/test/route-auth.test.js
+- MISSION.md
+
+FIRST:
+Run:
+
+```sh
+git status --short
+git diff --stat
+git diff -- index.html relay/worker.js relay/test/route-auth.test.js MISSION.md | sed -n '1,260p'
+awk '/<script>/{flag=1;next}/<\/script>/{flag=0}flag' index.html > /tmp/kevinos-index-script.js
+node --check /tmp/kevinos-index-script.js
+node --check sw.js
+node --check relay/worker.js
+node relay/test/route-auth.test.js
+Then audit the implementation using the gates below.
+GATE 1 — P1 TRUST GUARDRails
+Verify in code:
+	1	SCHEMA_VERSION exists and is the only schema source of truth.
+	2	Current schema is 39 after P2.
+	3	Boot captures prevV before migrations.
+	4	Boot never hard-sets state.v=37 or any stale version.
+	5	Import never applies saved.v.
+	6	Future-version backup import warns and stamps current schema if confirmed.
+	7	makeStore().load() returns shaped results:
+	◦	{ok:true,data}
+	◦	{ok:false,err,raw}
+	8	Corrupt storage does not apply defaults or call boot save().
+	9	save() and persist() are blocked during loadFailed.
+	10	completeRecovery() clears emergency mode and saves, but render/navigation is caller-owned.
+	11	makeStore().save() computes and returns bytes where JSON serialization already happens.
+	12	handleSaveResult() uses r.bytes and does not re-stringify the full state.
+	13	Save-failure banner appears once per failure episode and clears after successful save.
+	14	portableDoc() is allowlist-based.
+	15	Portable docs include data/meta/AI continuity but exclude:
+	◦	sync
+	◦	push
+	◦	github
+	◦	email
+	◦	calendar
+	◦	sheetsCache
+	◦	swim
+	16	Portable docs preserve relay.url but blank relay.token.
+	17	applyPortableDoc() never applies:
+	◦	relay
+	◦	sync
+	◦	push
+	◦	github
+	◦	email
+	◦	calendar
+	◦	doc.v
+	18	Importing a pre-fix backup cannot overwrite current relay/email/calendar state.
+	19	Export uses portableDoc().
+If any item fails, fix it before moving on.
+GATE 2 — RELAY AUTH / WORKER SAFETY
+Because the marathon changed relay/worker.js, inspect carefully.
+Verify:
+	1	Public health route remains public.
+	2	OAuth callback routes remain public if they must be public.
+	3	Protected owner/session routes require X-KevinOS-Token only when token env var is configured.
+	4	Existing deployments without KEVINOS_TOKEN / RELAY_TOKEN do not break unexpectedly unless intentionally documented.
+	5	CORS allows X-KevinOS-Token.
+	6	relayPost() still sends X-KevinOS-Token when configured.
+	7	Direct fetch routes that need the token send it:
+	◦	Council
+	◦	GitHub relay GraphQL
+	◦	push sync if implemented
+	◦	logout/unsubscribe routes if protected
+	8	Wrong-token 401 flows call handleRelayUnauthorized().
+	9	Council wrong-token path shows actionable error, not blank cards.
+	10	relay/test/route-auth.test.js is meaningful and not a false-green test.
+If worker auth is too risky or over-scoped, propose either:
+	•	keep it with clear deployment notes, or
+	•	revert worker auth and keep app-side 401 handling only.
+Do not guess. Inspect code.
+GATE 3 — P2 BLOB DIET
+Verify:
+	1	Persistent state no longer includes:
+	◦	state.github.cache
+	◦	state.github.fetchedAt
+	◦	state.sheetsCache
+	◦	state.swim
+	2	Memory caches exist:
+	◦	ghMem
+	◦	sheetsMem
+	◦	swimMem
+	3	GitHub connection fields still persist:
+	◦	token
+	◦	session
+	◦	login
+	◦	pendingOAuth
+	4	state.sheets user data is not confused with sheetsCache.
+	5	v38/v37 legacy blobs migrate to v39 without data loss.
+	6	OAuth polling references ghMem.cache, not state.github.cache.
+GATE 4 — P3 SNAPSHOTS
+Verify:
+	1	IndexedDB DB/store names match the mission.
+	2	Snapshot docs use portableDoc(state).
+	3	Snapshot docs do not carry credentials.
+	4	Snapshot reasons render:
+	◦	boot
+	◦	autosave
+	◦	pre-import
+	◦	pre-restore
+	5	Ring caps at 5.
+	6	Autosave snapshot uses both:
+	◦	25 successful writes
+	◦	10-minute floor
+	7	Pre-import snapshot happens before import applies.
+	8	Pre-restore snapshot happens before restore applies.
+	9	Restore uses applyPortableDoc(), not duplicate import logic.
+	10	Restore from loadFailed mode uses completeRecovery().
+GATE 5 — TODAY / NAV / AUTOGEN
+Verify:
+	1	Today is default boot room.
+	2	Home and Launch alias to Today.
+	3	Next is not aliased and remains reachable as Council & Briefs.
+	4	Brief does not auto-generate.
+	5	Launch auto-generates once per day on Today.
+	6	Weekly auto-generates once per week on Today.
+	7	Relay-off Today shows a local plan, not blank.
+	8	Today quick capture creates an Inbox task.
+	9	Old data-go="home" and data-go="launch" route safely.
+	10	Old data-go="next" still reaches Council & Briefs.
+GATE 6 — ROOMSTATS SYNC
+Verify:
+	1	roomStats exists in state.
+	2	go() increments after route normalization.
+	3	roomStats is not in SYNC_SKIP.
+	4	buildSyncDoc() includes roomStats.
+	5	applySyncDoc() applies roomStats via mergeRoomStats().
+	6	mergeRemoteDoc() applies roomStats via mergeRoomStats().
+	7	mergeRoomStats() uses max, not sum:
+	◦	visits = Math.max(...)
+	◦	last = Math.max(...)
+GATE 7 — CAPTURE
+Verify:
+	1	Existing voice/text capture is reused, not duplicated.
+	2	c opens capture unless typing.
+	3	Mobile + opens capture.
+	4	Plain capture defaults to Task in Inbox.
+	5	note: creates note.
+	6	event: creates event or routes to event flow.
+	7	Parser supports:
+	◦	#Teaching
+	◦	#Coaching
+	◦	#Personal
+	◦	#Inbox
+	◦	@today
+	◦	@tomorrow
+	◦	weekday dates
+	◦	! pin/focus
+	8	Relay failure still creates local task.
+	9	Undo still works.
+GATE 8 — LIBRARY / ATTIC / AI ACTIONS / EVENING CLOSE
+Verify:
+	1	Library is federated, no schema migration required.
+	2	Library searches briefs/prompts/notes/links/stash.
+	3	Open original routes to existing editors.
+	4	More/Attic does not delete data.
+	5	Heat card renders.
+	6	Universal AI actions route through existing review/pending flow.
+	7	Evening close can mark done, roll tomorrow, drop, and set tomorrow focus.
+	8	Tomorrow focus feeds Launch plan or is visible to launch logic.
+BROWSER SMOKE
+Run a local server and browser smoke if available.
+Required browser checks:
+	1	Fresh boot shows Today.
+	2	Console clean except harmless favicon/network noise.
+	3	Add task through Today quick capture:
+	◦	email parent #Teaching @tomorrow !
+	4	Confirm task appears in Tasks with Teaching, tomorrow, pinned/focus.
+	5	Open Library.
+	6	Open More/Attic.
+	7	Corrupt localStorage:
+	◦	save backup first
+	◦	set kevinos:v1 to {{{
+	◦	reload
+	◦	emergency UI appears
+	◦	raw value remains unchanged
+	◦	restore backup
+	8	Inspect localStorage:
+	◦	no GitHub cache
+	◦	no sheetsCache
+	◦	no swim
+	◦	schema 39
+	9	Export backup and inspect JSON:
+	◦	no sync
+	◦	no push
+	◦	no github
+	◦	no email
+	◦	no calendar
+	◦	no sheetsCache
+	◦	no swim
+	◦	relay.url present
+	◦	relay.token empty
+FINAL OUTPUT FORMAT:
+Return:
+	1	Release readiness:
+	◦	READY
+	◦	READY WITH MANUAL TESTS
+	◦	NOT READY
+	2	Critical issues found and fixed.
+	3	Critical issues still open.
+	4	Files changed in this audit pass.
+	5	Tests run, exact commands, and results.
+	6	Browser/manual tests run.
+	7	Manual-unverified tests still needed.
+	8	Deploy notes, especially:
+	◦	worker auth env vars
+	◦	CORS
+	◦	relay token setup
+	◦	backup/export safety
+	9	One-paragraph owner recommendation:
+	◦	merge now
+	◦	merge after manual tests
+	◦	do not merge yet
+Begin now.
+---
+
+## What I would personally verify before merge
+
+Run these five gates yourself or have Codex/Fable run them with screenshots/output.
+
+### 1. Backup JSON inspection
+
+This is the big one.
+
+Export a backup and open the file. Confirm there is:
+
+```text
+no sync
+no push
+no github
+no email
+no calendar
+no sheetsCache
+no swim
+relay.url exists
+relay.token is ""
+This directly tests the “connections never travel” rule, which was one of the most important final architecture decisions.
+2. Corrupt storage recovery
+In browser console:
+const backup = localStorage.getItem("kevinos:v1");
+localStorage.setItem("kevinos:v1", "{{{");
+location.reload();
+You should see the emergency recovery UI. It should not overwrite the corrupt string. This was one of the highest-risk failure modes we caught during planning.
+Then restore:
+localStorage.setItem("kevinos:v1", backup);
+location.reload();
+3. Wrong relay token
+Set a wrong relay token. Ask Council. You should get:
+Relay token rejected — re-paste it in Settings.
+No blank AI cards. No mysterious “unauthorized.” This matters because Council and GitHub had direct fetch paths that could bypass central relayPost() handling.
+4. Snapshot restore
+Create some data, force a snapshot, delete/change data, restore snapshot. Confirm:
+	•	data returns
+	•	connection state remains local
+	•	snapshot JSON has no credentials
+	•	pre-import/pre-restore snapshots exist
+The snapshot contract specifically required portable docs, a 5-deep ring, pre-import/pre-restore reasons, and restore via applyPortableDoc().
+5. Real phone test
+On your actual phone:
+	•	Open Today.
+	•	Tap +.
+	•	Add email parent #Teaching @tomorrow !.
+	•	Confirm it lands as a pinned Teaching task due tomorrow.
+	•	Use bottom nav one-handed.
+	•	Reopen the app after closing it.
+This is the adoption metric in the real environment: pool deck, morning brain, no friction.
+
+⸻
+
+Merge recommendation
+Merge after one focused audit pass and the five manual gates above.
+Not because I distrust Codex. Because this app is now handling your trusted personal system, backups, imports, sync, relay auth, snapshots, and daily capture. The cost of one review pass is tiny compared to the cost of trusting a broken backup/export path.
+The Codex run is a monster win. The next move is not more architecture. It’s verification, then ship.

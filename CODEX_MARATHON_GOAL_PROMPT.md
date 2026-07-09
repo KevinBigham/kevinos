@@ -1,3 +1,64 @@
+/goal
+
+You are Codex acting as the implementation owner for KevinOS.
+
+This is a MARATHON mission. Do not stop after one patch. Do not treat this as “try P1.” Your goal is to complete the full KevinOS Evolution Mission from P1 through P10, in order, with every phase tested and every acceptance contract satisfied.
+
+Repository context:
+- KevinOS is a local-first single-file HTML app.
+- Main app: `app/index.html`
+- Relay worker: `app/relay/worker.js`
+- Service worker: `app/sw.js`
+- Route auth test: `app/relay/test/route-auth.test.js`
+- Single-file HTML stays.
+- No framework.
+- No new required backend.
+- Protect data first. Adoption is the metric: open every day → trust what I see → capture instantly → close without anxiety.
+
+First action:
+1. Look for `MISSION.md` at the repo root.
+2. If it does not exist, create it using the full `MISSION.md` content below.
+3. If it exists, merge/update it so it contains the same mission rules, phase order, and acceptance contracts.
+4. Then execute the mission from P1 through P10.
+
+Hard rules:
+- Work phases in order: P1 → P2 → P3 → P4 → P5 → P6 → P7 → P8 → P9 → P10.
+- P1 is the safety gate. Do not start P2 until P1 passes static checks and its critical acceptance tests.
+- Do not skip tests.
+- Do not claim manual/browser tests passed unless you actually ran them. If you cannot run them, mark them `MANUAL-UNVERIFIED` and provide exact test steps.
+- Keep every phase bootable.
+- Do not hide failures.
+- Do not invent green tests.
+- Do not silently drop user data.
+- Do not let backups/snapshots carry live credentials.
+- Connections never travel. Backups/snapshots restore KevinOS data only, not live device connections.
+- If a later phase becomes too risky, finish the current safe phase, document the blocker in `MISSION.md`, and leave an exact handoff.
+
+Before editing, run:
+
+```sh
+awk '/<script>/{flag=1;next}/<\/script>/{flag=0}flag' app/index.html > /tmp/kevinos-index-script.js
+node --check /tmp/kevinos-index-script.js
+node --check app/sw.js
+node --check app/relay/worker.js
+node app/relay/test/route-auth.test.js
+```
+
+After each phase, run the same checks.
+
+Required final response:
+- Phases completed
+- Files changed
+- Tests run
+- Tests passing/failing
+- Manual tests still needed
+- Known risks
+- Exact next step if anything remains
+
+Now create/update `MISSION.md` with the following content, then execute it fully.
+
+--- BEGIN MISSION.md ---
+
 # MISSION.md — KevinOS Evolution Marathon
 
 ## Mission
@@ -33,14 +94,12 @@ Do not optimize for feature count. Optimize for:
 
 ## Codebase anchors
 
-Main files in this checkout:
+Main files:
 
-- `index.html` — single-file KevinOS app.
-- `relay/worker.js` — Cloudflare Worker relay.
-- `sw.js` — service worker.
-- `relay/test/route-auth.test.js` — relay route-auth test.
-
-Layout note: the marathon prompt referenced an `app/` subdirectory, but this checkout is root-layout. Use the root-layout commands below for this repository.
+- `app/index.html` — single-file KevinOS app.
+- `app/relay/worker.js` — Cloudflare Worker relay.
+- `app/sw.js` — service worker.
+- `app/relay/test/route-auth.test.js` — relay route-auth test.
 
 Known high-risk areas:
 
@@ -94,11 +153,11 @@ You are working in marathon mode.
 Run these before starting and after every phase:
 
 ```sh
-awk '/<script>/{flag=1;next}/<\/script>/{flag=0}flag' index.html > /tmp/kevinos-index-script.js
+awk '/<script>/{flag=1;next}/<\/script>/{flag=0}flag' app/index.html > /tmp/kevinos-index-script.js
 node --check /tmp/kevinos-index-script.js
-node --check sw.js
-node --check relay/worker.js
-node relay/test/route-auth.test.js
+node --check app/sw.js
+node --check app/relay/worker.js
+node app/relay/test/route-auth.test.js
 ```
 
 Note: the `awk` extraction is a pragmatic check for the current single-script layout. If future script/template tags make it false-fail, document that and use a more precise extraction method.
@@ -109,86 +168,18 @@ Update this ledger after each phase.
 
 | Phase | Status | Schema | Notes |
 |---|---:|---:|---|
-| P1 Trust Guardrails | DONE | 38 -> 39 | Save/load/import/backup/schema/401 trust patch implemented in root layout; relay auth test added |
-| P2 Blob Diet | DONE | 39 | GitHub, sheets digest, and swim caches moved to memory-only storage |
-| P3 Snapshot Ring | DONE | 39 | IDB snapshot ring with boot/autosave/pre-import/pre-restore hooks and restore UI |
-| P4 Today Alias + Heat | DONE | 39 | Home/Launch route to Today; roomStats portable and sync-merged by max |
-| P5 Today Renderer | DONE | 39 | Today cockpit uses Launch cards, quick capture, habits, Council, nudges, and local fallback |
-| P6 Global Capture + Bottom Nav | DONE | 39 | Existing voice/text capture upgraded with deterministic parser, `c` hotkey, and mobile bottom nav |
-| P7 Relay Health Chip | DONE | 39 | Today health chip shows local/online/auth/error and explains affected relay features |
-| P8 Federated Library | DONE | 39 | Library searches briefs, prompts, notes, links, and stash with copy/open/Council/AI actions |
-| P9 Attic Collapse | DONE | 39 | Primary nav reduced; cold rooms live under More with heat card; no data deleted |
-| P10 Evening Close + Universal AI | DONE | 39 | Wind-down supports tomorrow focus and universal AI actions feed a review queue |
+| P1 Trust Guardrails | TODO | 38 | Save/load/import/backup/schema/401 trust patch |
+| P2 Blob Diet | TODO | 39 | Memory-only caches |
+| P3 Snapshot Ring | TODO | 39 | IDB snapshots using P1 helpers |
+| P4 Today Alias + Heat | TODO | 39 | Option C Today shell, roomStats sync |
+| P5 Today Renderer | TODO | 40 if needed | Full cockpit |
+| P6 Global Capture + Bottom Nav | TODO | 40 if needed | Task-first capture |
+| P7 Relay Health Chip | TODO | 40 if needed | Visual health state |
+| P8 Federated Library | TODO | 40 if needed | Search across five shelves |
+| P9 Attic Collapse | TODO | 40 if needed | Measured pruning |
+| P10 Evening Close + Universal AI | TODO | 40 if needed | Close loop + AI actions |
 
 Use schema bumps only when persistent data shape changes. Do not bump casually.
-
-## Implementation log — 2026-07-08
-
-Files changed:
-
-- `index.html`
-- `relay/worker.js`
-- `relay/test/route-auth.test.js`
-- `MISSION.md`
-
-Verification run:
-
-```sh
-awk '/<script>/{flag=1;next}/<\/script>/{flag=0}flag' index.html > /tmp/kevinos-index-script.js
-node --check /tmp/kevinos-index-script.js
-node --check sw.js
-node --check relay/worker.js
-node relay/test/route-auth.test.js
-```
-
-Browser smoke run against `http://localhost:8128/`:
-
-- Today booted with Local mode and no console errors.
-- Today quick capture `email parent #Teaching @tomorrow !` created a pinned Teaching task due tomorrow.
-- Tasks showed the parsed area and due date.
-- Library rendered seeded briefs, prompts, notes/links, filters, and actions.
-- More rendered cold-room links and room heat.
-- Corrupt `localStorage["kevinos:v1"]="{{{"` reload showed the emergency recovery UI and preserved the raw corrupt string; original localStorage was restored after the smoke.
-- Persisted localStorage was checked for `v:39`, `roomStats`, and absence of `github.cache`, `github.fetchedAt`, `sheetsCache`, and `swim`.
-- Export backup was downloaded and inspected; it excludes `sync`, `push`, `github`, `email`, `calendar`, `sheetsCache`, and `swim`, preserves `relay.url`, and sets `relay.token` to `""`.
-- Mocked relay 401 from `/council` with a wrong token showed the token-rejected toast and inline Council row error.
-- Mobile viewport smoke showed the bottom nav and confirmed the `+` button opens the existing capture panel.
-- Snapshot restore was exercised through the UI: boot snapshot restore removed the test task, and the generated `pre-restore` snapshot restored it.
-- Pressing `c` opened the existing capture panel when not typing.
-
-## Post-marathon audit log - 2026-07-08
-
-Files changed in this audit pass:
-
-- `index.html`
-- `MISSION.md`
-
-Critical fixes made:
-
-- Local `makeStore().save()` now returns the already-computed serialized byte count after a quota/setItem failure instead of re-stringifying in the catch path.
-- Protected relay side-effect fetches for push unsubscribe, GitHub logout, Google logout, and email overnight clearing now send `X-KevinOS-Token` via `relayHeaders()` and report 401s through `handleRelayUnauthorized({silent:true})`.
-- Task rows now expose both universal AI actions required by P10: `Draft with AI` and `Send to Council`.
-
-Verification run after audit fixes:
-
-```sh
-awk '/<script>/{flag=1;next}/<\/script>/{flag=0}flag' index.html > /tmp/kevinos-index-script.js
-node --check /tmp/kevinos-index-script.js
-node --check sw.js
-node --check relay/worker.js
-node relay/test/route-auth.test.js
-```
-
-Result: passed; `route auth ok`.
-
-Manual relay/device items:
-
-- USER-REPORTED PASS: deployed relay wrong-token Council check against the real worker config.
-- USER-REPORTED PASS: correct deployed relay token for Council, Brief, Launch, Sync, Push, Gmail, Calendar, Sheets, swim scan, and Universal AI actions.
-- USER-REPORTED PASS: actual phone adoption flow: open Today, tap `+`, add `email parent #Teaching @tomorrow !`, confirm the pinned Teaching task due tomorrow, close/reopen, and verify one-handed bottom-nav usability.
-- USER-REPORTED PASS: quota-limited browser profile save-failure banner appears, fires only one toast per failure episode, and clears after a later successful save.
-
-Release readiness after user-reported manual gates: READY.
 
 ---
 
@@ -1341,3 +1332,8 @@ The mission is complete when:
   - tests run
   - manual tests still needed
   - known risks
+
+
+--- END MISSION.md ---
+
+Begin immediately.

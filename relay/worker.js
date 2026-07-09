@@ -38,7 +38,7 @@ function cors(origin) {
   return {
     "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-KevinOS-Token",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -52,6 +52,32 @@ function json(data, status, origin) {
 
 function maxTokens(env) {
   return Number(env.MAX_TOKENS) || DEFAULTS.maxTokens;
+}
+
+function relayToken(env) {
+  return ((env && (env.KEVINOS_TOKEN || env.RELAY_TOKEN || env.X_KEVINOS_TOKEN)) || "").toString();
+}
+
+function isPublicRoute(method, path) {
+  if (method === "OPTIONS") return true;
+  if (method === "GET" && path === "/") return true;
+  if (method === "GET" && (
+    path === "/github/login" ||
+    path === "/github/callback" ||
+    path === "/github/status" ||
+    path === "/google/login" ||
+    path === "/google/callback" ||
+    path === "/google/status"
+  )) return true;
+  return false;
+}
+
+function authorized(request, env) {
+  const token = relayToken(env);
+  if (!token) return true;
+  const url = new URL(request.url);
+  if (isPublicRoute(request.method, url.pathname)) return true;
+  return request.headers.get("X-KevinOS-Token") === token;
 }
 
 // Resolve a promise, or reject if it takes longer than `ms` — so one slow seat
@@ -2310,6 +2336,7 @@ export default {
     // CORS first — it can't throw, so even a crashed route returns readable JSON.
     const origin = env.ALLOW_ORIGIN || "*";
     if (request.method === "OPTIONS") return new Response(null, { headers: cors(origin) });
+    if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401, origin);
     try {
       return await handleRequest(request, env, origin);
     } catch (e) {
