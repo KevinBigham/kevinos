@@ -3032,11 +3032,16 @@
     var until=null;if(r.UNTIL){var u=parseDT(r.UNTIL);if(u)until=u.date;}
     var exd={};(e.exdates||[]).forEach(function(d){exd[d]=true;});
     var cap=count||366,out=[],made=0,guard=0,anchor=keyToParts(e.date).d;
+    // W6.0d: each occurrence's end shifts with its date (base end copied
+    // verbatim would pin every occurrence's end to the first date).
+    var endDays=0,endTime=null;
+    if(e.end){var ep=e.end.split(" ");endTime=ep[1]||null;var b0=keyToParts(e.date),b1=keyToParts(ep[0]);endDays=Math.round((new Date(b1.y,b1.m,b1.d)-new Date(b0.y,b0.m,b0.d))/86400000);}
+    function occEnd(dk){if(!e.end)return null;var ed=addDaysKey(dk,endDays);return endTime?(ed+" "+endTime):ed;}
     // W6.0c: an EXDATE-excluded date does not consume COUNT — "made" counts
     // delivered occurrences, so a 6-count rule with 1 exclusion yields 6
     // events (director ruling; RFC 5545's strict reading would yield 5).
     // The guard counters still bound the scan, so all-excluded rules halt.
-    function add(dk){if(exd[dk])return;made++;out.push({title:e.title,date:dk,time:e.time,allDay:e.allDay,end:e.end||null,location:e.location||"",notes:e.notes||"",uid:e.uid?e.uid+"-"+dk:null});}
+    function add(dk){if(exd[dk])return;made++;out.push({title:e.title,date:dk,time:e.time,allDay:e.allDay,end:occEnd(dk),location:e.location||"",notes:e.notes||"",uid:e.uid?e.uid+"-"+dk:null});}
     if(freq==="WEEKLY"&&r.BYDAY){
       var days=r.BYDAY.split(",").map(function(x){return ICS_WD[x.replace(/^[+-]?\d+/,"")];}).filter(function(x){return x!=null;});
       var sp=keyToParts(e.date),weekStart=addDaysKey(e.date,-(new Date(sp.y,sp.m,sp.d).getDay()));
@@ -3063,12 +3068,23 @@
     for(var i=0;i<lines.length;i++){var line=lines[i];
       if(/^X-WR-CALNAME[:;]/i.test(line))calName=icsUnescape(line.replace(/^[^:]*:/,"")).trim();
       if(/^BEGIN:VEVENT/i.test(line)){cur={exdates:[]};continue;}
-      if(/^END:VEVENT/i.test(line)){if(cur)raw.push(cur);cur=null;continue;}
+      if(/^END:VEVENT/i.test(line)){
+        if(cur){
+          // W6.0d: a date-only DTEND is exclusive (RFC 5545) — convert to the
+          // inclusive last day so multi-day all-day events keep their end.
+          // Resolved here, not at the DTEND line, because DTSTART may follow it.
+          if(cur.endDate&&cur.date){var incl=addDaysKey(cur.endDate,-1);if(incl>cur.date)cur.end=incl;}
+          delete cur.endDate;
+          if(!cur.end)cur.end=null;
+          raw.push(cur);
+        }
+        cur=null;continue;
+      }
       if(!cur)continue;var idx=line.indexOf(":");if(idx<0)continue;
       var key=line.slice(0,idx),val=line.slice(idx+1),name=key.split(";")[0].toUpperCase();
       if(name==="SUMMARY")cur.title=icsUnescape(val).trim();
       else if(name==="DTSTART"){var dt=parseDT(val);if(dt){cur.date=dt.date;cur.time=dt.time;cur.allDay=dt.allDay;}}
-      else if(name==="DTEND"){var de=parseDT(val);if(de)cur.end=de.time?(de.date+" "+de.time):null;}
+      else if(name==="DTEND"){var de=parseDT(val);if(de){if(de.time)cur.end=de.date+" "+de.time;else cur.endDate=de.date;}}
       else if(name==="LOCATION")cur.location=icsUnescape(val).trim();
       else if(name==="DESCRIPTION")cur.notes=icsUnescape(val).trim();
       else if(name==="RRULE")cur.rrule=val.trim();
@@ -3091,7 +3107,7 @@
         var src=(parsed.calName||file.name.replace(/\.ics$/i,"")||"Imported").slice(0,40);var added=0,skipped=0;
         var evKey=function(e){return e.uid?("uid:"+e.uid):("k:"+(e.title||"")+"|"+e.date+"|"+(e.time||""));};
         var seen={};state.events.forEach(function(e){seen[evKey(e)]=true;});
-        parsed.events.forEach(function(e){var ev={id:uid(),title:e.title||"(untitled)",date:e.date,time:e.time||null,allDay:!!e.allDay,area:"Inbox",source:src,uid:e.uid||null,location:e.location||"",notes:e.notes||""};var k=evKey(ev);if(seen[k]){skipped++;return;}seen[k]=true;state.events.push(ev);added++;});
+        parsed.events.forEach(function(e){var ev={id:uid(),title:e.title||"(untitled)",date:e.date,time:e.time||null,allDay:!!e.allDay,end:e.end||null,area:"Inbox",source:src,uid:e.uid||null,location:e.location||"",notes:e.notes||""};var k=evKey(ev);if(seen[k]){skipped++;return;}seen[k]=true;state.events.push(ev);added++;});
         var fk=parsed.events[0].date;var p=keyToParts(fk);calCur={y:p.y,m:p.m};calSel=fk;
         renderCalendar();renderHome();save();
         flashHint("Imported "+added+" event"+(added===1?"":"s")+" from \u201C"+src+"\u201D."+(skipped?" Skipped "+skipped+" duplicate"+(skipped===1?"":"s")+".":""));

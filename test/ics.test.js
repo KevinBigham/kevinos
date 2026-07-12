@@ -24,11 +24,32 @@ function ics(lines) {
   assert.strictEqual(r.events.length, 2);
   const [allday, timed] = r.events;
   assert.deepStrictEqual([allday.date, allday.time, allday.allDay], ["2026-07-15", null, true]);
-  assert.strictEqual(allday.end, null, "date-only DTEND yields null end (current behavior)");
+  assert.strictEqual(allday.end, null, "single-day all-day: exclusive DTEND is start+1, no distinct end");
   assert.deepStrictEqual([timed.date, timed.time, timed.allDay], ["2026-07-15", "16:00", false]);
   assert.strictEqual(timed.end, "2026-07-15 17:30");
   assert.strictEqual(timed.location, "BSPC pool");
   assert.strictEqual(timed.notes, "Bring fins\nand snorkel", "DESCRIPTION \\n unescaped");
+
+  // ── W6.0d contract change: multi-day date-only DTEND is preserved as the
+  //    INCLUSIVE last day (old pin: end was dropped to null). DTEND-before-
+  //    DTSTART ordering also resolves correctly. ─────────────────────────
+  r = app.parseICS(ics([
+    "BEGIN:VEVENT", "UID:trip", "SUMMARY:Swim trip", "DTSTART;VALUE=DATE:20260715", "DTEND;VALUE=DATE:20260718", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:conf", "SUMMARY:Conference", "DTEND;VALUE=DATE:20260803", "DTSTART;VALUE=DATE:20260801", "END:VEVENT",
+  ]));
+  assert.strictEqual(r.events[0].end, "2026-07-17", "exclusive DTEND 07-18 becomes inclusive end 07-17");
+  assert.strictEqual(r.events[1].end, "2026-08-02", "DTEND line before DTSTART still resolves");
+
+  // W6.0d: recurring occurrences shift their end with each date instead of
+  // copying the base end verbatim (timed and multi-day all-day).
+  r = app.parseICS(ics([
+    "BEGIN:VEVENT", "SUMMARY:Timed pair", "DTSTART;TZID=America/New_York:20260706T070000", "DTEND;TZID=America/New_York:20260706T083000", "RRULE:FREQ=DAILY;COUNT=2", "END:VEVENT",
+  ]));
+  assert.deepStrictEqual(r.events.map((e) => e.end), ["2026-07-06 08:30", "2026-07-07 08:30"], "timed end follows each occurrence");
+  r = app.parseICS(ics([
+    "BEGIN:VEVENT", "SUMMARY:Two-day camp", "DTSTART;VALUE=DATE:20260706", "DTEND;VALUE=DATE:20260708", "RRULE:FREQ=WEEKLY;COUNT=2", "END:VEVENT",
+  ]));
+  assert.deepStrictEqual(r.events.map((e) => [e.date, e.end]), [["2026-07-06", "2026-07-07"], ["2026-07-13", "2026-07-14"]], "multi-day span follows each occurrence");
 
   // ── UTC (Z) times convert to device-local ──────────────────────────────
   r = app.parseICS(ics([
