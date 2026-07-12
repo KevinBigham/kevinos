@@ -2220,11 +2220,24 @@
     if(!state.push||!state.push.enabled)return;
     var base=relayBase();if(!base||!navigator.serviceWorker)return;
     navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(sub){
-      if(!sub)return;
+      if(!sub){pushGone(true);return;} // W7.59: iOS silently dropped the subscription
       var payload={subscription:sub.toJSON(),reminders:buildReminders()},body=JSON.stringify(payload);
       if(body===_lastRemindersJson)return; // nothing changed since the last successful sync — skip the POST
-      return relayCall("/push/sync",payload,{silent401:true}).then(function(j){if(j&&j.error==="unauthorized")return;if(j&&typeof j.status==="number"&&j.status>=200&&j.status<300){_lastRemindersJson=body;if(state.push)state.push.syncedAt=Date.now();}});
+      return relayCall("/push/sync",payload,{silent401:true}).then(function(j){if(j&&j.error==="unauthorized")return;if(j&&typeof j.status==="number"){if(j.status>=200&&j.status<300){_lastRemindersJson=body;if(state.push)state.push.syncedAt=Date.now();pushGone(false);}else if(j.status===410){pushGone(true);}}});
     }).catch(function(){});
+  }
+  // W7 item 59 — iOS drops push subscriptions more than Android. When the
+  // browser subscription vanished (or the relay said 410) while reminders
+  // are meant to be on, a home nudge offers a one-tap resubscribe instead
+  // of reminders failing silently forever.
+  function pushGone(gone){
+    if(!state.push||!state.push.enabled)return;
+    if(!!state.push.gone===!!gone)return;
+    state.push.gone=!!gone;persist();renderHome();
+  }
+  function checkPushHealth(){
+    if(!state.push||!state.push.enabled||!pushSupported())return;
+    navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(sub){pushGone(!sub);}).catch(function(){});
   }
   function scheduleReminderSync(){if(!state.push||!state.push.enabled)return;if(_syncT)clearTimeout(_syncT);_syncT=setTimeout(function(){_syncT=null;syncReminders();},1500);}
   function enablePush(){
@@ -2242,7 +2255,7 @@
         if(!state.push)state.push={enabled:false,endpoint:"",hour:8,syncedAt:0};
         state.push.enabled=true;state.push.endpoint=sub.endpoint;_lastRemindersJson=null;
         return relayCall("/push/sync",{subscription:sub.toJSON(),reminders:buildReminders()},{silent401:true});
-      }).then(function(j){if(j&&j.error==="unauthorized")throw new Error("auth");save();renderNext();toast("Reminders on. Send a test to confirm.");}).catch(function(){toast("Couldn’t turn on reminders.");});
+      }).then(function(j){if(j&&j.error==="unauthorized")throw new Error("auth");state.push.gone=false;save();renderNext();renderHome();toast("Reminders on. Send a test to confirm.");}).catch(function(){toast("Couldn’t turn on reminders.");});
     }).catch(function(){toast("Couldn’t turn on reminders.");});
   }
   function disablePush(){
@@ -2855,6 +2868,9 @@
     var box=$("homeNudges");if(!box)return;var html="";var tk=todayKey();var hr=(new Date()).getHours();
     var openToday=openTodayCount();
     html+='<button class="gh-nudge" type="button" data-go="launch" style="background:linear-gradient(135deg,rgba(91,59,140,.10),rgba(184,144,31,.12));margin-top:14px"><span class="gh-fire" style="color:var(--gold)">☀</span><span class="nu-txt"><strong>Start my day.</strong> Open the Launch sequence for today’s plan.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
+    if(state.push&&state.push.enabled&&state.push.gone){
+      html+='<button class="gh-nudge" type="button" data-push-reconnect="1" style="background:var(--accent-soft);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">🔔</span><span class="nu-txt"><strong>Reconnect notifications.</strong> This device stopped receiving reminders — one tap turns them back on.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
+    }
     if(state.habits&&state.habits.length){
       var hd=0,hi;for(hi=0;hi<state.habits.length;hi++){if(habitDoneToday(state.habits[hi]))hd++;}
       html+='<button class="gh-nudge" type="button" data-go="habits" style="background:var(--gold-soft);margin-top:14px"><span class="gh-fire" style="color:var(--clay)">🔥</span><span class="nu-txt"><strong>Habits.</strong> '+hd+'/'+state.habits.length+' done today.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
@@ -4709,7 +4725,7 @@
   $("captureInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("captureInput"),function(){return selectedArea;},null);}});
   $("homeTodayList").addEventListener("click",handleTaskAction);
   $("ghNudge").addEventListener("click",function(){if(state.github&&(state.github.token||state.github.session))go("github");});
-  $("homeNudges").addEventListener("click",function(e){var g=e.target.closest("[data-go]");if(g){go(g.getAttribute("data-go"));return;}if(e.target.closest("[data-openwind]")){openWind();return;}if(e.target.closest("[data-backup]")){exportBackup();}});
+  $("homeNudges").addEventListener("click",function(e){var g=e.target.closest("[data-go]");if(g){go(g.getAttribute("data-go"));return;}if(e.target.closest("[data-openwind]")){openWind();return;}if(e.target.closest("[data-push-reconnect]")){enablePush();return;}if(e.target.closest("[data-backup]")){exportBackup();}});
   $("todayView").addEventListener("click",handleTodayClick);
   $("todayView").addEventListener("keydown",handleTodayKeydown);
   $("nextView").addEventListener("click",handleNextClick);
@@ -5310,7 +5326,7 @@
   },{passive:true});
   document.addEventListener("touchend",function(){_ptrY=null;},{passive:true});
   window.addEventListener("focus",function(){checkDayChange();if(syncOn())syncPull();});
-  document.addEventListener("visibilitychange",function(){if(!document.hidden){checkDayChange();if(syncOn())syncPull();}});
+  document.addEventListener("visibilitychange",function(){if(!document.hidden){checkDayChange();checkPushHealth();if(syncOn())syncPull();}});
   window.addEventListener("online",function(){if(syncOn())syncPush();renderSync();renderOfflineChip();});
   window.addEventListener("offline",function(){renderSync();renderOfflineChip();});
   setInterval(function(){if(!document.hidden)checkDayChange();},DAY_CHECK_MS);
@@ -5425,6 +5441,7 @@
     recordLastGoodBoot();
     applyTheme();renderThemeToggle();
     renderOfflineChip();
+    checkPushHealth();
     go("today");
     vcDetect();
     save();
