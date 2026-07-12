@@ -179,7 +179,7 @@ Never run concurrently:
 - [x] W2 Safety Refactors → v0.41 *(2026-07-11, suite green throughout)*
 - [x] W3 Data Trust → v0.42 *(2026-07-11; schema NOT bumped — item 9 landed as a sidecar key)*
 - [x] W4 Relay Hardening + Key v2 → v0.43 code-complete *(2026-07-11; deploy #1 AWAITING KEVIN)*
-- [ ] W5 Sync Observability → v0.44 + deploy #2 · **GATE-76 decided: ___**
+- [~] W5 Sync Observability → v0.44 code-complete *(2026-07-11; deploy #2 + **GATE-76 decision AWAITING KEVIN**)* · **GATE-76 decided: ___**
 - [ ] W6 Daily-Driver UX → v0.45
 - [ ] W7 Theme/Mobile/PWA → v0.46
 - [ ] W8 AI Leverage → v0.47 + deploy #3
@@ -249,3 +249,13 @@ Never run concurrently:
   3. `git push` (after wiring the remote — see Setup note) → GitHub Pages ships v0.43
   4. Run the re-key drill above when convenient (it's opt-in; v1 devices keep working untouched until you re-enter the passphrase).
 - **Next task:** W5 item 71 — sync activity log (then 73→72→74→75→78→79 → **GATE-76 decision for Kevin**).
+
+### W5 — Sync Observability → v0.44 CODE-COMPLETE (2026-07-11) ⏸ GATE-76 + deploy #2 awaiting Kevin
+- **Items completed (7/8):** 71 (20-event device-local sync activity log + Activity toggle), 73 (device label at connect, before 72 per plan), 72 (state.devices presence in the sync doc; newest-lastSeen wins; own stamp only at push time so presence can't cause push storms; "Mac · 2m ago" line), 74 (mergeRemoteDoc returns merged-in count; "Merged changes from another device (N items)" toast on pull-merge and stale-push), 75 (Sync doctor: key fingerprint + v1/v2 label, revs, relay auth, D1 flag, doc bytes, presence, force push/pull with pre-snapshot + in-card confirm, blocked in the re-key upgrade state), 78 (relay weekly `<key>:snap` row refreshed on push when >7d old; `/sync/pull {snap:true}` recovery read; 4 tests), 79 (three-device convergence proof: 3 real app instances through the real worker — concurrent edits, late joiner, tombstoned delete, stability round-trip; runs under a v2 key; in run.sh). **Item 76 NOT implemented — it is a decision gate; options below.**
+- **Schema:** state.devices is additive/optional — no migration, **no SCHEMA_VERSION bump** (bump only happens if GATE-76 option A/C proceeds with a shape change, per Law 6).
+- **Commits:** ce5b36b, 223473d, 6e1cde7, 05ca04a. Nothing pushed/deployed.
+- **Tests:** `sh test/run.sh` ALL GREEN (now 10 suites incl. convergence). Browser: boots v0.44, zero console errors, devices key present.
+- **MANUAL-UNVERIFIED (needs two real devices post-deploy):** presence line shows both devices with sane ages; merge toast on a genuine cross-device conflict; doctor force push/pull round-trip; activity log fills during a normal day; cloud snapshot appears in D1 (`npx wrangler d1 execute kevinos-sync --remote --command "SELECT id, updated_at FROM docs"` shows the `:snap` row).
+- **⏸ GATE-76 — Kevin must pick A, B, or C (see §4 above) before any encryption work. Recommendation on file: A (split-doc digest). Whatever the pick, record it in MISSION.md and re-run test/convergence.test.js after implementation.**
+- **⏸ Deploy #2 (after GATE-76 decision, or without 76 if C/deferred):** same runbook as deploy #1 — relay first, curl health, then push the app.
+- **Next task:** if GATE-76 = A or B → implement 76 here in W5; if C or deferred → W6 item 54 (midnight/visibility day-change re-render), the invalidation model item 33 keys off.
