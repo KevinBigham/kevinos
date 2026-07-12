@@ -103,6 +103,20 @@ node relay/test/route-auth.test.js
 
 Note: the `awk` extraction is a pragmatic check for the current single-script layout. If future script/template tags make it false-fail, document that and use a more precise extraction method.
 
+## Secret-pattern scan (release ritual)
+
+Before any commit batch that touched docs or the relay — and always as a pre-release gate — run:
+
+```sh
+grep -rnE "sk-|AIza|client_secret|BEGIN (EC|RSA) PRIVATE" index.html relay/worker.js *.md relay/*.md
+```
+
+Secret *names* (e.g. `GOOGLE_CLIENT_SECRET`, `npx wrangler secret put NAME`) are fine; any secret *value* = ABORT the commit and rotate the secret. Known benign matches: the app's `kevinos-task-<id>` push tags (contain "sk-"), doc sentences about client secrets, and this command itself.
+
+Scan record:
+
+- 2026-07-11 (W0, pre-v0.40): scan run — clean. Only benign matches (task-tag "sk-", secret-name references in docs).
+
 ## Mission status ledger
 
 Update this ledger after each phase.
