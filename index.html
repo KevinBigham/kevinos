@@ -63,6 +63,10 @@
   .nav-sub .tab{font-size:13.5px}
 
   .room{display:none}
+  /* item 38 — offscreen portions of long lists skip render work; the
+     intrinsic-size hint keeps scrollbars from jumping. Free phone perf. */
+  .rows,.library-row,.wind-item,.brief-card,.person-card{content-visibility:auto;contain-intrinsic-size:auto 60px}
+  .room.active{content-visibility:visible}
   .room.active{display:block}
 
   .header{position:relative;padding:30px 28px 26px;border-radius:var(--radius);background:linear-gradient(180deg,var(--header-top) 0%,var(--bg-deep) 100%);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden}
