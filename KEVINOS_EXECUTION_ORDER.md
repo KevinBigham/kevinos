@@ -174,7 +174,7 @@ Never run concurrently:
 
 ## 7. Progress tracker
 
-- [ ] W0 Truth & Hotfixes → v0.40
+- [x] W0 Truth & Hotfixes → v0.40 *(2026-07-11, all 12 items)*
 - [ ] W1 Test Harness + CI green
 - [ ] W2 Safety Refactors → v0.41 *(suite green throughout)*
 - [ ] W3 Data Trust → v0.42 *(schema 40 if bumped)*
@@ -187,3 +187,21 @@ Never run concurrently:
 - [ ] W10 Gate → **v1.0.0** → 30-day soak 🐐
 
 *Keep every wave bootable. Propose — let Kevin approve. LFG.*
+
+---
+
+## Wave Log
+
+### Setup (2026-07-11, Claude Fable 5 session 1)
+- This checkout was a zip extraction, not a git repo. Initialized git locally (`main`), committed the pristine baseline as `91d6105`. **No remote is configured** — before any push, Kevin must wire `git remote add origin git@github.com:KevinBigham/kevinos.git` (or https) and decide how to reconcile with the live repo's history (this local history starts fresh from the zip).
+- Baseline verification ritual: app-script/sw/worker `node --check` PASS, `route auth ok` PASS, secret scan clean (benign matches only: `kevinos-task-` push tags contain "sk-", docs reference secret names).
+
+### W0 — Truth & Hotfixes → v0.40 (2026-07-11) ✅
+- **Items completed (12/12, in order):** 51, 2, 84, 11, 18, 20, 81, 82, 83, 89, 88, 90 + release bump.
+- **Files changed:** `sw.js` (CACHE v0_38→v0_40), `index.html` (snapAfterSave fix, dead-loop removal, APP_VERSION + footer stamp, v0.40), `README.md` (three-bump checklist, nav/read-first fixes, token pointer), `GETTING_STARTED.md` (Part 3.5 token, troubleshooting entry, Security Notes, version sweep, cron fact), `relay/RELAY_SETUP.md` (Step 3.5 + Step 4 token step), `SECURITY.md` (new), `CONTRIBUTING-AI.md` (new), `HANDOFF.md` (§0.5 v0.39 addendum + banner), `CLAUDE_CODE_HANDOFF.md` (live-facts), `ROADMAP.md` (marathon rows), `MISSION.md` (secret-scan ritual + record), `docs/history/` (2 historical docs moved + headers).
+- **Commits:** 97f42fa (51), 2fd6eb2 (2), 22f10cf (84), c2e0e11 (11), 6f5dcf1 (18), 63f61bf (20), bd09aad (81), 80790e1 (82), b1ac4b3 (83), 0abde6e (89), 8dc95d7 (88), 43045a4 (90), 709f375 (release). Nothing pushed, nothing deployed.
+- **Tests run:** full ritual PASS (node --check ×3, route-auth ok, ES5 contraband scan empty, secret scan clean). Browser boot test on localhost:8128 (real Chromium): no console errors, footer stamps "KevinOS v0.40" from APP_VERSION, Today renders, fresh-boot seeds persist with v:39, capture `email parent #Teaching @tomorrow !` → pinned Teaching task due tomorrow (proves W0.84 parser edit is behavior-neutral).
+- **MANUAL-UNVERIFIED:** (1) installed-PWA SW cache rollover v0_38→v0_40 on Kevin's phone — open the installed app twice after deploy, confirm footer v0.40; (2) snapshot-autosave counter fix on an IDB-broken browser (Safari private mode: make 25+ edits, confirm console shows one "snapshots unavailable" warn and no snapshot, then in a normal browser confirm autosave snapshot appears after 25 writes + 10 min).
+- **Deviations:** (a) git init + baseline commit performed because the checkout wasn't a repo (data-safety insurance; approved by Kevin's BEGIN on the flagged plan). (b) Item 82 scope: also fixed GETTING_STARTED's stale cron fact (`* * * * *` → `*/2`) and README's pre-P9 nav list — factually wrong statements adjacent to the version sweep; safer reading. (c) Item 90: APP_VERSION stamps the footer at boot; static footer text kept as no-JS fallback (two strings, one grep checks both).
+- **Awaiting Kevin:** `git push` (batch at wave boundaries — needs remote wired first, see Setup note).
+- **Next task:** W1 item 21 — `test/app-logic.test.js` harness (awk extraction + window/document/localStorage stubs).
