@@ -1052,6 +1052,7 @@
   var SAVE_FAIL_BACKUP_MS=300000;        // auto-download a backup after 5 min of failing saves (item 7)
   var DAY_CHECK_MS=60000;                // foreground midnight-crossing check cadence (item 54)
   var STATS_DEBOUNCE_MS=400;             // storage stats repaint once per save-burst (item 35)
+  var PTR_PX=70;                         // pull distance that triggers Today's pull-to-refresh (item 55)
 
   var store=makeStore();
   var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",v:SCHEMA_VERSION};
@@ -5274,6 +5275,30 @@
     _dayKey=tk;invalidateDayCache();paintHeader();renderCurrentRoom();renderHome();
     return true;
   }
+  // W7 item 55 — pull-to-refresh on Today: the native gesture people already
+  // try; standalone iOS PWAs have no built-in one. Arms only when Today is
+  // the room, the page is scrolled to the top, and no overlay has locked
+  // body scroll. One pull = one syncPull + forced gcal reload + repaint.
+  var _ptrY=null,_ptrFired=false;
+  document.addEventListener("touchstart",function(e){
+    _ptrY=null;_ptrFired=false;
+    if(room!=="today")return;
+    if(document.body.style.overflow==="hidden")return;
+    var sc=window.pageYOffset||document.documentElement.scrollTop||0;
+    if(sc>0)return;
+    if(e.touches&&e.touches.length===1)_ptrY=e.touches[0].clientY;
+  },{passive:true});
+  document.addEventListener("touchmove",function(e){
+    if(_ptrY==null||_ptrFired)return;
+    var dy=(e.touches&&e.touches[0]?e.touches[0].clientY:0)-_ptrY;
+    if(dy>PTR_PX){
+      _ptrFired=true;toast("Refreshing…");
+      if(syncOn())syncPull();
+      if(calOn())loadGcal(true);
+      renderCurrentRoom();
+    }
+  },{passive:true});
+  document.addEventListener("touchend",function(){_ptrY=null;},{passive:true});
   window.addEventListener("focus",function(){checkDayChange();if(syncOn())syncPull();});
   document.addEventListener("visibilitychange",function(){if(!document.hidden){checkDayChange();if(syncOn())syncPull();}});
   window.addEventListener("online",function(){if(syncOn())syncPush();renderSync();});
