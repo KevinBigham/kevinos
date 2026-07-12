@@ -1056,6 +1056,7 @@
   var SAVE_FAIL_BACKUP_MS=300000;        // auto-download a backup after 5 min of failing saves (item 7)
   var DAY_CHECK_MS=60000;                // foreground midnight-crossing check cadence (item 54)
   var STATS_DEBOUNCE_MS=400;             // storage stats repaint once per save-burst (item 35)
+  var COUNCIL_RENDER_MS=80;              // council stream repaints coalesce per burst (item 37)
   var PTR_PX=70;                         // pull distance that triggers Today's pull-to-refresh (item 55)
 
   var store=makeStore();
@@ -2793,12 +2794,22 @@
       if(cur.answered<=0)cur.error="No model answered — check the relay seats.";
     }
   }
+  // Batch stream repaints (item 37): seat lines land in bursts — coalesce them
+  // into one room render per COUNCIL_RENDER_MS instead of a rebuild per NDJSON
+  // line. Final events (done/synthesis) flush and paint immediately.
+  var councilRenderT=0;
+  function flushCouncilRender(){if(councilRenderT){clearTimeout(councilRenderT);councilRenderT=0;}}
+  function scheduleCouncilRender(){
+    if(councilRenderT)return;
+    councilRenderT=setTimeout(function(){councilRenderT=0;if(room==="next"&&!isEditing())renderNext();},COUNCIL_RENDER_MS);
+  }
   function handleCouncilLine(id,line){
     var evt;try{evt=JSON.parse(line);}catch(e){return;}
     var cur=findCouncil(id);if(!cur)return;
     applyCouncilEvent(cur,evt);
-    // re-render per line only when Next is visible and the user isn't typing; always render the final events
-    if(evt.type==="done"||evt.type==="synthesis"||(room==="next"&&!isEditing()))renderNext();
+    // re-render per burst only when Next is visible and the user isn't typing; always render the final events
+    if(evt.type==="done"||evt.type==="synthesis"){flushCouncilRender();renderNext();}
+    else if(room==="next"&&!isEditing())scheduleCouncilRender();
   }
   function readCouncilStream(id,reader){
     var dec=new TextDecoder(),buf="";
@@ -2820,6 +2831,7 @@
   }
   function finishCouncilStream(id){
     delete councilNoRecord[id];
+    flushCouncilRender();
     var cur=findCouncil(id);if(!cur)return;
     if(cur.streaming){ // stream ended without a 'done' line — finalize from what arrived
       cur.streaming=false;
