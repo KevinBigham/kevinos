@@ -873,6 +873,45 @@
 (function(){
   "use strict";
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     KevinOS — one IIFE, ~530 functions. Map of the territory (audit item 85):
+
+     STORE & VERSIONS  makeStore · APP_VERSION/SCHEMA_VERSION · policy consts
+                       CONTENT_ARRAYS/PORTABLE_OBJS (the canonical entity lists)
+     TRUST LAYER       portableDoc/applyPortableDoc · sanitizeIds ·
+                       handleSaveResult/renderSaveBanner/renderStorageStats ·
+                       renderLoadEmergency/downloadRawStorage/completeRecovery ·
+                       save()/persist() (loud vs quiet) · assertContentContract
+     HELPERS           $/pf/uid/touch/bury/cloneJSON/escapeHtml (dbl-quote
+                       invariant) · date keys (dateKey/todayKey/addDaysKey…) ·
+                       perfProbe (?perf=1)
+     TASKS & HABITS    makeTaskRow/renderTasks/addTask/rollRecurring ·
+                       habit streaks (habitCurrentStreak/habitLongestStreak)
+     BRIEF/LAUNCH/WEEK dayDigest/briefContextText/generateBrief ·
+                       launch*CardHTML/generateLaunch · weekly/checkin/spend
+     CAPTURE           parseCaptureText/parseCaptureDate (deterministic
+                       grammar) · vc* voice capture · addTodayCapture
+     RELAY             relayCall (THE fetch idiom) · relayPost · oauthPoll ·
+                       handleRelayUnauthorized · relayHealth chip
+     PUSH              buildReminders/syncReminders/enablePush/disablePush
+     SYNC              buildSyncDoc/applySyncDoc/mergeById/mergeRemoteDoc ·
+                       unionDeleted (tombstones) · syncPull/syncPush/
+                       scheduleSyncPush · connectSync/deriveSyncKey
+     COUNCIL           runCouncil (NDJSON stream) · runCouncilLegacy ·
+                       councilAnswerHTML/makeCouncilTasks
+     CALENDAR          renderCalendar/renderMonth/renderAgenda · parseICS/
+                       expandRecurrence/buildICS · gcal (loadGcal/calCreate…) ·
+                       smart extract (pending review queue)
+     ROOMS             RENDERERS map · renderToday (cockpit) · projects/
+                       studio/briefs/launchpad/prompts/notes/stash/people/
+                       goals/github/email/library/attic · go(r) router
+     OVERLAYS          sweep (Life Sweep) · wind (evening Close) · intake ·
+                       ⌘K palette
+     SNAPSHOTS         snapOpen/snapPut/snapList/restoreSnapshot (IDB ring)
+     BACKUP            exportBackup/importBackup
+     BOOT              wiring + store.load().then(migrations → go("today"))
+     ═══════════════════════════════════════════════════════════════════════ */
+
   var STORE_KEY="kevinos:v1";
   // Release checklist (three-bump rule, see README): APP_VERSION here + the
   // footer it stamps, CACHE in sw.js, and SCHEMA_VERSION only on shape change.
