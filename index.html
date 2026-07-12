@@ -3716,7 +3716,7 @@
     if(editingBuildId===b.id)wrap.appendChild(buildBuildEditor(b));
     return wrap;
   }
-  function renderBuilds(){var box=$("buildList");box.innerHTML="";if(!state.builds.length){box.innerHTML='<p class="empty">No builds yet. Add one above.</p>';return;}BUILD_STAGES.forEach(function(s){var arr=state.builds.filter(function(b){return b.stage===s.key;});if(arr.length)sectionWith(box,s.key,arr,buildCard,s.color);});}
+  function renderBuilds(){var box=$("buildList");box.innerHTML="";if(!state.builds.length){box.innerHTML='<p class="empty">Studio tracks the things you’re making — apps, essays, anything with stages. Add your first build above.</p>';return;}BUILD_STAGES.forEach(function(s){var arr=state.builds.filter(function(b){return b.stage===s.key;});if(arr.length)sectionWith(box,s.key,arr,buildCard,s.color);});}
   function handleBuildsClick(e){
     var cy=e.target.closest("[data-build-cycle]");if(cy){var b=findBuild(cy.dataset.buildCycle);if(b){var idx=0;for(var i=0;i<BUILD_STAGES.length;i++)if(BUILD_STAGES[i].key===b.stage)idx=i;b.stage=BUILD_STAGES[(idx+1)%BUILD_STAGES.length].key;touch(b);}renderBuilds();save();return;}
     var op=e.target.closest("[data-build-open]");if(op){editingBuildId=(editingBuildId===op.dataset.buildOpen)?null:op.dataset.buildOpen;renderBuilds();return;}
@@ -3751,7 +3751,7 @@
   }
   function renderGoals(){
     var box=$("goalList");if(!box)return;if(!isArr(state.goals))state.goals=[];box.innerHTML="";
-    if(!state.goals.length){box.innerHTML='<p class="empty">No goals yet. Add your first goal above.</p>';return;}
+    if(!state.goals.length){box.innerHTML='<p class="empty">Goals connect the daily grind to the long game. Add your first one above and link tasks to it.</p>';return;}
     for(var i=0;i<state.goals.length;i++)box.appendChild(goalCard(state.goals[i]));
   }
   function handleGoalsClick(e){
@@ -4031,7 +4031,7 @@
     var box=$("peopleList"),i,p,groups={overdue:[],due:[],ok:[]},h="";
     if(!box)return;
     h='<div class="sec-head" style="margin-top:16px"><p class="section-label">Relationships</p>'+(relayOn()&&emailOn()?'<button class="sec-link" type="button" data-people="enrich">'+(peopleEnriching?"Checking…":"Enrich from Gmail")+'</button>':"")+'</div>';
-    if(!state.people.length){box.innerHTML=h+'<p class="empty">No people yet. Add someone above.</p>';renderProfileList();return;}
+    if(!state.people.length){box.innerHTML=h+'<p class="empty">People Radar keeps your relationships warm — add someone above and KevinOS nudges you before you drift apart.</p>';renderProfileList();return;}
     for(i=0;i<state.people.length;i++){p=state.people[i];groups[personStatus(p)].push(p);}
     h+=peopleBucketHTML("Overdue",groups.overdue);
     h+=peopleBucketHTML("Due soon",groups.due);
@@ -4445,8 +4445,8 @@
     var input=$("librarySearch");if(input&&document.activeElement!==input)input.value=libraryQuery;
     renderLibraryFilters();
     var box=$("libraryList");if(!box)return;
-    var q=(libraryQuery||"").toLowerCase(),rows=libraryRecords().filter(function(r){var ok=(libraryFilter==="All"||r.kind===libraryFilter);if(!ok)return false;if(!q)return true;return (r.title+" "+r.body+" "+r.url+" "+r.kind).toLowerCase().indexOf(q)>=0;});
-    if(!rows.length){box.innerHTML='<p class="empty">No library matches.</p>';return;}
+    var q=(libraryQuery||"").toLowerCase(),all=libraryRecords(),rows=all.filter(function(r){var ok=(libraryFilter==="All"||r.kind===libraryFilter);if(!ok)return false;if(!q)return true;return (r.title+" "+r.body+" "+r.url+" "+r.kind).toLowerCase().indexOf(q)>=0;});
+    if(!rows.length){box.innerHTML='<p class="empty">'+(all.length?"No library matches. Clear the search or filter.":"The Library searches everything you’ve saved — briefs, prompts, notes, links, read-later. Save your first one and it shows up here.")+'</p>';return;}
     var h="";
     rows.forEach(function(r){var text=(r.body||r.url||"").slice(0,180);h+='<div class="library-row"><div class="library-row-main"><div class="library-title">'+escapeHtml(r.title)+'</div><div class="library-meta">'+escapeHtml(r.kind)+' · '+escapeHtml(text)+'</div></div><div class="library-actions"><button class="linklike" type="button" data-lib-open="'+r.kind+'" data-id="'+escapeHtml(r.id)+'">Open</button><button class="linklike" type="button" data-lib-copy="'+escapeHtml(r.id)+'">Copy</button><button class="linklike" type="button" data-lib-council="'+escapeHtml(r.id)+'">Send to Council</button><button class="linklike" type="button" data-ai-kind="library" data-ai-id="'+escapeHtml(r.id)+'">Draft with AI</button></div></div>';});
     box.innerHTML=h;
