@@ -1107,7 +1107,11 @@
   function fmtTime(t){var p=t.split(":");var h=+p[0],m=p[1];var ap=h<12?"AM":"PM";var h12=h%12;if(h12===0)h12=12;return h12+":"+m+" "+ap;}
   function relDay(k){var tk=todayKey();if(k===tk)return "Today";if(k===addDaysKey(tk,1))return "Tomorrow";var p=keyToParts(k);var d=new Date(p.y,p.m,p.d);if(k>tk&&k<=addDaysKey(tk,6))return DAYS[d.getDay()];return WD[d.getDay()]+" "+MON3[p.m]+" "+p.d;}
   function dueLabel(k){var tk=todayKey();if(k===tk)return "Today";if(k===addDaysKey(tk,1))return "Tomorrow";var p=keyToParts(k);return MON3[p.m]+" "+p.d;}
-  function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  // INVARIANT: every HTML attribute in this file is double-quoted, so the
+  // load-bearing escapes are & < > ". The ' escape is belt-and-suspenders
+  // (audit F8) — it makes the first accidentally single-quoted attribute a
+  // non-event instead of an injection. Keep attributes double-quoted anyway.
+  function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
 
   function field(t){var f=document.createElement("div");f.className="field";var l=document.createElement("label");l.textContent=t;f.appendChild(l);return f;}
   function inpEl(id,type,val){var i=document.createElement("input");i.className="inp";i.id=id;i.type=type;if(val!=null)i.value=val;return i;}

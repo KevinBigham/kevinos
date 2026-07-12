@@ -34,10 +34,9 @@ const { loadApp } = require("./harness");
   assert.strictEqual(app.normalizeRoom("launch"), "today");
   assert.strictEqual(app.normalizeRoom("next"), "next", "next is NOT aliased");
 
-  // escapeHtml — CURRENT contract: escapes & < > " but NOT ' (safe only
-  // because every attribute in the app is double-quoted; W2 item 14 upgrades
-  // this and must update this pin).
-  assert.strictEqual(app.escapeHtml('<a b="c">&\''), "&lt;a b=&quot;c&quot;&gt;&amp;'");
+  // escapeHtml — contract since W2 item 14: escapes & < > " AND ' (the
+  // apostrophe is defense-in-depth; the app's attributes stay double-quoted).
+  assert.strictEqual(app.escapeHtml('<a b="c">&\''), "&lt;a b=&quot;c&quot;&gt;&amp;&#39;");
 
   // Date helpers round-trip.
   const tk = app.todayKey();
