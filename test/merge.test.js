@@ -122,5 +122,18 @@ const { loadApp } = require("./harness");
   app.applySyncDoc({ items: [{ id: "<img src=x>", text: "hostile2" }] });
   assert.match(String(st.items[0].id), /^[a-z0-9-]{1,40}$/i, "applySyncDoc sanitizes too");
 
+  // W5.72 — device presence merges by newest lastSeen; W5.74 — merge count.
+  st.items = []; st.deleted = {};
+  st.devices = { mac: { label: "Mac", lastSeen: 100 } };
+  let count = app.mergeRemoteDoc({
+    items: [{ id: "new1", u: 1 }, { id: "new2", u: 1 }],
+    devices: { mac: { label: "MacBook", lastSeen: 500 }, phone: { label: "iPhone", lastSeen: 50 } },
+  });
+  assert.strictEqual(count, 2, "mergeRemoteDoc returns the merged-in item count");
+  assert.deepStrictEqual(st.devices.mac, { label: "MacBook", lastSeen: 500 }, "newer presence wins");
+  assert.deepStrictEqual(st.devices.phone, { label: "iPhone", lastSeen: 50 }, "new device joins");
+  count = app.mergeRemoteDoc({ items: [{ id: "new1", u: 1 }] });
+  assert.strictEqual(count, 0, "identical remote content counts zero");
+
   console.log("merge convergence ok");
 })().catch((err) => { console.error(err); process.exit(1); });

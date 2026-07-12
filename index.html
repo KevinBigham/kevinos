@@ -1017,7 +1017,7 @@
   var SAVE_FAIL_BACKUP_MS=300000;        // auto-download a backup after 5 min of failing saves (item 7)
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},deleted:{},lastBackupAt:0,lastShutdown:"",v:SCHEMA_VERSION};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
   var relayHealth={status:"unknown",checkedAt:0,caps:null,err:""}, relayHealthOpen=false;
   var ghMem={cache:null,fetchedAt:0}, sheetsMem={at:0,text:""}, swimMem={at:0,items:[]};
@@ -2143,6 +2143,22 @@
   // Content syncs; device connections (relay/push/github) and sync itself never do.
   var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,v:1};
   var _syncPushT=null,_syncBusy=false,_lastPushedDoc=null;
+  // Sync activity log (item 71): last 20 pull/push events, device-local and
+  // memory-only — debuggability, not data.
+  var syncLog=[],syncLogOpen=false,doctorOpen=false;
+  function logSync(kind,rev,bytes,note){
+    syncLog.unshift({at:Date.now(),kind:kind,rev:rev||0,bytes:bytes||0,note:note||""});
+    if(syncLog.length>20)syncLog.length=20;
+  }
+  function syncLogHTML(){
+    if(!syncLog.length)return '<p class="hint">No sync activity yet this session.</p>';
+    var h='<div class="rows">',i,e,d;
+    for(i=0;i<syncLog.length;i++){
+      e=syncLog[i];d=new Date(e.at);
+      h+='<div class="hint" style="padding:2px 0">'+escapeHtml(pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds()))+' · '+escapeHtml(e.kind)+' · rev '+e.rev+(e.bytes?' · '+Math.round(e.bytes/1024)+' KB':'')+(e.note?' · '+escapeHtml(e.note):'')+'</div>';
+    }
+    return h+'</div>';
+  }
   function syncCfg(){if(!state.sync)state.sync={on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""};return state.sync;}
   function syncOn(){var s=state.sync;return !!(s&&s.on&&s.key&&relayOn());}
   function syncDeviceId(){var s=syncCfg();if(!s.deviceId)s.deviceId=uid()+uid();return s.deviceId;}
@@ -2174,6 +2190,7 @@
     if(!doc||typeof doc!=="object")return false;
     unionDeleted(doc.deleted); // arrays below are authoritative; the tombstones still union so nothing resurrects later
     SYNC_ARRAYS.forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
+    mergeDevices(doc.devices);
     mergeRoomStats(doc.roomStats);
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=doc.lastBackupAt;
     if(typeof doc.lastShutdown==="string")state.lastShutdown=doc.lastShutdown;
@@ -2192,15 +2209,33 @@
     for(i=0;i<local.length;i++){it=local[i];if(it&&it.id!=null&&!seen[it.id]){out.push(by[it.id]);seen[it.id]=1;}}
     return out;
   }
+  // Device presence (item 72): deviceId -> {label,lastSeen} rides the sync doc
+  // (state.devices is not in SYNC_SKIP). Newest lastSeen wins per device; own
+  // entry is stamped only at push time so presence never causes push storms.
+  function mergeDevices(remote){
+    if(!remote||typeof remote!=="object")return;
+    if(!state.devices||typeof state.devices!=="object")state.devices={};
+    var k,l,r;
+    for(k in remote){if(!remote.hasOwnProperty(k))continue;r=remote[k]||{};l=state.devices[k];if(!l||(r.lastSeen||0)>(l.lastSeen||0))state.devices[k]=r;}
+  }
+  // Returns how many items arrived from the other device (new or newer) —
+  // item 74's merge-visibility number. Tombstoned ids don't count.
   function mergeRemoteDoc(doc){
-    if(!doc||typeof doc!=="object")return false;
+    if(!doc||typeof doc!=="object")return 0;
     unionDeleted(doc.deleted);
-    SYNC_ARRAYS.forEach(function(k){state[k]=mergeById(state[k],doc[k]).filter(function(it){return !(it&&it.id!=null&&state.deleted[String(it.id)]);});});
+    var merged=0;
+    SYNC_ARRAYS.forEach(function(k){
+      var localBy={},i,it,arr=isArr(state[k])?state[k]:[],rem=isArr(doc[k])?doc[k]:[];
+      for(i=0;i<arr.length;i++){it=arr[i];if(it&&it.id!=null)localBy[it.id]=it;}
+      for(i=0;i<rem.length;i++){it=rem[i];if(!it||it.id==null)continue;if(state.deleted[String(it.id)])continue;var cur=localBy[it.id];if(!cur||((it.u||0)>(cur.u||0)))merged++;}
+      state[k]=mergeById(state[k],doc[k]).filter(function(x){return !(x&&x.id!=null&&state.deleted[String(x.id)]);});
+    });
+    mergeDevices(doc.devices);
     mergeRoomStats(doc.roomStats);
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=Math.max(state.lastBackupAt||0,doc.lastBackupAt);
     if(typeof doc.lastShutdown==="string"&&(!state.lastShutdown||doc.lastShutdown>state.lastShutdown))state.lastShutdown=doc.lastShutdown;
     sanitizeIds();
-    return true;
+    return merged;
   }
   function syncRerender(){
     var _pt0=perfProbe?perfNow():0;
@@ -2218,13 +2253,13 @@
     var s=syncCfg(),base=relayBase();_syncBusy=true;
     relayPost("/sync/pull",{key:s.key}).then(function(j){
       _syncBusy=false;
-      if(!j||!j.ok){s.err=(j&&j.error)||"sync error";renderSync();return;}
+      if(!j||!j.ok){s.err=(j&&j.error)||"sync error";logSync("error",s.rev,0,s.err);renderSync();return;}
       if(j.doc&&syncMoved(j.doc)){s.err="upgrade";renderSync();return;}
       s.err="";s.lastSyncAt=Date.now();
       if(j.doc&&(j.rev||0)>(s.rev||0)){
         if(isEditing()){renderSync();return;} // don't yank the UI mid-edit — next focus/poll retries
-        if(s.dirty){mergeRemoteDoc(j.doc);s.rev=j.rev||0;s.updatedAt=j.updatedAt||s.updatedAt;save();syncRerender();return;} // unpushed local edits — merge, then push the union
-        applySyncDoc(j.doc);s.rev=j.rev||0;s.updatedAt=j.updatedAt||s.updatedAt;persist();_lastPushedDoc=JSON.stringify(buildSyncDoc());s.dirty=false;syncRerender();return;
+        if(s.dirty){var n=mergeRemoteDoc(j.doc);s.rev=j.rev||0;s.updatedAt=j.updatedAt||s.updatedAt;logSync("pull",s.rev,0,"merged "+n);if(n>0)toast("Merged changes from another device ("+n+" item"+(n===1?"":"s")+")");save();syncRerender();return;} // unpushed local edits — merge, then push the union
+        applySyncDoc(j.doc);s.rev=j.rev||0;s.updatedAt=j.updatedAt||s.updatedAt;logSync("pull",s.rev,0,"applied");persist();_lastPushedDoc=JSON.stringify(buildSyncDoc());s.dirty=false;syncRerender();return;
       }
       if((j.rev||0)===(s.rev||0)&&_lastPushedDoc===null&&j.doc){
         // fresh app open at the cloud rev — if our doc matches the cloud byte-for-byte, seed the
@@ -2239,17 +2274,19 @@
     if(!syncOn())return;
     var s=syncCfg();
     if(s.err==="upgrade")return; // this key was re-keyed elsewhere — pushing would fork the data
+    if(!state.devices||typeof state.devices!=="object")state.devices={};
+    state.devices[syncDeviceId()]={label:(s.label||""),lastSeen:Date.now()}; // presence rides real pushes only (72)
     var base=relayBase(),doc=buildSyncDoc(),docStr=JSON.stringify(doc);
     _lastSyncDocBytes=docStr.length;
     if(docStr.length>SYNC_DOC_WARN_BYTES&&!_syncDocWarned){_syncDocWarned=true;toast("Your sync doc is over 1 MB — consider trimming council history (footer stats).");renderStorageStats();}
     relayPost("/sync/push",{key:s.key,doc:doc,baseRev:s.rev||0,deviceId:syncDeviceId(),force:!!force}).then(function(j){
       if(!j){s.err="sync error";renderSync();return;}
-      if(j.ok){s.rev=j.rev||s.rev;s.updatedAt=j.updatedAt||s.updatedAt;s.lastSyncAt=Date.now();s.err="";s.dirty=false;_lastPushedDoc=docStr;persist();renderSync();return;}
+      if(j.ok){s.rev=j.rev||s.rev;s.updatedAt=j.updatedAt||s.updatedAt;s.lastSyncAt=Date.now();s.err="";s.dirty=false;_lastPushedDoc=docStr;logSync("push",s.rev,docStr.length,"");persist();renderSync();return;}
       if(j.stale&&j.doc&&syncMoved(j.doc)){s.err="upgrade";renderSync();return;}
       if(j.stale&&j.doc){
         // the cloud advanced under us — MERGE losslessly (never overwrite), then
         // re-push the union so both devices converge to the same superset.
-        mergeRemoteDoc(j.doc);s.rev=j.rev||s.rev;s.updatedAt=j.updatedAt||s.updatedAt;s.lastSyncAt=Date.now();s.err="";persist();
+        var n2=mergeRemoteDoc(j.doc);s.rev=j.rev||s.rev;s.updatedAt=j.updatedAt||s.updatedAt;s.lastSyncAt=Date.now();s.err="";logSync("merge",s.rev,0,"stale — merged "+n2);if(n2>0)toast("Merged changes from another device ("+n2+" item"+(n2===1?"":"s")+")");persist();
         if(isEditing())renderSync();else syncRerender();
         if((depth||0)<2)syncPush((depth||0)+1);
         return;
@@ -2323,6 +2360,37 @@
     var s=passStrength(i.value);
     m.textContent="Strength: "+s.label;m.style.color=s.color;
   }
+  function agoShort(ms){if(!ms)return "never";var sec=Math.round((Date.now()-ms)/1000);if(sec<10)return "just now";if(sec<60)return sec+"s ago";var m=Math.round(sec/60);if(m<60)return m+"m ago";var h=Math.round(m/60);if(h<48)return h+"h ago";return Math.round(h/24)+"d ago";}
+  function devicesLineHTML(){
+    var d=state.devices||{},ids=[],k;
+    for(k in d){if(d.hasOwnProperty(k))ids.push(k);}
+    if(!ids.length)return "";
+    ids.sort(function(a,b){return ((d[b]||{}).lastSeen||0)-((d[a]||{}).lastSeen||0);});
+    var parts=[],i,me=syncCfg().deviceId;
+    for(i=0;i<ids.length&&i<4;i++){var e=d[ids[i]]||{};parts.push(escapeHtml(e.label||("device "+String(ids[i]).slice(0,4)))+(ids[i]===me?" (this device)":"")+" · "+escapeHtml(agoShort(e.lastSeen||0)));}
+    return '<p class="hint" style="margin:4px 0 0">'+parts.join(" &nbsp;—&nbsp; ")+'</p>';
+  }
+  var syncForceArm="";
+  function keyVersionLabel(){var k=syncCfg().key||"";return k.indexOf("v2:")===0?"v2 · PBKDF2":"v1 · legacy — reconnect with your passphrase to upgrade";}
+  function syncDoctorHTML(){
+    var s=syncCfg();
+    var authLine=relayHealth.status==="auth"?"REJECTED — re-paste the token":(relayToken()?"token set on this device":"no token on this device");
+    var d1=(relayHealth.caps&&relayHealth.caps.sync!=null)?(relayHealth.caps.sync?"ok":"MISSING on relay"):"unknown — tap the Today health chip to refresh";
+    return '<div class="edit-panel"><div class="sec-head"><p class="section-label">Sync doctor</p></div>'+
+      '<p class="hint">Key: <strong>'+escapeHtml((s.key||"").slice(0,10))+'…</strong> ('+escapeHtml(keyVersionLabel())+') · Local rev '+(s.rev||0)+' · Last sync '+escapeHtml(agoShort(s.lastSyncAt||0))+'</p>'+
+      '<p class="hint">Relay auth: '+escapeHtml(authLine)+' · D1: '+escapeHtml(String(d1))+' · Last pushed doc: '+(_lastSyncDocBytes?Math.round(_lastSyncDocBytes/1024)+" KB":"—")+'</p>'+
+      devicesLineHTML()+
+      '<div class="edit-actions" style="margin-top:8px"><button class="btn-soft" type="button" data-sync-forcepush="1">Force push</button><button class="btn-soft" type="button" data-sync-forcepull="1">Force pull</button></div>'+
+      (syncForceArm?confirmCardHTML(syncForceArm==="push"?"Force push overwrites the <strong>cloud</strong> copy with this device&#39;s data. A local pre-snapshot is taken first.":"Force pull overwrites <strong>this device&#39;s</strong> data with the cloud copy. A local pre-snapshot is taken first.",'data-sync-forceyes="1"',(syncForceArm==="push"?"Force push":"Force pull"),'data-sync-forceno="1"'):"")+
+      '</div>';
+  }
+  function forcePull(){
+    var s=syncCfg();
+    relayPost("/sync/pull",{key:s.key}).then(function(j){
+      if(!j||!j.ok||!j.doc){toast("Nothing in the cloud to pull.");return;}
+      applySyncDoc(j.doc);s.rev=j.rev||0;s.updatedAt=j.updatedAt||s.updatedAt;s.dirty=false;persist();_lastPushedDoc=JSON.stringify(buildSyncDoc());logSync("pull",s.rev,0,"forced");syncRerender();toast("Force pull applied ✓");
+    }).catch(function(){toast("Couldn’t reach the relay.");});
+  }
   function syncStatusLine(){
     var s=state.sync;if(!s||!s.on)return "";
     if(s.err==="upgrade")return "Sync moved to a stronger key on another device — tap Disconnect, then Connect and re-enter your passphrase here";
@@ -2339,21 +2407,38 @@
     if(!s.on){
       var h=head+dotOff+'<strong>Cross-device sync · Off</strong><button class="linklike" type="button" data-sync-toggle="1">'+(syncOpen?"Close":"Connect")+'</button></div>';
       if(syncOpen){
-        h+='<div class="edit-panel"><div class="field"><label for="syncPass">Sync passphrase</label><input class="inp" id="syncPass" type="password" placeholder="a secret phrase (8+ chars) — same on every device" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></div><div class="hint" id="syncMeter" style="min-height:16px;margin:-6px 0 8px"></div><div class="edit-actions"><button class="add-btn" type="button" data-sync-connect="1">Start syncing</button><button class="btn-ghost" type="button" data-sync-gen="1">Generate</button></div><p class="hint"><strong>This phrase protects everything you sync</strong> — anyone who knows it can read your whole dataset, so make it long. Type the <strong>exact same phrase</strong> on each device — lowercase, no spaces is easiest. The <strong>link code</strong> shown afterward is only a check: when it matches on both devices, the two are linked. (You type your <em>phrase</em>, not the code.) It never leaves this device — only its fingerprint is sent.</p></div>';
+        h+='<div class="edit-panel"><div class="field"><label for="syncPass">Sync passphrase</label><input class="inp" id="syncPass" type="password" placeholder="a secret phrase (8+ chars) — same on every device" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></div><div class="hint" id="syncMeter" style="min-height:16px;margin:-6px 0 8px"></div><div class="field"><label for="syncLabel">Name this device (optional)</label><input class="inp" id="syncLabel" type="text" placeholder="e.g. Mac, iPhone" autocomplete="off" maxlength="24"></div><div class="edit-actions"><button class="add-btn" type="button" data-sync-connect="1">Start syncing</button><button class="btn-ghost" type="button" data-sync-gen="1">Generate</button></div><p class="hint"><strong>This phrase protects everything you sync</strong> — anyone who knows it can read your whole dataset, so make it long. Type the <strong>exact same phrase</strong> on each device — lowercase, no spaces is easiest. The <strong>link code</strong> shown afterward is only a check: when it matches on both devices, the two are linked. (You type your <em>phrase</em>, not the code.) It never leaves this device — only its fingerprint is sent.</p></div>';
       }else{
         h+='<p class="hint">Keep tasks, notes, and everything else in lock-step across your Mac and phone. One passphrase links your devices.</p>';
       }
       box.innerHTML=h;return;
     }
-    var sc=(s.key||"").slice(0,6);
-    box.innerHTML=head+'<span style="width:8px;height:8px;border-radius:50%;background:#3FA34D;display:inline-block"></span><strong>Cross-device sync · On</strong><button class="linklike" type="button" data-sync-now="1">Sync now</button><button class="linklike" type="button" data-sync-off="1" style="color:#B25B5B">Disconnect</button></div><p class="hint">'+escapeHtml(syncStatusLine())+(sc?' · link code <strong>'+escapeHtml(sc)+'</strong> <span style="opacity:.65">(must match on every device)</span>':'')+'</p>';
+    var sc=(s.key||"").replace(/^v2:/,"").slice(0,6);
+    box.innerHTML=head+'<span style="width:8px;height:8px;border-radius:50%;background:#3FA34D;display:inline-block"></span><strong>Cross-device sync · On</strong><button class="linklike" type="button" data-sync-now="1">Sync now</button><button class="linklike" type="button" data-sync-off="1" style="color:#B25B5B">Disconnect</button></div><p class="hint">'+escapeHtml(syncStatusLine())+(sc?' · link code <strong>'+escapeHtml(sc)+'</strong> <span style="opacity:.65">(must match on every device)</span>':'')+'</p>'+
+      devicesLineHTML()+
+      '<p class="hint" style="margin-top:4px"><button class="linklike" type="button" data-sync-log="1">'+(syncLogOpen?"Hide activity":"Activity")+'</button> · <button class="linklike" type="button" data-sync-doctor="1">'+(doctorOpen?"Close sync doctor":"Sync doctor")+'</button></p>'+
+      (syncLogOpen?syncLogHTML():"")+
+      (doctorOpen?syncDoctorHTML():"");
   }
   function handleSyncClick(e){
     if(e.target.closest("[data-sync-toggle]")){syncOpen=!syncOpen;renderSync();if(syncOpen){var i=$("syncPass");if(i)i.focus();}return;}
     if(e.target.closest("[data-sync-gen]")){var g=$("syncPass");if(g){g.type="text";g.value=(uid()+uid()).replace(/[^a-z0-9]/g,"").slice(0,16);renderPassMeter();}return;}
-    if(e.target.closest("[data-sync-connect]")){var p=$("syncPass");connectSync(p?p.value:"");return;}
+    if(e.target.closest("[data-sync-connect]")){var p=$("syncPass"),lb=$("syncLabel");if(lb)syncCfg().label=(lb.value||"").trim().slice(0,24);connectSync(p?p.value:"");return;}
     if(e.target.closest("[data-sync-now]")){syncNow();return;}
     if(e.target.closest("[data-sync-off]")){disconnectSync();return;}
+    if(e.target.closest("[data-sync-log]")){syncLogOpen=!syncLogOpen;renderSync();return;}
+    if(e.target.closest("[data-sync-doctor]")){doctorOpen=!doctorOpen;syncForceArm="";renderSync();return;}
+    if(e.target.closest("[data-sync-forcepush]")){syncForceArm="push";renderSync();return;}
+    if(e.target.closest("[data-sync-forcepull]")){syncForceArm="pull";renderSync();return;}
+    if(e.target.closest("[data-sync-forceyes]")){
+      var mode=syncForceArm;syncForceArm="";renderSync();
+      snapPut(portableDoc(state),"manual").then(function(){
+        if(mode==="push"){syncPush(0,true);toast("Force push sent.");}
+        else if(mode==="pull")forcePull();
+      });
+      return;
+    }
+    if(e.target.closest("[data-sync-forceno]")){syncForceArm="";renderSync();return;}
   }
   function findCouncil(id){for(var i=0;i<state.council.length;i++)if(state.council[i].id===id)return state.council[i];return null;}
   function copySvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';}
