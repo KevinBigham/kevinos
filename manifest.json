@@ -16,5 +16,10 @@
     "action": "./",
     "method": "GET",
     "params": { "title": "title", "text": "text", "url": "url" }
-  }
+  },
+  "shortcuts": [
+    { "name": "New task", "short_name": "Task", "url": "./?room=tasks", "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }] },
+    { "name": "Today", "short_name": "Today", "url": "./?room=today", "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }] },
+    { "name": "Ask Council", "short_name": "Council", "url": "./?room=next", "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }] }
+  ]
 }
