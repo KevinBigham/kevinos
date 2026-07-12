@@ -35,6 +35,6 @@ Check all three before every commit that ships a version.
 ## Repo layout
 - `index.html` — the whole app (one file, ES5-style vanilla JS, zero deps). `manifest.json` + `sw.js` make it an offline PWA.
 - `GETTING_STARTED.md` — full end-to-end setup tutorial and verification checklist.
-- `relay/` — optional Cloudflare Worker backend that powers AI, OAuth, sync, reminders, and live integrations. Holds provider keys and OAuth secrets server-side; the browser never sees them. The relay-only deep reference is `relay/RELAY_SETUP.md`.
+- `relay/` — optional Cloudflare Worker backend that powers AI, OAuth, sync, reminders, and live integrations. Holds provider keys and OAuth secrets server-side; the browser never sees them. Lock it with the `KEVINOS_TOKEN` secret (`GETTING_STARTED.md` Part 3.5) — an unlocked relay is open to anyone with the URL. The relay-only deep reference is `relay/RELAY_SETUP.md`.
 - `ROADMAP.md` — the phased build plan.
 - **`HANDOFF.md` — full project state + how to resume. Read this first if you're picking up the project.**

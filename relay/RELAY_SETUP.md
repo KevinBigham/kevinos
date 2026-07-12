@@ -60,10 +60,30 @@ https://kevinos-relay.YOURNAME.workers.dev
 
 ---
 
+## Step 3.5 — Lock the relay with a token (do this before daily use)
+
+Your Worker URL is public (it's in this repo). Without a token, anyone who finds it can spend your AI quotas and probe your sync routes. Locking it is two commands:
+
+```sh
+# Generate a random token and copy it somewhere safe for a minute:
+openssl rand -hex 24
+
+# Save it as the KEVINOS_TOKEN secret (paste it at the prompt), then redeploy:
+npx wrangler secret put KEVINOS_TOKEN
+npx wrangler deploy
+```
+
+From then on, every route except health (`GET /`) and the OAuth login/callback/status routes requires the `X-KevinOS-Token` header. The app sends it automatically once you paste the token in **Next → Connect AI → Relay token** (Step 4). The token is device-local: it never travels in backups, snapshots, or sync, so paste it once on each device.
+
+If the app ever toasts **"Relay token rejected — re-paste it in Settings"**, the token in the app and the secret on the Worker no longer match — re-paste (or re-rotate) it. Full walkthrough + verification curls: `GETTING_STARTED.md` Part 3.5.
+
+---
+
 ## Step 4 — Connect it in KevinOS
 1. Open KevinOS → **Next** tab → scroll to **Council queue**.
 2. Tap **Connect AI** → paste the URL from Step 3 → **Save**.
-3. Type a question in **Ask the Council…** → it answers right there. 🎉
+3. Paste your **Relay token** from Step 3.5 into the same card → **Save**.
+4. Type a question in **Ask the Council…** → it answers right there. 🎉
 
 ---
 
@@ -262,5 +282,6 @@ Sheets access is strictly read-only (`A1:H50` per sheet, up to 3 sheets) — the
 
 ## Notes
 - The key lives **only** on Cloudflare as an encrypted secret — never in the app, the repo, or your phone.
+- The relay itself is locked by the `KEVINOS_TOKEN` secret (Step 3.5) — set it on every real deployment.
 - `ALLOW_ORIGIN` is locked to your live site (`https://kevinbigham.github.io`). If you ever serve KevinOS from somewhere else, change it in `wrangler.toml` and redeploy.
 - Cost: Cloudflare Workers free tier = 100k requests/day (you'll use a handful). AI = your provider's usage (tiny).

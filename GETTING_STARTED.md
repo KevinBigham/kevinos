@@ -248,7 +248,7 @@ What `wrangler.toml` defines:
 - D1 binding: `SYNC`
 - Cron trigger: `crons = ["* * * * *"]`
 - Public vars: `PROVIDER`, `ALLOW_ORIGIN`, model vars, `MAX_TOKENS`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`, `GITHUB_CLIENT_ID`, `GOOGLE_CLIENT_ID`
-- Secret names: `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, `ANTHROPIC_API_KEY`, `VAPID_PRIVATE_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`
+- Secret names: `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, `ANTHROPIC_API_KEY`, `VAPID_PRIVATE_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `KEVINOS_TOKEN` (relay auth — see Part 3.5)
 
 Verify:
 
@@ -267,6 +267,51 @@ Checkpoint:
 - `push` is true when `VAPID_PUBLIC_KEY` exists.
 - `email`, `calendar`, and `peopleEnrich` are true when `GOOGLE_CLIENT_ID` is present.
 - `github` is true when `GITHUB_CLIENT_ID` is present.
+
+## Part 3.5: Set The Relay Token (Lock The Relay)
+
+**Do this before wiring anything else to the relay.** The relay URL is public (it's in this repo), so an unlocked relay lets anyone with the URL burn your AI quotas, probe `/sync/pull`, and hit Gmail-adjacent routes.
+
+When the `KEVINOS_TOKEN` secret is set, every route except health (`GET /`) and the OAuth login/callback/status routes requires an `X-KevinOS-Token` header with the matching value. When it is unset, everything stays open (back-compat for pre-v0.39 deployments) — fine for a five-minute smoke test, not for daily use.
+
+1. Generate a random token (any long random string works):
+
+```sh
+openssl rand -hex 24
+```
+
+2. Set it as a Worker secret — interactively only, paste at the prompt:
+
+```sh
+cd relay
+npx wrangler secret put KEVINOS_TOKEN
+npx wrangler deploy
+```
+
+3. Paste the same token into the app: **Next → Connect AI → Relay token**, then Save. The token is stored device-local only — it is never included in backups, snapshots, or the sync doc, so repeat this step once per device.
+
+Verify:
+
+```sh
+# no token → 401
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://kevinos-relay.YOURNAME.workers.dev/council -H "Content-Type: application/json" -d '{"prompt":"hi"}'
+# with token → not 401
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://kevinos-relay.YOURNAME.workers.dev/council -H "Content-Type: application/json" -H "X-KevinOS-Token: YOUR_TOKEN" -d '{"prompt":"hi"}'
+# health stays public
+curl -s https://kevinos-relay.YOURNAME.workers.dev/
+```
+
+Checkpoint:
+
+- Protected POST without the header returns `401`.
+- The same POST with the header does not return `401`.
+- `GET /` works with no token.
+- The app's Council answers normally after pasting the token in Settings.
+
+Notes:
+
+- The worker also accepts the secret under the names `RELAY_TOKEN` or `X_KEVINOS_TOKEN`; `KEVINOS_TOKEN` is the canonical name.
+- Rotating the token: `npx wrangler secret put KEVINOS_TOKEN` with a new value, redeploy, then re-paste it in Settings on every device.
 
 ## Part 4: Configure AI
 
@@ -715,6 +760,22 @@ Use the flag to find the missing setup:
 
 After changing vars, bindings, or secrets, redeploy the Worker.
 
+### Relay token rejected
+
+Symptoms:
+
+- The app toasts "Relay token rejected — re-paste it in Settings."
+- Council rows show a token-rejected error; the Today health chip goes red with "Relay token rejected".
+- `curl` against a protected route returns `401`.
+
+Cause: the `KEVINOS_TOKEN` secret on the Worker and the token saved in the app (Next → Connect AI → Relay token) don't match — usually after a token rotation, a fresh device, or a re-deploy to a new Worker.
+
+Fix:
+
+- Re-paste the current token in **Next → Connect AI → Relay token** and Save. The token is device-local, so each device needs it once.
+- If you rotated the secret, confirm the rotation actually deployed: `npx wrangler secret put KEVINOS_TOKEN`, then `npx wrangler deploy`.
+- To confirm which side is wrong, `curl` a protected route with the token you think is right (see Part 3.5's verify block).
+
 ### GitHub `invalid redirect_uri`
 
 The GitHub OAuth callback must match exactly:
@@ -830,6 +891,8 @@ OpenRouter free models can rotate or rate-limit. Update `OPENROUTER_MODEL` in `w
 
 - Client IDs are public. Client secrets are not.
 - `VAPID_PUBLIC_KEY` is public. `VAPID_PRIVATE_KEY` is not.
+- Set `KEVINOS_TOKEN` on every real deployment (Part 3.5). An unlocked relay means anyone with the public URL can spend your AI quotas and probe your sync and Gmail-adjacent routes.
+- The relay token lives only on the Worker (as a secret) and device-local in the app. Backups and snapshots blank it; sync never carries it.
 - Never paste API keys, private VAPID keys, or OAuth client secrets into chat, source files, README files, issue comments, screenshots, or shell command arguments.
 - Use `npx wrangler secret put NAME` and paste only at the prompt.
 - OAuth tokens are stored on the relay, keyed by random session ids.
