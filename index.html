@@ -519,6 +519,8 @@
   .health-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;background:var(--surface);padding:6px 10px;font-size:12px;color:var(--ink-soft);cursor:pointer}
   .health-chip i{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--ink-faint)}
   .health-chip.ok i{background:#3FA34D}.health-chip.off i,.health-chip.unknown i{background:#C09A2B}.health-chip.auth i,.health-chip.error i{background:#B25B5B}
+  .seat-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}
+  .seat-dot.good{background:#3FA34D}.seat-dot.meh{background:#C09A2B}.seat-dot.bad{background:#B25B5B}
   .today-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
   .snap-list,.heat-list,.library-list,.ai-review-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
   .snap-row,.heat-row,.library-row,.ai-review-row{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
@@ -1057,7 +1059,7 @@
   var PTR_PX=70;                         // pull distance that triggers Today's pull-to-refresh (item 55)
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",lanePins:{},v:SCHEMA_VERSION};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",lanePins:{},seatStats:{},v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
   var relayHealth={status:"unknown",checkedAt:0,caps:null,err:""}, relayHealthOpen=false;
   var ghMem={cache:null,fetchedAt:0}, sheetsMem={at:0,text:""}, swimMem={at:0,items:[]};
@@ -2303,7 +2305,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,theme:1,lanePins:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,theme:1,lanePins:1,seatStats:1,v:1};
   var _syncPushT=null,_syncBusy=false,_lastPushedDoc=null;
   // Sync activity log (item 71): last 20 pull/push events, device-local and
   // memory-only — debuggability, not data.
@@ -2619,14 +2621,14 @@
   function copySvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';}
   function flashCopied(btn,msg){var ob=btn.innerHTML;btn.innerHTML=msg||"Copied";setTimeout(function(){if(btn.isConnected)btn.innerHTML=ob;},1300);}
   function councilSeatHTML(q,s,i){
-    var lab=escapeHtml(s.label||s.provider||"AI"),lane=escapeHtml(s.lane||"");
+    var lab=escapeHtml(s.label||s.provider||"AI"),lane=escapeHtml(s.lane||""),dot=seatDotHTML(s.id);
     if(s.pending){
-      return '<div class="cq-seat pending"><div class="cq-seat-head"><span class="cq-seat-label">'+lab+'</span><span class="cq-prov">'+lane+'</span></div><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
+      return '<div class="cq-seat pending"><div class="cq-seat-head">'+dot+'<span class="cq-seat-label">'+lab+'</span><span class="cq-prov">'+lane+'</span></div><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
     }
     if(s.ok){
-      return '<div class="cq-seat"><div class="cq-seat-head"><span class="cq-seat-label">'+lab+'</span><span class="cq-prov">'+lane+'</span></div><div class="cq-answer">'+escapeHtml(s.text)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-seat="'+escapeHtml(q.id)+'" data-seat="'+i+'">'+copySvg()+'Copy</button><span class="cq-prov">'+escapeHtml((s.provider||"")+(s.ms?" · "+(s.ms/1000).toFixed(1)+"s":""))+'</span></div></div>';
+      return '<div class="cq-seat"><div class="cq-seat-head">'+dot+'<span class="cq-seat-label">'+lab+'</span><span class="cq-prov">'+lane+'</span></div><div class="cq-answer">'+escapeHtml(s.text)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-seat="'+escapeHtml(q.id)+'" data-seat="'+i+'">'+copySvg()+'Copy</button><span class="cq-prov">'+escapeHtml((s.provider||"")+(s.ms?" · "+(s.ms/1000).toFixed(1)+"s":""))+'</span></div></div>';
     }
-    return '<div class="cq-seat err"><div class="cq-seat-head"><span class="cq-seat-label">'+lab+'</span><span class="cq-pill err">'+escapeHtml(s.error||"failed")+'</span></div></div>';
+    return '<div class="cq-seat err"><div class="cq-seat-head">'+dot+'<span class="cq-seat-label">'+lab+'</span><span class="cq-pill err">'+escapeHtml(s.error||"failed")+'</span></div></div>';
   }
   function councilStreamingHTML(q){
     var seats=q.seats||[],aCount=0,allIn=true,i;
@@ -2661,6 +2663,29 @@
     h+=councilTasksHTML(q);
     return h;
   }
+  // Seat health memory (item 61) — device-local ok/fail counts per seat id
+  // (SYNC_SKIP, not in backups: this device's network view, not data). Counts
+  // halve past 50 samples so recent behavior dominates. Dots need 3+ samples.
+  var councilNoRecord={};
+  function seatStatsObj(){if(!state.seatStats||typeof state.seatStats!=="object")state.seatStats={};return state.seatStats;}
+  function recordSeatResult(id,ok){
+    if(!id)return;
+    var all=seatStatsObj(),s=all[id];
+    if(!s||typeof s!=="object"){s={ok:0,fail:0};all[id]=s;}
+    if(ok)s.ok=(s.ok||0)+1;else s.fail=(s.fail||0)+1;
+    if(((s.ok||0)+(s.fail||0))>50){s.ok=Math.round((s.ok||0)/2);s.fail=Math.round((s.fail||0)/2);}
+  }
+  function seatReliability(id){
+    var s=seatStatsObj()[id];if(!s||typeof s!=="object")return null;
+    var okN=s.ok||0,failN=s.fail||0,n=okN+failN;
+    if(n<3)return null;
+    return {rate:okN/n,n:n,ok:okN,fail:failN};
+  }
+  function seatDotHTML(id){
+    var r=seatReliability(id);if(!r)return"";
+    var cls=r.rate>=0.9?"good":(r.rate>=0.6?"meh":"bad");
+    return '<span class="seat-dot '+cls+'" title="'+r.ok+' ok · '+r.fail+' failed on this device"></span>';
+  }
   // Lane pinning (item 62). state.lanePins {seatId:laneKey} is device-local
   // (SYNC_SKIP, rides backups). Sent per-ask as body.lanes — the relay's
   // LANE_PINS var is only the server default, so swaps need no redeploy.
@@ -2681,7 +2706,7 @@
     var pins=(state.lanePins&&typeof state.lanePins==="object")?state.lanePins:{},seats=councilRosterList(),h="",i,s,cur,j,sel;
     for(i=0;i<seats.length;i++){
       s=seats[i];cur=String(pins[s.id]||"");
-      h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span style="flex:1;font-size:13px">'+escapeHtml(s.label||s.id)+'</span><select class="inp" data-lanepin="'+escapeHtml(s.id)+'" style="width:auto" aria-label="Lane for '+escapeHtml(s.label||s.id)+'">';
+      h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">'+seatDotHTML(s.id)+'<span style="flex:1;font-size:13px">'+escapeHtml(s.label||s.id)+'</span><select class="inp" data-lanepin="'+escapeHtml(s.id)+'" style="width:auto" aria-label="Lane for '+escapeHtml(s.label||s.id)+'">';
       for(j=0;j<LANE_OPTS.length;j++){sel=(LANE_OPTS[j][0]===cur)?" selected":"";h+='<option value="'+LANE_OPTS[j][0]+'"'+sel+'>'+LANE_OPTS[j][1]+'</option>';}
       h+='</select></div>';
     }
@@ -2699,6 +2724,8 @@
       .then(function(r){
         if(r.status===401){councilFail(id,"Relay token rejected - re-paste it in Settings.");return;}
         if(r.status===404){runCouncilLegacy(id);return;}
+        // A cache replay (item 68) re-plays old seat events — don't let it re-count seat health.
+        try{if(r.headers&&r.headers.get&&r.headers.get("X-KevinOS-Cache")==="hit")councilNoRecord[id]=true;}catch(eH){}
         if(!r.ok){return r.json().then(function(j){councilFail(id,(j&&j.error)||"No answer from the relay");},function(){councilFail(id,"No answer from the relay");});}
         if(r.body&&r.body.getReader)return readCouncilStream(id,r.body.getReader());
         return r.text().then(function(t){consumeCouncilNDJSON(id,t);}); // browser without streaming body — buffer then parse
@@ -2721,6 +2748,7 @@
       for(k=0;k<cur.seats.length;k++){if(cur.seats[k].id===evt.seat.id){cur.seats[k]=evt.seat;placed=true;break;}}
       if(!placed)cur.seats.push(evt.seat);
       cur.answered=countOk(cur.seats);
+      if(!councilNoRecord[cur.id])recordSeatResult(evt.seat.id,!!evt.seat.ok);
       return;
     }
     if(evt.type==="synthesis"){cur.synthesis=evt.synthesis||null;return;}
@@ -2734,6 +2762,7 @@
     }
     if(evt.type==="error"){if(!cur.error)cur.error=evt.error||"stream failed";return;}
     if(isArr(evt.seats)){ // a non-streaming relay ignored stream:true and returned the whole panel at once
+      if(!councilNoRecord[cur.id]){var ri;for(ri=0;ri<evt.seats.length;ri++)recordSeatResult(evt.seats[ri].id,!!evt.seats[ri].ok);}
       cur.seats=evt.seats;cur.synthesis=evt.synthesis||null;cur.answer="";cur.provider="";
       cur.asked=(typeof evt.asked==="number")?evt.asked:evt.seats.length;
       cur.answered=(typeof evt.answered==="number")?evt.answered:countOk(evt.seats);
@@ -2767,6 +2796,7 @@
     finishCouncilStream(id);
   }
   function finishCouncilStream(id){
+    delete councilNoRecord[id];
     var cur=findCouncil(id);if(!cur)return;
     if(cur.streaming){ // stream ended without a 'done' line — finalize from what arrived
       cur.streaming=false;

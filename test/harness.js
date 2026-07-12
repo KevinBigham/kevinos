@@ -109,6 +109,7 @@ const EXPORT_NAMES = [
   "closeHourVal", "updateTomorrowFocus", "launchBodyShort",
   "sweepStreak", "mergeSweepLog",
   "lanePinsClean", "councilRosterList",
+  "recordSeatResult", "seatReliability", "seatDotHTML",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

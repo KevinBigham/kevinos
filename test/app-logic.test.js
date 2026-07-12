@@ -209,6 +209,25 @@ const { loadApp } = require("./harness");
   assert.ok(Array.isArray(roster62) && roster62.length === 6 && roster62[0].id === "gemini",
     "roster falls back to the six known seats before any relay contact");
 
+  // W8 item 61 — seat health memory: device-local counts, 3-sample floor,
+  // decay past 50 samples, and the dot color bands.
+  delete st62.seatStats; // defensive read on states saved before v0.47
+  deep.app.recordSeatResult("groq", true);
+  deep.app.recordSeatResult("groq", true);
+  assert.strictEqual(deep.app.seatReliability("groq"), null, "fewer than 3 samples -> no verdict");
+  deep.app.recordSeatResult("groq", false);
+  const rel61 = deep.app.seatReliability("groq");
+  assert.ok(rel61 && rel61.n === 3 && Math.abs(rel61.rate - 2 / 3) < 1e-9, "rate = ok/(ok+fail)");
+  assert.match(deep.app.seatDotHTML("groq"), /seat-dot meh/, "2/3 lands in the amber band");
+  for (let i = 0; i < 30; i++) deep.app.recordSeatResult("groq", true);
+  assert.match(deep.app.seatDotHTML("groq"), /seat-dot good/, "sustained wins go green");
+  for (let i = 0; i < 60; i++) deep.app.recordSeatResult("zai", false);
+  const rel61b = deep.app.seatReliability("zai");
+  assert.ok(rel61b.n <= 50, "counts decay past 50 samples");
+  assert.match(deep.app.seatDotHTML("zai"), /seat-dot bad/, "sustained failures go red");
+  assert.strictEqual(deep.app.seatDotHTML("mistral"), "", "unseen seat -> no dot");
+  assert.strictEqual(deep.app.buildSyncDoc().seatStats, undefined, "seatStats is device-local (SYNC_SKIP)");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");
