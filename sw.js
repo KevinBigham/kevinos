@@ -1,5 +1,5 @@
 /* KevinOS service worker — offline shell, network-first so deploys stay fresh */
-var CACHE = "kevinos-v0_40";
+var CACHE = "kevinos-v0_41";
 var ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (e) {
