@@ -1,3 +1,5 @@
+HISTORICAL ARTIFACT - do not follow as current spec. This is the director's post-marathon film review of v0.39, preserved for the record. Current truth: MISSION.md and KEVINOS_EXECUTION_ORDER.md.
+
 HELL YES. Codex did the marathon. Now we do the coach’s film review before you trust it with your real life OS.
 Based on the transcript, Codex claims it implemented P1–P10, passed syntax checks, added a missing relay auth test, ran a browser smoke test, and updated MISSION.md. That is a huge win. But I would treat this as a candidate implementation, not a final merge, until the hard safety gates pass.
 The original plan correctly made P1–P3 the trust foundation: save/load guardrails, credential-safe portable backups, cache dehydration, and snapshots. Those were the “do not lose Kevin’s life data” layers.   The final architecture also depended on specific details like stripping connection state from portable docs, preserving device connections on import/restore, and using SCHEMA_VERSION as the only source of truth.   Codex says it did all of that, but the next step is to verify the actual diff against those contracts.

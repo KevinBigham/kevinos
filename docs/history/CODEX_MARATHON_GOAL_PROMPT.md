@@ -1,3 +1,5 @@
+> **HISTORICAL ARTIFACT — do not follow as current spec.** This is the original v0.39 marathon /goal prompt, preserved for the record. Current truth: MISSION.md (release record) and KEVINOS_EXECUTION_ORDER.md (active roadmap).
+
 /goal
 
 You are Codex acting as the implementation owner for KevinOS.
