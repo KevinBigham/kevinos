@@ -336,11 +336,12 @@ async function runSeat(seat, system, prompt) {
 //   {type:"seat",  seat:{...}}        (one per seat, in completion order)
 //   {type:"synthesis", synthesis}     (once all seats are in, if requested)
 //   {type:"done",  asked, answered}
-function streamCouncil(env, seats, system, prompt, wantSynth, origin) {
+function streamCouncil(env, seats, system, prompt, wantSynth, origin, cacheKey) {
   const enc = new TextEncoder();
+  let transcript = "";
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (obj) => controller.enqueue(enc.encode(JSON.stringify(obj) + "\n"));
+      const send = (obj) => { const line = JSON.stringify(obj) + "\n"; transcript += line; controller.enqueue(enc.encode(line)); };
       try {
         send({
           type: "start", asked: seats.length,
@@ -357,6 +358,10 @@ function streamCouncil(env, seats, system, prompt, wantSynth, origin) {
         const answered = results.filter((r) => r.ok);
         if (wantSynth) send({ type: "synthesis", synthesis: await synthesize(env, prompt, answered) });
         send({ type: "done", asked: results.length, answered: answered.length });
+        // 24h identical-question cache (item 68) — only successful councils.
+        if (cacheKey && env.PUSH && answered.length > 0) {
+          try { await env.PUSH.put(cacheKey, transcript, { expirationTtl: 86400 }); } catch (e2) { /* cache is best-effort */ }
+        }
       } catch (e) {
         send({ type: "error", error: (e && e.message) || "stream failed" });
       } finally {
@@ -1476,13 +1481,34 @@ async function handleRequest(request, env, origin) {
     const seats = councilSeats(env);
     if (!seats.length) return json({ error: "No Council seats configured on the relay" }, 500, origin);
 
-    if (wantStream) return streamCouncil(env, seats, system, prompt, wantSynth, origin);
+    // 24h identical-question cache (item 68): an accidental double-ask must
+    // not double-spend six seats. Keyed by full sha256 of prompt+system+shape.
+    const cacheKey = env.PUSH
+      ? "cq:" + (await sha256Hex(prompt + "\u0000" + system + "\u0000" + (wantSynth ? "s" : "") + (wantStream ? "n" : "j")))
+      : null;
+    if (cacheKey) {
+      try {
+        const hit = await env.PUSH.get(cacheKey);
+        if (hit) {
+          return new Response(hit, {
+            status: 200,
+            headers: { "Content-Type": wantStream ? "application/x-ndjson" : "application/json", "X-KevinOS-Cache": "hit", ...cors(origin) },
+          });
+        }
+      } catch (e2) { /* cache is best-effort */ }
+    }
+
+    if (wantStream) return streamCouncil(env, seats, system, prompt, wantSynth, origin, cacheKey);
 
     const results = await Promise.all(seats.map((seat) => runSeat(seat, system, prompt)));
 
     const answered = results.filter((r) => r.ok);
     const synthesis = wantSynth ? await synthesize(env, prompt, answered) : null;
-    return json({ seats: results, synthesis, asked: results.length, answered: answered.length }, 200, origin);
+    const bodyObj = { seats: results, synthesis, asked: results.length, answered: answered.length };
+    if (cacheKey && answered.length > 0) {
+      try { await env.PUSH.put(cacheKey, JSON.stringify(bodyObj), { expirationTtl: 86400 }); } catch (e3) { /* best-effort */ }
+    }
+    return json(bodyObj, 200, origin);
   }
 
   // Single-model endpoint (kept for back-compat) — uses PROVIDER.
