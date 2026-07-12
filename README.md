@@ -22,6 +22,18 @@ Open `index.html` directly, or use the hosted version. All data is stored locall
 
 Live: **https://kevinbigham.github.io/kevinos/**
 
+## The Data Trust Contract
+
+KevinOS holds a life. These promises are enforced in code, tested in `test/`, and non-negotiable:
+
+1. **Your data can never be silently lost.** A failing save shows a red banner and a toast within one edit, and after 5 minutes of failure a backup downloads automatically. A corrupt store can never be overwritten: boot shows a recovery screen, preserves the raw bytes exactly, and blocks all writes until you recover — including a "last good boot" line telling you what's at stake.
+2. **Deletions are deliberate.** Destructive actions (import, restore, disconnects) confirm in-card, and imports show a dry-run report (schema + counts vs your device) before anything is touched. Synced deletions use tombstones so nothing resurrects — and nothing deleted on one device reappears from another.
+3. **Backups contain your content, never your connections.** Exports and snapshots carry the 17 content collections + portable meta. They never contain sync keys, push subscriptions, GitHub/Google sessions, or the relay token (`relay.url` is kept, `relay.token` blanked). Importing a backup can never change what this device is connected to.
+4. **Recovery has layers.** JSON export/import (manual), a 5-deep IndexedDB snapshot ring (boot/autosave/pre-import/pre-restore/manual), and cross-device sync (passphrase-keyed, lossless merges — linking devices unions data, never halves it).
+5. **Sync never drops a side.** Conflicting edits merge by id with newer-edit-wins; anything either device added survives. The server orders writes by revision, not clocks.
+
+If any behavior in the app contradicts this contract, that's a bug — file it as data-safety, fix-first.
+
 ## Release checklist (the three-bump rule)
 
 Every release bumps all of these together, or none — drift here has bitten before (a v0.39 app shipped with a v0_38 service-worker cache):
