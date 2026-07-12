@@ -57,5 +57,17 @@ const { loadApp } = require("./harness");
   // uid shape (ids are [a-z0-9]; the W2 ingress sanitizer relies on this).
   for (let i = 0; i < 20; i++) assert.match(app.uid(), /^[a-z0-9]+$/);
 
+  // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
+  // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
+  const k2a = await app.deriveSyncKeyV2("correct horse battery");
+  const k2b = await app.deriveSyncKeyV2("correct horse battery");
+  assert.strictEqual(k2a, k2b, "v2 derivation is deterministic");
+  assert.match(k2a, /^v2:[a-f0-9]{64}$/);
+  const expected = "v2:" + require("crypto").pbkdf2Sync("correct horse battery", "kevinos-sync-v2", app.SYNC_KDF_ITERS, 32, "sha256").toString("hex");
+  assert.strictEqual(k2a, expected, "matches the PBKDF2 reference vector");
+  const k1 = await app.deriveSyncKey("correct horse battery");
+  assert.match(k1, /^[a-f0-9]{64}$/);
+  assert.notStrictEqual("v2:" + k1, k2a, "v1 and v2 keys differ");
+
   console.log("app-logic harness ok");
 })().catch((err) => { console.error(err); process.exit(1); });

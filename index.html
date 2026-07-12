@@ -2151,7 +2151,20 @@
       var b=new Uint8Array(buf),h="",i;for(i=0;i<b.length;i++)h+=(b[i]<16?"0":"")+b[i].toString(16);return h;
     });
   }
-  function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync\u0000"+passphrase);}
+  function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync\u0000"+passphrase);} // v1 (legacy) - kept for the migration pull
+  // v2 sync keys (item 15 / F5): PBKDF2 puts a real work factor between a
+  // passphrase and the key. The salt is fixed on purpose - two devices share
+  // only the passphrase, so the derivation must be reproducible from it alone.
+  var SYNC_KDF_ITERS=210000;
+  function deriveSyncKeyV2(passphrase){
+    var enc=new TextEncoder();
+    return crypto.subtle.importKey("raw",enc.encode(passphrase),{name:"PBKDF2"},false,["deriveBits"]).then(function(km){
+      return crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:enc.encode("kevinos-sync-v2"),iterations:SYNC_KDF_ITERS},km,256);
+    }).then(function(buf){
+      var b=new Uint8Array(buf),h="",i;for(i=0;i<b.length;i++)h+=(b[i]<16?"0":"")+b[i].toString(16);
+      return "v2:"+h;
+    });
+  }
   function isEditing(){var el=document.activeElement;if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select";}
   function buildSyncDoc(){var d={},k,cut=Date.now()-TOMBSTONE_TTL_MS;if(!state.deleted||typeof state.deleted!=="object")state.deleted={};for(k in state.deleted){if(state.deleted.hasOwnProperty(k)&&state.deleted[k]<cut)delete state.deleted[k];}for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}d.deleted=state.deleted;return d;}
   // Tombstones (id -> deletedAt ms) keep a deletion from resurrecting via merge; kept 30 days.
@@ -2197,12 +2210,16 @@
     renderSync();
     perfLog("syncRerender:"+room,_pt0);
   }
+  // A v1-keyed device that sees the moved-marker must stop pushing — writing
+  // over the marker would fork the dataset between the old and new keys (C2).
+  function syncMoved(doc){var s=syncCfg();return !!(doc&&doc.__movedToV2&&(s.key||"").indexOf("v2:")!==0);}
   function syncPull(){
     if(!syncOn()||_syncBusy)return;
     var s=syncCfg(),base=relayBase();_syncBusy=true;
     relayPost("/sync/pull",{key:s.key}).then(function(j){
       _syncBusy=false;
       if(!j||!j.ok){s.err=(j&&j.error)||"sync error";renderSync();return;}
+      if(j.doc&&syncMoved(j.doc)){s.err="upgrade";renderSync();return;}
       s.err="";s.lastSyncAt=Date.now();
       if(j.doc&&(j.rev||0)>(s.rev||0)){
         if(isEditing()){renderSync();return;} // don't yank the UI mid-edit — next focus/poll retries
@@ -2220,12 +2237,15 @@
   }
   function syncPush(depth,force){
     if(!syncOn())return;
-    var s=syncCfg(),base=relayBase(),doc=buildSyncDoc(),docStr=JSON.stringify(doc);
+    var s=syncCfg();
+    if(s.err==="upgrade")return; // this key was re-keyed elsewhere — pushing would fork the data
+    var base=relayBase(),doc=buildSyncDoc(),docStr=JSON.stringify(doc);
     _lastSyncDocBytes=docStr.length;
     if(docStr.length>SYNC_DOC_WARN_BYTES&&!_syncDocWarned){_syncDocWarned=true;toast("Your sync doc is over 1 MB — consider trimming council history (footer stats).");renderStorageStats();}
     relayPost("/sync/push",{key:s.key,doc:doc,baseRev:s.rev||0,deviceId:syncDeviceId(),force:!!force}).then(function(j){
       if(!j){s.err="sync error";renderSync();return;}
       if(j.ok){s.rev=j.rev||s.rev;s.updatedAt=j.updatedAt||s.updatedAt;s.lastSyncAt=Date.now();s.err="";s.dirty=false;_lastPushedDoc=docStr;persist();renderSync();return;}
+      if(j.stale&&j.doc&&syncMoved(j.doc)){s.err="upgrade";renderSync();return;}
       if(j.stale&&j.doc){
         // the cloud advanced under us — MERGE losslessly (never overwrite), then
         // re-push the union so both devices converge to the same superset.
@@ -2247,24 +2267,46 @@
     if(passphrase.length<4){toast("Use a longer sync passphrase (4+ characters).");return;}
     if(!relayOn()){toast("Connect AI (the relay) first — sync runs through it.");return;}
     var s=syncCfg();
-    deriveSyncKey(passphrase).then(function(key){
-      s.key=key;syncDeviceId();var base=relayBase();
-      return relayPost("/sync/pull",{key:key}).then(function(j){
-        var hasRemote=j&&j.ok&&j.doc&&(j.rev||0)>0;
-        s.on=true;s.err="";s.lastSyncAt=Date.now();syncOpen=false;
-        if(hasRemote){
-          // Linking devices MERGES both (union by id) — never deletes half your
-          // stuff. The union is pushed so the cloud + every device converge.
-          mergeRemoteDoc(j.doc);s.rev=j.rev||0;s.updatedAt=j.updatedAt||0;persist();syncRerender();syncPush();
-          toast("Linked ✓ Both devices merged — nothing lost.");return;
-        }
-        s.rev=0;s.updatedAt=0;persist();syncPush();renderSync();toast("Sync on ✓ This is your first linked device.");
+    // v2 first; if only a legacy v1 row exists, its data migrates under the
+    // v2 key and the v1 row gets a moved-marker so old devices stop pushing
+    // (C2: re-keying must never fork the dataset).
+    deriveSyncKeyV2(passphrase).then(function(key2){
+      return deriveSyncKey(passphrase).then(function(key1){
+        s.key=key2;syncDeviceId();
+        return relayPost("/sync/pull",{key:key2}).then(function(j2){
+          s.on=true;s.err="";s.lastSyncAt=Date.now();syncOpen=false;
+          var hasV2=j2&&j2.ok&&j2.doc&&(j2.rev||0)>0;
+          if(hasV2){
+            // Linking devices MERGES both (union by id) — never deletes half
+            // your stuff. The union is pushed so cloud + devices converge.
+            mergeRemoteDoc(j2.doc);s.rev=j2.rev||0;s.updatedAt=j2.updatedAt||0;persist();syncRerender();syncPush();
+            _lastRemindersJson=null;scheduleReminderSync();
+            toast("Linked ✓ Both devices merged — nothing lost.");return;
+          }
+          return relayPost("/sync/pull",{key:key1}).then(function(j1){
+            var hasV1=j1&&j1.ok&&j1.doc&&(j1.rev||0)>0;
+            if(hasV1)mergeRemoteDoc(j1.doc);
+            s.rev=0;s.updatedAt=0;persist();syncPush();syncRerender();
+            _lastRemindersJson=null;scheduleReminderSync(); // reminders carry the key at fire time — re-sync with v2 (C2)
+            if(hasV1){
+              // Mark the legacy row moved (data stays intact as the one-version
+              // read fallback); v1 devices see the marker, stop pushing, and
+              // nudge for a passphrase re-entry.
+              var movedDoc=j1.doc;movedDoc.__movedToV2=true;
+              relayPost("/sync/push",{key:key1,doc:movedDoc,baseRev:0,deviceId:syncDeviceId(),force:true}).catch(function(){});
+              toast("Sync upgraded ✓ Your data moved to a stronger key — nothing lost.");
+            }else{
+              toast("Sync on ✓ This is your first linked device.");
+            }
+          });
+        });
       });
     }).catch(function(){toast("Couldn’t reach sync. Check the relay connection.");});
   }
   function disconnectSync(){var s=syncCfg();s.on=false;s.key="";s.err="";if(_syncPushT){clearTimeout(_syncPushT);_syncPushT=null;}syncOpen=false;persist();renderSync();toast("Sync off on this device. Your synced data is kept — reconnect any time.");}
   function syncStatusLine(){
     var s=state.sync;if(!s||!s.on)return "";
+    if(s.err==="upgrade")return "Sync moved to a stronger key on another device — tap Disconnect, then Connect and re-enter your passphrase here";
     if(!navigator.onLine)return "Offline — will sync when you’re back online";
     if(s.err)return "Offline — will retry";
     if(s.lastSyncAt){var sec=Math.round((Date.now()-s.lastSyncAt)/1000);return sec<8?"Synced just now":sec<60?("Synced "+sec+"s ago"):("Synced "+Math.round(sec/60)+"m ago");}

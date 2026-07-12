@@ -58,6 +58,13 @@ function relayToken(env) {
   return ((env && (env.KEVINOS_TOKEN || env.RELAY_TOKEN || env.X_KEVINOS_TOKEN)) || "").toString();
 }
 
+// Sync keys: v1 = plain sha256 hex (legacy), v2 = "v2:" + PBKDF2 hex
+// (roadmap item 15). Both stay valid — v1 rows keep working as the read
+// fallback while devices re-key on their next passphrase entry.
+function validSyncKey(k) {
+  return typeof k === "string" && /^(v2:)?[a-f0-9]{16,128}$/.test(k);
+}
+
 function isPublicRoute(method, path) {
   if (method === "OPTIONS") return true;
   if (method === "GET" && path === "/") return true;
@@ -1218,7 +1225,7 @@ async function briefInbox(env, session) {
 // v0.38 — every generated brief opens with who Kevin is, distilled from the
 // synced profile facts (up to ~20, capped ~700 chars). "" when none exist.
 async function profileDigest(env, syncKey) {
-  if (!env.SYNC || !syncKey || !/^[a-f0-9]{16,128}$/.test(syncKey)) return "";
+  if (!env.SYNC || !syncKey || !validSyncKey(syncKey)) return "";
   try {
     const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(syncKey).first();
     if (!row || !row.doc) return "";
@@ -1234,7 +1241,7 @@ async function buildServerBrief(env, opts) {
   if (!env.GEMINI_API_KEY) return fallback;
   // 1) Day context: prefer app-supplied context; else read the synced D1 doc.
   let context = (opts.context || "").toString();
-  if (!context && opts.syncKey && /^[a-f0-9]{16,128}$/.test(opts.syncKey) && env.SYNC) {
+  if (!context && opts.syncKey && validSyncKey(opts.syncKey) && env.SYNC) {
     try {
       const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(opts.syncKey).first();
       if (row && row.doc) context = briefDigestText(briefDigest(JSON.parse(row.doc), opts.dateKey), opts.dateKey);
@@ -1263,7 +1270,7 @@ async function buildLaunchPlan(env, opts) {
   if (!env.GEMINI_API_KEY) return fallback;
   // 1) Day context: prefer app-supplied context; else read the synced D1 doc.
   let context = (opts.context || "").toString();
-  if (!context && opts.syncKey && /^[a-f0-9]{16,128}$/.test(opts.syncKey) && env.SYNC) {
+  if (!context && opts.syncKey && validSyncKey(opts.syncKey) && env.SYNC) {
     try {
       const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(opts.syncKey).first();
       if (row && row.doc) context = briefDigestText(briefDigest(JSON.parse(row.doc), opts.dateKey), opts.dateKey);
@@ -1288,7 +1295,7 @@ async function buildLaunchPlan(env, opts) {
   } catch (e) { return fallback; }
 }
 async function countOpenHabits(env, syncKey, dateKey) {
-  if (!env.SYNC || !syncKey || !/^[a-f0-9]{16,128}$/.test(syncKey)) return 0;
+  if (!env.SYNC || !syncKey || !validSyncKey(syncKey)) return 0;
   const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(syncKey).first();
   if (!row || !row.doc) return 0;
   let doc;
@@ -1303,7 +1310,7 @@ async function countOpenHabits(env, syncKey, dateKey) {
 async function buildPeopleNudge(env, opts) {
   const fallback = (opts.fallback || "").toString();
   const D = (opts.dateKey || "").toString();
-  if (!opts.syncKey || !/^[a-f0-9]{16,128}$/.test(opts.syncKey) || !env.SYNC || !D) return fallback;
+  if (!opts.syncKey || !validSyncKey(opts.syncKey) || !env.SYNC || !D) return fallback;
   try {
     const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(opts.syncKey).first();
     if (!row || !row.doc) return fallback;
@@ -1386,7 +1393,7 @@ async function buildWeeklyReview(env, opts) {
   if (!env.GEMINI_API_KEY) return fallback;
   // 1) Week context: prefer app-supplied context; else read the synced D1 doc.
   let context = (opts.context || "").toString();
-  if (!context && opts.syncKey && /^[a-f0-9]{16,128}$/.test(opts.syncKey) && env.SYNC) {
+  if (!context && opts.syncKey && validSyncKey(opts.syncKey) && env.SYNC) {
     try {
       const row = await env.SYNC.prepare("SELECT doc FROM docs WHERE id = ?").bind(opts.syncKey).first();
       if (row && row.doc) context = weeklyDigestText(weeklyDigest(JSON.parse(row.doc), opts.dateKey), opts.dateKey);
@@ -1753,7 +1760,7 @@ async function handleRequest(request, env, origin) {
     let payload;
     try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
     const key = ((payload && payload.key) || "").toString();
-    if (!/^[a-f0-9]{16,128}$/.test(key)) return json({ error: "Missing or invalid key" }, 400, origin);
+    if (!validSyncKey(key)) return json({ error: "Missing or invalid key" }, 400, origin);
     const row = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
     if (!row) return json({ ok: true, doc: null, updatedAt: 0, rev: 0 }, 200, origin);
     let doc = null;
@@ -1773,7 +1780,7 @@ async function handleRequest(request, env, origin) {
     let payload;
     try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
     const key = ((payload && payload.key) || "").toString();
-    if (!/^[a-f0-9]{16,128}$/.test(key)) return json({ error: "Missing or invalid key" }, 400, origin);
+    if (!validSyncKey(key)) return json({ error: "Missing or invalid key" }, 400, origin);
     const doc = payload && payload.doc;
     if (!doc || typeof doc !== "object") return json({ error: "Missing or invalid doc" }, 400, origin);
     const docStr = JSON.stringify(doc);

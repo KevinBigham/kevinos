@@ -159,6 +159,17 @@ async function post(worker, env, pathname, body) {
   r = await post(worker, { SYNC, KEVINOS_TOKEN: "secret" }, "/sync/pull", { key: KEY });
   assert.strictEqual(r.status, 401, "sync routes require the relay token when set");
 
+  // ── W4.15: v2 sync keys accepted alongside v1 ──────────────────────────
+  const V2KEY = "v2:" + "ab12cd34".repeat(8); // v2: + 64 hex
+  r = await post(worker, env, "/sync/push", { key: V2KEY, doc: { items: [{ id: "v2item" }] }, baseRev: 0, deviceId: "phone" });
+  assert.deepStrictEqual([r.j.ok, r.j.rev], [true, 1], "v2-prefixed key accepted for push");
+  r = await post(worker, env, "/sync/pull", { key: V2KEY });
+  assert.deepStrictEqual(r.j.doc.items.map((x) => x.id), ["v2item"], "v2 key pulls its own row");
+  r = await post(worker, env, "/sync/pull", { key: "v3:" + "ab12cd34".repeat(8) });
+  assert.strictEqual(r.status, 400, "unknown version prefix rejected");
+  r = await post(worker, env, "/sync/pull", { key: "v2:NOT-HEX" });
+  assert.strictEqual(r.status, 400, "v2 with non-hex body rejected");
+
   // ── W4.17: AI-route rate limiting via a KV counter ─────────────────────
   function fakeKV(seed) {
     const map = new Map(Object.entries(seed || {}));

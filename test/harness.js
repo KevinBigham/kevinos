@@ -98,6 +98,7 @@ const EXPORT_NAMES = [
   "unfold", "icsUnescape", "parseDT", "parseRRule", "expandRecurrence", "parseICS", "icsEscape", "buildICS",
   "habitDoneToday", "habitCurrentStreak", "habitLongestStreak", "habitGrid7", "toggleHabitToday",
   "trimCouncil", "COUNCIL_KEEP", "entityBytes", "docCountsText", "verifyBackup",
+  "deriveSyncKey", "deriveSyncKeyV2", "SYNC_KDF_ITERS",
   "computeStreaks", "weekStartKey",
   "go", "normalizeRoom",
 ];
