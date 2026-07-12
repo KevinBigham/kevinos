@@ -177,7 +177,7 @@ Never run concurrently:
 - [x] W0 Truth & Hotfixes → v0.40 *(2026-07-11, all 12 items)*
 - [x] W1 Test Harness locally green *(2026-07-11; CI green pending first push)*
 - [x] W2 Safety Refactors → v0.41 *(2026-07-11, suite green throughout)*
-- [ ] W3 Data Trust → v0.42 *(schema 40 if bumped)*
+- [x] W3 Data Trust → v0.42 *(2026-07-11; schema NOT bumped — item 9 landed as a sidecar key)*
 - [ ] W4 Relay Hardening + Key v2 → v0.43 + deploy #1
 - [ ] W5 Sync Observability → v0.44 + deploy #2 · **GATE-76 decided: ___**
 - [ ] W6 Daily-Driver UX → v0.45
@@ -228,3 +228,11 @@ Never run concurrently:
 - **MANUAL-UNVERIFIED:** (1) live 401 path through relayCall against the real relay — wrong token in Settings → expect one "Relay token rejected" toast, red health chip, Council row error (W4.19 re-tests this anyway); (2) push enable/disable + reminder sync through relayCall on the installed PWA — turn reminders off/on, send test push; (3) Gmail/GCal/GitHub OAuth flows through relayCall (connect once each, confirm no regression).
 - **Deviations:** (a) refreshRelayHealth now stores caps only on a healthy response (was: also on HTTP-error responses); caps has no reader today, noted for the record. (b) sanitizeIds also runs at boot (audit named three ingress sites; pre-existing storage is a fourth — safer reading). (c) run.sh's ES5 scan already documented in W1.
 - **Next task:** W3 item 41 — in-card confirm pattern replacing all seven window.confirm dialogs.
+
+### W3 — Data Trust Completion → v0.42 (2026-07-11) ✅
+- **Items completed (11/11):** 41 (all 7 window.confirms → in-card via confirmCardHTML; emergency-import bypasses the card since the overlay covers the footer), 8 (verifyBackup two-stage import: dry-run report → destructive confirm), 4 (snapshot restore diff preview via shared docCountsText), 3 (Snapshot-now button, reason "manual"), 5 (COUNCIL_KEEP=50 auto-cap + buried tombstones + footer Trim action), 6 (top-5 per-entity byte breakdown in stats), 77 (sync-doc bytes captured at push; >1 MB one-time toast + amber stats line), 80 (tombstone count/size stat; GC + trim unit tests), 7 (auto-download backup after 5-min failing-save episode), 9 (lastGoodBoot **sidecar key** + stakes line in emergency UI), 10 (Data Trust Contract in README). Release → v0.42.
+- **Commits:** e7df898, e2d5792, 68f2ea6, fdb9c50, a1791fd, b15c745, 1df2358, 9cc8ddd. Nothing pushed/deployed.
+- **Tests run:** `sh test/run.sh` ALL GREEN after every item (merge suite extended: state.deleted GC pin, trimCouncil tombstones; harness exports extended). Browser-verified (real Chromium): snapshot arm→diff→cancel and manual snapshot; import via real File through the change handler — stage-1 report (schema v99 warning, counts), stage-2 confirm, cancel leaves data byte-identical, accept replaces + stamps v39 + clears card; corrupt-load drill — emergency UI + "Last good boot … 1 tasks … at stake" + raw bytes preserved byte-identical; footer v0.42; zero console errors throughout.
+- **MANUAL-UNVERIFIED:** (1) 5-minute auto-backup — on a quota-limited profile, force failing saves, wait 5 min, expect one automatic download + toast; (2) in-card disconnect confirms for GitHub/Gmail/GCal against live connections (arm → cancel → arm → confirm; verify revocation happens only on confirm); (3) >1 MB sync-doc warning with real data volume.
+- **Deviations:** (a) item 9 landed as sidecar localStorage key `kevinos:lastGoodBoot` instead of a state field — a state field is unreadable exactly when the emergency screen needs it; consequently **no SCHEMA_VERSION bump was needed** (the anticipated →40 didn't happen; next candidate bump is W5/GATE-76). (b) item 4 folded into 41/8's shared counting helper (same region, strict dependency chain). (c) Emergency-mode import skips the in-card confirm (footer card would sit behind the overlay; the original window.confirm was reachable, the card isn't — user already explicitly chose Import from the recovery screen).
+- **Next task:** W4 item 19 — relay health `auth:` flag + app "relay unlocked" warning (deploy window #1; code-complete then queue deploy for Kevin).
