@@ -562,6 +562,7 @@
           <button class="tab" type="button" data-room="tasks">Tasks</button>
           <button class="tab" type="button" data-room="library">Library</button>
           <button class="tab" type="button" data-room="attic">More</button>
+          <span id="offlineChip" class="health-chip error" hidden role="status"><i></i>Offline</span>
           <button class="cmdk-btn" type="button" id="cmdkBtn">⌘K</button>
         </div>
       </div>
@@ -2543,7 +2544,16 @@
     if(s.lastSyncAt){var sec=Math.round((Date.now()-s.lastSyncAt)/1000);return sec<8?"Synced just now":sec<60?("Synced "+sec+"s ago"):("Synced "+Math.round(sec/60)+"m ago");}
     return "Syncing…";
   }
+  // W7 item 58 — offline chip in the always-visible nav row. Shows when the
+  // browser says offline OR when sync fetches are failing (captive-portal
+  // heuristic: navigator.onLine lies, the network doesn't).
+  function renderOfflineChip(){
+    var el=$("offlineChip");if(!el)return;
+    var off=!navigator.onLine||(syncOn()&&state.sync&&state.sync.err==="offline");
+    el.hidden=!off;
+  }
   function renderSync(){
+    renderOfflineChip();
     var box=$("syncRow");if(!box)return;
     var s=state.sync||{},dotOff='<span style="width:8px;height:8px;border-radius:50%;background:#8A8594;display:inline-block"></span>';
     var head='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">';
@@ -5301,8 +5311,8 @@
   document.addEventListener("touchend",function(){_ptrY=null;},{passive:true});
   window.addEventListener("focus",function(){checkDayChange();if(syncOn())syncPull();});
   document.addEventListener("visibilitychange",function(){if(!document.hidden){checkDayChange();if(syncOn())syncPull();}});
-  window.addEventListener("online",function(){if(syncOn())syncPush();renderSync();});
-  window.addEventListener("offline",function(){renderSync();});
+  window.addEventListener("online",function(){if(syncOn())syncPush();renderSync();renderOfflineChip();});
+  window.addEventListener("offline",function(){renderSync();renderOfflineChip();});
   setInterval(function(){if(!document.hidden)checkDayChange();},DAY_CHECK_MS);
   setInterval(function(){if(syncOn()&&!document.hidden&&navigator.onLine)syncPull();},SYNC_POLL_MS);
   renderSync();
@@ -5414,6 +5424,7 @@
     var sharedMsg=ingestShared();
     recordLastGoodBoot();
     applyTheme();renderThemeToggle();
+    renderOfflineChip();
     go("today");
     vcDetect();
     save();
