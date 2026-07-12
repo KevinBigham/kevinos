@@ -4290,7 +4290,9 @@
     }else if(parsed&&parsed.type==="note"){
       var n=parsed.note||{};state.notes.unshift({id:uid(),title:n.text||t,para:"Resource",area:vcArea(n.area||"Inbox"),tags:"",body:"",createdAt:Date.now()});
     }
-    inp.value="";save();renderToday();renderTasks();renderCalendar();renderNotes();
+    // W6 item 34 — only the visible room re-renders; hidden rooms rebuild on
+    // entry (go() calls their renderer), so painting them here was pure waste.
+    inp.value="";save();renderCurrentRoom();
   }
   function addCouncilFromText(t){
     t=(t||"").trim();if(!t)return;
