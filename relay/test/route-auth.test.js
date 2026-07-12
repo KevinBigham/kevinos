@@ -40,6 +40,12 @@ async function request(worker, pathname, opts) {
 
   res = await worker.default.fetch(new Request("https://relay.test/", { method: "GET" }), { KEVINOS_TOKEN: "secret" });
   assert.strictEqual(res.status, 200, "public health route should stay public");
+  let health = await res.json();
+  assert.strictEqual(health.auth, true, "health should advertise auth:true when a token is set");
+
+  res = await worker.default.fetch(new Request("https://relay.test/", { method: "GET" }), {});
+  health = await res.json();
+  assert.strictEqual(health.auth, false, "health should advertise auth:false on an unlocked relay");
 
   console.log("route auth ok");
 })().catch(function (err) {

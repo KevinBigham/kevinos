@@ -4034,9 +4034,10 @@
       state.roomStats[k]={visits:Math.max(l.visits||0,r.visits||0),last:Math.max(l.last||0,r.last||0)};
     }
   }
+  function relayUnlocked(){return !!(relayHealth.status==="ok"&&relayHealth.caps&&relayHealth.caps.auth===false);}
   function relayHealthLabel(){
     var st=relayHealth.status;
-    if(st==="ok")return "Relay online";
+    if(st==="ok")return relayUnlocked()?"Relay online — unlocked":"Relay online";
     if(st==="auth")return "Relay token rejected";
     if(st==="error")return "Relay unreachable";
     if(st==="off")return "Local mode";
@@ -4045,9 +4046,9 @@
   function relayHealthChipHTML(){
     var st=relayHealth.status||"unknown",body="";
     if(relayHealthOpen){
-      body='<div class="launch-card"><p class="hint">Relay status affects AI plan, Council, Gmail and Calendar OAuth, sync, and push reminders. KevinOS stays local-first when the relay is off or unreachable.</p></div>';
+      body='<div class="launch-card"><p class="hint">Relay status affects AI plan, Council, Gmail and Calendar OAuth, sync, and push reminders. KevinOS stays local-first when the relay is off or unreachable.'+(relayUnlocked()?' <strong>This relay has no KEVINOS_TOKEN set — anyone with its URL can use it. Lock it: GETTING_STARTED.md Part 3.5.</strong>':'')+'</p></div>';
     }
-    return '<button class="health-chip '+escapeHtml(st)+'" type="button" data-relay-health="1"><i></i>'+escapeHtml(relayHealthLabel())+'</button>'+body;
+    return '<button class="health-chip '+escapeHtml(relayUnlocked()?"unknown":st)+'" type="button" data-relay-health="1"><i></i>'+escapeHtml(relayHealthLabel())+'</button>'+body;
   }
   function refreshRelayHealth(force){
     var base=relayBase();
