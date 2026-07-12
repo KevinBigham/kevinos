@@ -3032,7 +3032,11 @@
     var until=null;if(r.UNTIL){var u=parseDT(r.UNTIL);if(u)until=u.date;}
     var exd={};(e.exdates||[]).forEach(function(d){exd[d]=true;});
     var cap=count||366,out=[],made=0,guard=0,anchor=keyToParts(e.date).d;
-    function add(dk){made++;if(!exd[dk])out.push({title:e.title,date:dk,time:e.time,allDay:e.allDay,end:e.end||null,location:e.location||"",notes:e.notes||"",uid:e.uid?e.uid+"-"+dk:null});}
+    // W6.0c: an EXDATE-excluded date does not consume COUNT — "made" counts
+    // delivered occurrences, so a 6-count rule with 1 exclusion yields 6
+    // events (director ruling; RFC 5545's strict reading would yield 5).
+    // The guard counters still bound the scan, so all-excluded rules halt.
+    function add(dk){if(exd[dk])return;made++;out.push({title:e.title,date:dk,time:e.time,allDay:e.allDay,end:e.end||null,location:e.location||"",notes:e.notes||"",uid:e.uid?e.uid+"-"+dk:null});}
     if(freq==="WEEKLY"&&r.BYDAY){
       var days=r.BYDAY.split(",").map(function(x){return ICS_WD[x.replace(/^[+-]?\d+/,"")];}).filter(function(x){return x!=null;});
       var sp=keyToParts(e.date),weekStart=addDaysKey(e.date,-(new Date(sp.y,sp.m,sp.d).getDay()));

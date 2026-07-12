@@ -52,10 +52,13 @@ function ics(lines) {
     "EXDATE;TZID=America/New_York:20260708T070000",  // skip Wednesday
     "END:VEVENT",
   ]));
+  // W6.0c contract change: EXDATE no longer consumes COUNT — the rule keeps
+  // generating until 6 occurrences are DELIVERED (old pin: the excluded
+  // Wednesday counted against COUNT, yielding 5; RFC-strict reading).
   assert.deepStrictEqual(
     r.events.map((e) => e.date),
-    ["2026-07-06", "2026-07-10", "2026-07-13", "2026-07-15", "2026-07-17"],
-    "6 occurrences generated, EXDATE removes the 07-08 Wednesday"
+    ["2026-07-06", "2026-07-10", "2026-07-13", "2026-07-15", "2026-07-17", "2026-07-20"],
+    "COUNT=6 delivers 6 occurrences; EXDATE removes the 07-08 Wednesday without consuming the count"
   );
   assert.ok(r.events.every((e) => e.time === "07:00"), "occurrences keep the start time");
   assert.strictEqual(r.events[0].uid, "wk-2026-07-06", "per-occurrence uid gets the date suffix");
