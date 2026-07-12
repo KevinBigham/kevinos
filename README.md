@@ -22,6 +22,16 @@ Open `index.html` directly, or use the hosted version. All data is stored locall
 
 Live: **https://kevinbigham.github.io/kevinos/**
 
+## Release checklist (the three-bump rule)
+
+Every release bumps all of these together, or none — drift here has bitten before (a v0.39 app shipped with a v0_38 service-worker cache):
+
+1. `index.html` footer version — `KevinOS v0.NN`.
+2. `sw.js` — `CACHE = "kevinos-v0_NN"`.
+3. `SCHEMA_VERSION` in `index.html` — **only** if the persisted data shape changed, and always with a `prevV<NN` migration gate. Never bump it casually.
+
+Check all three before every commit that ships a version.
+
 ## Repo layout
 - `index.html` — the whole app (one file, ES5-style vanilla JS, zero deps). `manifest.json` + `sw.js` make it an offline PWA.
 - `GETTING_STARTED.md` — full end-to-end setup tutorial and verification checklist.
