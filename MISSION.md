@@ -94,6 +94,12 @@ You are working in marathon mode.
 Run these before starting and after every phase:
 
 ```sh
+sh test/run.sh    # static checks + ES5 scan + every app/relay suite — all green or stop
+```
+
+The runner covers the old individual commands; they remain valid piecemeal:
+
+```sh
 awk '/<script>/{flag=1;next}/<\/script>/{flag=0}flag' index.html > /tmp/kevinos-index-script.js
 node --check /tmp/kevinos-index-script.js
 node --check sw.js
