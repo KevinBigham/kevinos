@@ -80,6 +80,35 @@ function authorized(request, env) {
   return request.headers.get("X-KevinOS-Token") === token;
 }
 
+// AI-route rate limit (roadmap item 17): a KV counter per caller per hour so a
+// leaked URL+token can't silently drain the free tiers. Fails OPEN — a KV
+// hiccup must never take the Council down. Set AI_RATE_LIMIT_PER_HOUR="0" to
+// disable. Costs ~1 KV read + 1 write per AI call (well inside free tier).
+const AI_ROUTES = {
+  "/ai": 1, "/council": 1, "/brief": 1, "/launch": 1, "/weekly": 1,
+  "/capture": 1, "/extract": 1, "/actions": 1, "/summarize": 1,
+  "/intake": 1, "/spend/scan": 1, "/sheets/digest": 1, "/swim/scan": 1,
+};
+async function rlHash(s) {
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].slice(0, 4).map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+async function aiRateLimited(request, env, path) {
+  if (request.method !== "POST" || !AI_ROUTES[path] || !env.PUSH) return false;
+  const limit = env.AI_RATE_LIMIT_PER_HOUR == null ? 120 : Number(env.AI_RATE_LIMIT_PER_HOUR);
+  if (!limit || limit <= 0) return false;
+  try {
+    const caller = request.headers.get("X-KevinOS-Token") || "open";
+    const key = "rl:" + Math.floor(Date.now() / 3600000) + ":" + (await rlHash(caller));
+    const n = Number(await env.PUSH.get(key)) || 0;
+    if (n >= limit) return true;
+    await env.PUSH.put(key, String(n + 1), { expirationTtl: 7200 });
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Resolve a promise, or reject if it takes longer than `ms` — so one slow seat
 // can never hold up the whole Council.
 function withTimeout(promise, ms, label) {
@@ -2337,6 +2366,8 @@ export default {
     const origin = env.ALLOW_ORIGIN || "*";
     if (request.method === "OPTIONS") return new Response(null, { headers: cors(origin) });
     if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401, origin);
+    if (await aiRateLimited(request, env, new URL(request.url).pathname))
+      return json({ ok: false, error: "Rate limit reached — this relay caps AI calls per hour. Try again soon." }, 429, origin);
     try {
       return await handleRequest(request, env, origin);
     } catch (e) {

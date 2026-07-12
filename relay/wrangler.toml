@@ -38,6 +38,9 @@ MISTRAL_MODEL = "mistral-small-latest"
 OPENROUTER_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-31b-it:free"
 ZAI_MODEL = "glm-4.7-flash"
 MAX_TOKENS = "1024"
+# AI-route rate limit per caller (token) per hour — a leaked URL+token can't
+# silently drain the free tiers. "0" disables. Uses the PUSH KV namespace.
+AI_RATE_LIMIT_PER_HOUR = "120"
 
 # Web Push (Phase 2b). The VAPID public key is meant to be public — the app
 # advertises it as applicationServerKey. The matching private key is a secret:

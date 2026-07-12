@@ -159,5 +159,43 @@ async function post(worker, env, pathname, body) {
   r = await post(worker, { SYNC, KEVINOS_TOKEN: "secret" }, "/sync/pull", { key: KEY });
   assert.strictEqual(r.status, 401, "sync routes require the relay token when set");
 
+  // ── W4.17: AI-route rate limiting via a KV counter ─────────────────────
+  function fakeKV(seed) {
+    const map = new Map(Object.entries(seed || {}));
+    return {
+      _map: map,
+      async get(k) { return map.has(k) ? map.get(k) : null; },
+      async put(k, v) { map.set(k, v); },
+    };
+  }
+  // Under the limit: request passes through to the route (500: no seats configured — not 429).
+  let kv = fakeKV();
+  r = await post(worker, { PUSH: kv }, "/council", { prompt: "hi" });
+  assert.notStrictEqual(r.status, 429, "first call is not rate limited");
+  assert.strictEqual([...kv._map.keys()].filter((k) => k.indexOf("rl:") === 0).length, 1, "counter written");
+
+  // At the limit: 429.
+  kv = fakeKV();
+  const bucketKey = "rl:" + Math.floor(Date.now() / 3600000) + ":";
+  // pre-seed by making 3 calls with limit 3, then the 4th trips
+  const envRl = { PUSH: kv, AI_RATE_LIMIT_PER_HOUR: "3" };
+  for (let i = 0; i < 3; i++) {
+    r = await post(worker, envRl, "/council", { prompt: "hi" });
+    assert.notStrictEqual(r.status, 429, "call " + (i + 1) + " under the cap");
+  }
+  r = await post(worker, envRl, "/council", { prompt: "hi" });
+  assert.strictEqual(r.status, 429, "4th call in the hour is limited");
+  assert.ok([...kv._map.keys()].some((k) => k.indexOf(bucketKey) === 0), "hour-bucketed key");
+
+  // Non-AI routes are never limited.
+  r = await post(worker, { SYNC, PUSH: fakeKV({}), AI_RATE_LIMIT_PER_HOUR: "0" }, "/sync/pull", { key: KEY });
+  assert.notStrictEqual(r.status, 429);
+  // "0" disables the limiter entirely.
+  r = await post(worker, { PUSH: fakeKV(), AI_RATE_LIMIT_PER_HOUR: "0" }, "/council", { prompt: "hi" });
+  assert.notStrictEqual(r.status, 429, "limit 0 disables");
+  // No PUSH binding: fails open.
+  r = await post(worker, {}, "/council", { prompt: "hi" });
+  assert.notStrictEqual(r.status, 429, "no KV = no limiting");
+
   console.log("sync push semantics ok");
 })().catch((err) => { console.error(err); process.exit(1); });
