@@ -5605,6 +5605,15 @@
       if(saved.spendMeta&&typeof saved.spendMeta==="object")state.spendMeta=saved.spendMeta;
       if(saved.roomStats&&typeof saved.roomStats==="object")state.roomStats=saved.roomStats;
       if(saved.deleted&&typeof saved.deleted==="object")state.deleted=saved.deleted;
+      // This block is a WHITELIST — every state field added after v0.39 must be
+      // restored here or it silently resets on every boot. These six were missed
+      // when they shipped (W4 devices, W6 closeHour/sweepLog, W7 theme, W8 pins/stats).
+      if(saved.devices&&typeof saved.devices==="object")state.devices=saved.devices;
+      if(saved.sweepLog&&typeof saved.sweepLog==="object")state.sweepLog=saved.sweepLog;
+      if(typeof saved.closeHour==="number")state.closeHour=saved.closeHour;
+      if(saved.theme==="dark"||saved.theme==="light")state.theme=saved.theme;
+      if(saved.lanePins&&typeof saved.lanePins==="object")state.lanePins=saved.lanePins;
+      if(saved.seatStats&&typeof saved.seatStats==="object")state.seatStats=saved.seatStats;
     }
     if(prevV<4)seedDefaults();
     if(prevV<5)seedPrompts();

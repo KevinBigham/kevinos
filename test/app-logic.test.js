@@ -281,6 +281,29 @@ const { loadApp } = require("./harness");
   deep.app.touch(deep.app.getState().profile.filter((f) => f.id === "f-keep")[0]);
   assert.strictEqual(deep.app.staleFact(), null, "touch marks a fact reviewed for another " + deep.app.FACT_STALE_DAYS + " days");
 
+  // W8 boot-restore fix — the loader whitelist dropped six post-v0.39 fields
+  // on every reload (devices, sweepLog, closeHour, theme, lanePins, seatStats).
+  // Pin the full round-trip: persisted values must survive a fresh boot.
+  const rt = await loadApp({
+    storedState: {
+      v: app.SCHEMA_VERSION,
+      items: [], // arrays come via CONTENT_ARRAYS; one is enough to prove the path
+      devices: { "dev-1": { name: "Mac", lastSeen: 111 } },
+      sweepLog: { "2026-07-06": 222 },
+      closeHour: 21,
+      theme: "dark",
+      lanePins: { groq: "devil" },
+      seatStats: { groq: { ok: 9, fail: 1 } },
+    },
+  });
+  const rtState = rt.app.getState();
+  assert.deepStrictEqual(rtState.devices, { "dev-1": { name: "Mac", lastSeen: 111 } }, "devices survive boot");
+  assert.deepStrictEqual(rtState.sweepLog, { "2026-07-06": 222 }, "sweepLog survives boot (streak intact)");
+  assert.strictEqual(rtState.closeHour, 21, "closeHour survives boot");
+  assert.strictEqual(rtState.theme, "dark", "manual theme survives boot");
+  assert.deepStrictEqual(rtState.lanePins, { groq: "devil" }, "lanePins survive boot");
+  assert.deepStrictEqual(rtState.seatStats, { groq: { ok: 9, fail: 1 } }, "seatStats survive boot");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");
