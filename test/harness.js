@@ -101,6 +101,7 @@ const EXPORT_NAMES = [
   "deriveSyncKey", "deriveSyncKeyV2", "SYNC_KDF_ITERS",
   "computeStreaks", "weekStartKey",
   "go", "normalizeRoom",
+  "checkDayChange", "DAY_CHECK_MS",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

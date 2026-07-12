@@ -1015,6 +1015,7 @@
   var COUNCIL_KEEP=50;                   // council sessions kept before trim (item 5)
   var SYNC_DOC_WARN_BYTES=1000000;       // warn when the pushed sync doc crosses 1 MB (item 77)
   var SAVE_FAIL_BACKUP_MS=300000;        // auto-download a backup after 5 min of failing saves (item 7)
+  var DAY_CHECK_MS=60000;                // foreground midnight-crossing check cadence (item 54)
 
   var store=makeStore();
   var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",v:SCHEMA_VERSION};
@@ -5066,10 +5067,22 @@
   $("syncRow").addEventListener("click",handleSyncClick);
   $("syncRow").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="syncPass"){e.preventDefault();connectSync(e.target.value);}});
   $("syncRow").addEventListener("input",function(e){if(e.target&&e.target.id==="syncPass")renderPassMeter();});
-  window.addEventListener("focus",function(){if(syncOn())syncPull();});
-  document.addEventListener("visibilitychange",function(){if(!document.hidden&&syncOn())syncPull();});
+  // W6 item 54 — day-change invalidation. _dayKey is the day the UI last
+  // rendered for; when the real day moves past it (backgrounded PWA reopened
+  // after midnight, or the app left open across it), the header and current
+  // room re-render for the new day. This is THE invalidation model: anything
+  // that caches per-day work (item 33's digest memo) is flushed here too.
+  var _dayKey=todayKey();
+  function checkDayChange(){
+    var tk=todayKey();if(tk===_dayKey)return false;
+    _dayKey=tk;paintHeader();renderCurrentRoom();renderHome();
+    return true;
+  }
+  window.addEventListener("focus",function(){checkDayChange();if(syncOn())syncPull();});
+  document.addEventListener("visibilitychange",function(){if(!document.hidden){checkDayChange();if(syncOn())syncPull();}});
   window.addEventListener("online",function(){if(syncOn())syncPush();renderSync();});
   window.addEventListener("offline",function(){renderSync();});
+  setInterval(function(){if(!document.hidden)checkDayChange();},DAY_CHECK_MS);
   setInterval(function(){if(syncOn()&&!document.hidden&&navigator.onLine)syncPull();},SYNC_POLL_MS);
   renderSync();
   if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});}

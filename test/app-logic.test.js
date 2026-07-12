@@ -57,6 +57,11 @@ const { loadApp } = require("./harness");
   // uid shape (ids are [a-z0-9]; the W2 ingress sanitizer relies on this).
   for (let i = 0; i < 20; i++) assert.match(app.uid(), /^[a-z0-9]+$/);
 
+  // W6 item 54 — day-change model: same-day check is a no-op that reports
+  // false; the midnight flip itself is a MANUAL-UNVERIFIED on-device drill.
+  assert.strictEqual(app.checkDayChange(), false, "same-day checkDayChange is a no-op");
+  assert.strictEqual(app.DAY_CHECK_MS, 60000, "foreground day-check cadence");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");
