@@ -140,6 +140,8 @@ Every wave ends with: full static-check ritual → version bump per item 90's ch
 
 Whatever the pick, 79's three-device proof re-runs after, and the choice gets a MISSION.md decision note (the D1-not-Supabase precedent).
 
+**⚖️ DECIDED 2026-07-11 (session 2, under Kevin's delegation): Option A — split-doc. Implementation DEFERRED** until Kevin confirms v0.44 is live and the re-key drill passed on his real devices. Encrypt the 17 content arrays client-side; maintain the small opt-in plaintext digest (today's task titles/counts, open-habit count, overdue-people count, opted-in profile facts) so all six server-side smart features keep working. Full decision note: `MISSION.md` → Decision log. Deliberately NOT implemented this session.
+
 ---
 
 ## 5. Parallelization guide (for the multi-agent ceremony)
@@ -179,7 +181,7 @@ Never run concurrently:
 - [x] W2 Safety Refactors → v0.41 *(2026-07-11, suite green throughout)*
 - [x] W3 Data Trust → v0.42 *(2026-07-11; schema NOT bumped — item 9 landed as a sidecar key)*
 - [x] W4 Relay Hardening + Key v2 → v0.43 code-complete *(2026-07-11; deploy #1 AWAITING KEVIN)*
-- [~] W5 Sync Observability → v0.44 code-complete *(2026-07-11; deploy #2 + **GATE-76 decision AWAITING KEVIN**)* · **GATE-76 decided: ___**
+- [x] W5 Sync Observability → v0.44 code-complete *(2026-07-11; deploy #2 AWAITING KEVIN)* · **GATE-76 decided: A (split-doc) — implementation deferred until v0.44 is live + re-key drill passes on real devices**
 - [ ] W6 Daily-Driver UX → v0.45
 - [ ] W7 Theme/Mobile/PWA → v0.46
 - [ ] W8 AI Leverage → v0.47 + deploy #3
@@ -259,3 +261,10 @@ Never run concurrently:
 - **⏸ GATE-76 — Kevin must pick A, B, or C (see §4 above) before any encryption work. Recommendation on file: A (split-doc digest). Whatever the pick, record it in MISSION.md and re-run test/convergence.test.js after implementation.**
 - **⏸ Deploy #2 (after GATE-76 decision, or without 76 if C/deferred):** same runbook as deploy #1 — relay first, curl health, then push the app.
 - **Next task:** if GATE-76 = A or B → implement 76 here in W5; if C or deferred → W6 item 54 (midnight/visibility day-change re-render), the invalidation model item 33 keys off.
+
+### Session 2 — GATE-76 decision recorded + v0.44 frozen for merge (2026-07-11)
+- **Re-ground:** tip `7de2c31` matched this log; working tree clean; `sh test/run.sh` ALL GREEN (10 suites) before any edit — session baseline.
+- **Freeze & package:** tagged `v0.44-marathon`; exported **58 patches** (`91d6105..v0.44-marathon`) to `../kevinos-merge-batches/batch-1/` plus baseline copies of the three marathon-only docs to `../kevinos-merge-batches/preflight/`. **Landmine documented:** batch-1 patches modify `KEVINOS_EXECUTION_ORDER.md`, which Kevin's real clone does not have — the preflight docs must be seeded (at baseline content) and committed before `git am`, or those patches fail. Full merge + deploy runbook: `../kevinos-merge-batches/README.md`. Commits made after the tag (this session) ship later as batch-2; batch-1 is unaffected by them.
+- **GATE-76 DECIDED: Option A (split-doc), implementation DEFERRED** pending live v0.44 + real-device re-key drill. Recorded in §4, the §7 tracker, and `MISSION.md` → Decision log (D1-not-Supabase house style). Deliberately NOT implemented this session.
+- **Director promotion:** the four W1 characterization quirks are promoted to a **W6.0 bug-fix cluster** (a: leading `@token` capture, b: monthly Jan-31 date-overflow clamp, c: ICS EXDATE consuming RRULE COUNT, d: date-only DTEND dropped). Each is an intentional contract change: old pin stated, new pin stated, one bug per commit, fixed before W6 features build on the parser/calendar.
+- **Next task:** W6.0a (leading `@token`), then b→c→d, then W6 proper 54→33→34→35→44→43→45→48→46→47→49 → v0.45.

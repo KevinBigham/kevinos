@@ -123,6 +123,10 @@ Scan record:
 
 - 2026-07-11 (W0, pre-v0.40): scan run — clean. Only benign matches (task-tag "sk-", secret-name references in docs).
 
+## Decision log
+
+- **2026-07-11 — GATE-76 (E2E sync encryption): Option A (split-doc), implementation deferred.** Decided under Kevin's delegated direction at the W5 gate. The sync doc's 17 content arrays get encrypted client-side (AES-GCM, key derived from the passphrase alongside the doc id); the app maintains a small **opt-in plaintext digest** alongside (today's task titles/counts, open-habit count, overdue-people count, profile facts Kevin opts in) so all six server-side smart-push features — 8am brief, Launch plan, Sunday weekly, 8pm habit-aware skip, people nudges, profile personalization — keep working. ~90% privacy win, zero feature cost. Option B (client-computed pushes: total privacy, briefs go dumb-when-closed) and Option C (decline: document the trust model) were considered and not chosen. **Implementation begins only after Kevin confirms v0.44 is live and the re-key drill passed on his real devices** — the encryption rides on the v2-key foundation being proven in production first. When it lands: schema bump per Law 6 only if the persisted shape changes, and `test/convergence.test.js` re-runs against the encrypted doc format. *(House precedent: the D1-not-Supabase decision note, Phase 3.)*
+
 ## Mission status ledger
 
 Update this ledger after each phase.
