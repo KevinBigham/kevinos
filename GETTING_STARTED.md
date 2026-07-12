@@ -21,9 +21,9 @@ What is already live for Kevin:
 
 - Static app: https://kevinbigham.github.io/kevinos/
 - Relay: https://kevinos-relay.kevinbigham.workers.dev
-- App version shown in the footer: `KevinOS v0.38`
-- Service worker cache: `kevinos-v0_38`
-- Persisted schema stamp: `state.v = 37`
+- App version shown in the footer: `KevinOS v0.39`
+- Service worker cache: `kevinos-v0_39`
+- Persisted schema stamp: `state.v = 39`
 - Relay name: `kevinos-relay`
 - Relay entrypoint: `relay/worker.js`
 - Relay config: `relay/wrangler.toml`
@@ -172,7 +172,7 @@ Local CORS caveat:
 Checkpoint:
 
 - The page opens.
-- The footer shows `KevinOS v0.38`.
+- The footer shows the current version from the repo (`KevinOS v0.39` at the time of writing — match it to `index.html`'s footer).
 - Local edits save in the browser.
 - No relay-dependent feature is expected to work until a relay URL is connected.
 
@@ -203,8 +203,7 @@ This guide shows the commit commands for later use. Do not commit from an automa
 Checkpoint:
 
 - GitHub Pages opens at https://kevinbigham.github.io/kevinos/
-- The current footer still says `KevinOS v0.38` if only docs changed.
-- `sw.js` still has `var CACHE = "kevinos-v0_38";` if only docs changed.
+- The footer version and `sw.js` `CACHE` are unchanged if only docs changed (docs-only deploys never bump versions).
 
 ## Part 3: Deploy The Cloudflare Relay
 
@@ -246,7 +245,7 @@ What `wrangler.toml` defines:
 - Worker AI binding: `[ai] binding = "AI"`
 - KV binding: `PUSH`
 - D1 binding: `SYNC`
-- Cron trigger: `crons = ["* * * * *"]`
+- Cron trigger: `crons = ["*/2 * * * *"]` (every 2 minutes on purpose — every-minute blew KV's 1,000 lists/day free cap; don't "optimize" it back)
 - Public vars: `PROVIDER`, `ALLOW_ORIGIN`, model vars, `MAX_TOKENS`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`, `GITHUB_CLIENT_ID`, `GOOGLE_CLIENT_ID`
 - Secret names: `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `ZAI_API_KEY`, `ANTHROPIC_API_KEY`, `VAPID_PRIVATE_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `KEVINOS_TOKEN` (relay auth — see Part 3.5)
 
@@ -655,7 +654,7 @@ Checkpoint:
 
 | Area | Setup needed | How to verify | Common fix |
 | --- | --- | --- | --- |
-| Static app | GitHub Pages or local HTTP | Open the app and confirm footer `KevinOS v0.38` | Hard refresh or clear stale service worker cache |
+| Static app | GitHub Pages or local HTTP | Open the app and confirm the footer version matches `index.html` | Hard refresh or clear stale service worker cache |
 | Service worker/PWA install | `manifest.json`, `sw.js`, HTTPS or local HTTP | Install to Home Screen or app shell opens offline | Use HTTPS/live URL, not `file://` |
 | Relay health | Worker deployed | `curl https://kevinos-relay.kevinbigham.workers.dev/` | Deploy from `relay/`; check Cloudflare account |
 | Council | Relay URL plus AI seats | Next -> Council queue -> ask a test | Set `GEMINI_API_KEY`, confirm `[ai]`, redeploy |

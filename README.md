@@ -15,8 +15,8 @@ python3 -m http.server 8128
 
 Then open `http://localhost:8128/`.
 
-**Daily:** Home · Next (to-do hub) · Calendar · Notes
-**Workspace:** Projects · Studio · Briefs · Prompts · Launchpad · GitHub streak keeper
+**Primary nav:** Today · Calendar · Tasks · Library · More
+**Under More (the Attic):** Council & Briefs · Projects · Habits · People · Email · GitHub · Goals · Studio · Briefs · Prompts · Launchpad · Notes · Stash
 
 Open `index.html` directly, or use the hosted version. All data is stored locally on your device — export or import a JSON backup any time from the footer. No accounts, no tracking, no secrets in the source.
 
@@ -37,4 +37,4 @@ Check all three before every commit that ships a version.
 - `GETTING_STARTED.md` — full end-to-end setup tutorial and verification checklist.
 - `relay/` — optional Cloudflare Worker backend that powers AI, OAuth, sync, reminders, and live integrations. Holds provider keys and OAuth secrets server-side; the browser never sees them. Lock it with the `KEVINOS_TOKEN` secret (`GETTING_STARTED.md` Part 3.5) — an unlocked relay is open to anyone with the URL. The relay-only deep reference is `relay/RELAY_SETUP.md`.
 - `ROADMAP.md` — the phased build plan.
-- **`HANDOFF.md` — full project state + how to resume. Read this first if you're picking up the project.**
+- **`MISSION.md` — the current release's ground truth (marathon spec + ledger). Read this first if you're picking up the project**, then `HANDOFF.md` (deep history + architecture, with a v0.39 addendum).

@@ -40,15 +40,15 @@ Trust source code over older prose if there is drift. If docs and code disagree,
 - Repo root on Kevin's Mac: `/Users/kevin/KevinOS/app`
 - Live app: `https://kevinbigham.github.io/kevinos/`
 - Live relay: `https://kevinos-relay.kevinbigham.workers.dev`
-- App version in footer: `KevinOS v0.37`
-- Service worker cache: `kevinos-v0_37`
-- Persisted schema stamp: `state.v = 36`
+- App version in footer: `KevinOS v0.39` *(freeze-frame — always trust `index.html`'s footer and `MISSION.md` over this line)*
+- Service worker cache: `kevinos-v0_39`
+- Persisted schema stamp: `state.v = 39`
 - Relay Worker name: `kevinos-relay`
 - Relay entrypoint: `relay/worker.js`
 - Relay config: `relay/wrangler.toml`
 - Worker compatibility date: `2024-11-01`
 - CORS origin: `https://kevinbigham.github.io`
-- Current relay health should show Gemini provider, five Council seats, and all capability flags true.
+- Current relay health should show Gemini provider, six Council seats (gemini, cloudflare, groq, mistral, openrouter, zai), and all capability flags true.
 
 Quick health check:
 
