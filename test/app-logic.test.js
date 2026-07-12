@@ -62,6 +62,22 @@ const { loadApp } = require("./harness");
   assert.strictEqual(app.checkDayChange(), false, "same-day checkDayChange is a no-op");
   assert.strictEqual(app.DAY_CHECK_MS, 60000, "foreground day-check cadence");
 
+  // W6 item 33 — dayDigest memo: identical object on a repeat call, flushed
+  // by every mutation funnel (touch / bury / explicit invalidation).
+  const st33 = app.getState();
+  st33.items.unshift({ id: "m33", text: "memo probe", area: "Work", due: tk, done: false });
+  app.invalidateDayCache();
+  const d1 = app.dayDigest(tk);
+  assert.strictEqual(app.dayDigest(tk), d1, "memo hit returns the same digest object");
+  assert.strictEqual(d1.tasks.some((t) => t.id === "m33"), true, "digest sees the seeded task");
+  app.touch(st33.items[0]);
+  assert.notStrictEqual(app.dayDigest(tk), d1, "touch() flushes the memo");
+  const d2 = app.dayDigest(tk);
+  app.bury("m33");
+  assert.notStrictEqual(app.dayDigest(tk), d2, "bury() flushes the memo");
+  st33.items = st33.items.filter((i) => i.id !== "m33");
+  app.invalidateDayCache();
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

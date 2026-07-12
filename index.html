@@ -1056,8 +1056,8 @@
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
   function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
-  function touch(it){if(it)it.u=Date.now();}
-  function bury(id){if(id!=null)state.deleted[String(id)]=Date.now();}
+  function touch(it){if(it){it.u=Date.now();invalidateDayCache();}}
+  function bury(id){if(id!=null){state.deleted[String(id)]=Date.now();invalidateDayCache();}}
   function cloneJSON(x){return JSON.parse(JSON.stringify(x));}
   function clearEditingState(){editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;editingGoalId="";editingPersonId="";spendEditId="";}
   function portableDoc(src){
@@ -1097,6 +1097,7 @@
     state.v=SCHEMA_VERSION;
     sanitizeIds();
     clearEditingState();
+    invalidateDayCache();
     if(state.sync&&state.sync.key){state.sync.dirty=true;state.sync.rev=0;_lastPushedDoc=null;}
     return true;
   }
@@ -1201,12 +1202,14 @@
   function relayHeaders(extra){var h={"Content-Type":"application/json"},t=relayToken(),k;if(t)h["X-KevinOS-Token"]=t;if(extra){for(k in extra){if(extra.hasOwnProperty(k))h[k]=extra[k];}}return h;}
   function save(){
     if(loadFailed)return Promise.resolve({ok:false,err:"load-failed",bytes:0});
+    invalidateDayCache();
     // NOTE: cloud/push may schedule ahead of a failed local save; P1 surfaces that failure loudly.
     // Keep this ordering for now because scheduleSyncPush() marks sync.dirty before persistence.
     scheduleReminderSync();scheduleSyncPush();return store.save(state).then(handleSaveResult);
   }
   function persist(){
     if(loadFailed)return Promise.resolve({ok:false,err:"load-failed",bytes:0});
+    invalidateDayCache();
     return store.save(state).then(handleSaveResult);
   }
   function pad(n){return n<10?"0"+n:""+n;}
@@ -1498,13 +1501,22 @@
     box.appendChild(sec);
   }
   /* ---------- morning brief (v0.20) ---------- */
+  // W6 item 33 — dayDigest is the shared input of the launch cards (plan,
+  // agenda, focus) and runs several times per Today render. Memoized per
+  // dateKey; flushed by every mutation funnel (touch/bury/save/persist),
+  // by sync ingress, and by item 54's day change. Correctness beats cache:
+  // when in doubt, another flush site is cheap — a stale Today card is not.
+  var _digestCache={};
+  function invalidateDayCache(){_digestCache={};}
   function dayDigest(dk){
+    if(_digestCache[dk])return _digestCache[dk];
     var tkk=todayKey(),isToday=(dk===tkk);
     var tasks=state.items.filter(function(i){return !i.done&&(i.due===dk||(isToday&&(i.today||(i.due&&i.due<tkk))));}).sort(nextDueSort);
     var evs=state.events.filter(function(e){return e.date===dk;}).slice().sort(function(a,b){return (a.time||"99:99")<(b.time||"99:99")?-1:1;});
     var firstEv=null,k;for(k=0;k<evs.length;k++){if(evs[k].time){firstEv=evs[k];break;}}if(!firstEv&&evs.length)firstEv=evs[0];
     var overdue=isToday?state.items.filter(function(i){return !i.done&&i.due&&i.due<tkk;}).length:0;
-    return {nTasks:tasks.length,nEvents:evs.length,topTask:tasks[0]||null,firstEvent:firstEv,overdue:overdue,tasks:tasks,events:evs};
+    var r={nTasks:tasks.length,nEvents:evs.length,topTask:tasks[0]||null,firstEvent:firstEv,overdue:overdue,tasks:tasks,events:evs};
+    _digestCache[dk]=r;return r;
   }
   function briefBodyShort(dk){
     var d=dayDigest(dk);
@@ -2201,6 +2213,7 @@
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=doc.lastBackupAt;
     if(typeof doc.lastShutdown==="string")state.lastShutdown=doc.lastShutdown;
     sanitizeIds();
+    invalidateDayCache();
     return true;
   }
   // Lossless union by id — a conflicting push (both devices changed things) must
@@ -2228,6 +2241,7 @@
   // item 74's merge-visibility number. Tombstoned ids don't count.
   function mergeRemoteDoc(doc){
     if(!doc||typeof doc!=="object")return 0;
+    invalidateDayCache();
     unionDeleted(doc.deleted);
     var merged=0;
     SYNC_ARRAYS.forEach(function(k){
@@ -5075,7 +5089,7 @@
   var _dayKey=todayKey();
   function checkDayChange(){
     var tk=todayKey();if(tk===_dayKey)return false;
-    _dayKey=tk;paintHeader();renderCurrentRoom();renderHome();
+    _dayKey=tk;invalidateDayCache();paintHeader();renderCurrentRoom();renderHome();
     return true;
   }
   window.addEventListener("focus",function(){checkDayChange();if(syncOn())syncPull();});
