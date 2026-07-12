@@ -1012,6 +1012,9 @@
   var TOMBSTONE_TTL_MS=2592000000;       // deletion tombstones live 30 days
   var STORAGE_WARN_BYTES=3500000;        // stats turn amber
   var STORAGE_CRIT_BYTES=4500000;        // stats turn red (~5 MB ceiling)
+  var COUNCIL_KEEP=50;                   // council sessions kept before trim (item 5)
+  var SYNC_DOC_WARN_BYTES=1000000;       // warn when the pushed sync doc crosses 1 MB (item 77)
+  var SAVE_FAIL_BACKUP_MS=300000;        // auto-download a backup after 5 min of failing saves (item 7)
 
   var store=makeStore();
   var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},deleted:{},lastBackupAt:0,lastShutdown:"",v:SCHEMA_VERSION};
@@ -1097,11 +1100,36 @@
     return true;
   }
   function currentSaveBytes(){if(lastSaveBytes)return lastSaveBytes;try{return JSON.stringify(state).length;}catch(e){return 0;}}
+  // Council history cap (item 5 / F11): keep the newest COUNCIL_KEEP sessions;
+  // trimmed ids are buried so sync can't resurrect them. Keepers belong in
+  // Notes ("Save to Notes" on every answer).
+  function trimCouncil(keep){
+    if(!isArr(state.council)||state.council.length<=keep)return 0;
+    var cut=state.council.slice(keep),i;
+    for(i=0;i<cut.length;i++){if(cut[i]&&cut[i].id!=null)bury(cut[i].id);}
+    state.council=state.council.slice(0,keep);
+    return cut.length;
+  }
+  function entityBytes(){ // per-entity byte weights, heaviest first (item 6)
+    var out=[],i,k,b;
+    for(i=0;i<CONTENT_ARRAYS.length;i++){k=CONTENT_ARRAYS[i];try{b=JSON.stringify(state[k]||[]).length;}catch(e){b=0;}if(b>2)out.push({k:k,b:b});}
+    out.sort(function(x,y){return y.b-x.b;});
+    return out;
+  }
+  var _lastSyncDocBytes=0,_syncDocWarned=false;
   function renderStorageStats(){
     var el=$("storageStats");if(!el)return;
     var b=currentSaveBytes(),kb=Math.round(b/1024),mode=store.mode==="claude"?"Claude storage":(store.mode==="local"?"local":"memory");
     el.className="storage-stats"+(b>STORAGE_CRIT_BYTES?" critical":(b>STORAGE_WARN_BYTES?" warn":""));
-    el.textContent="Data size: "+kb+" KB of ~5 MB · Storage: "+mode;
+    var h="Data size: "+kb+" KB of ~5 MB · Storage: "+escapeHtml(mode);
+    var tops=entityBytes().slice(0,5),i,parts=[];
+    for(i=0;i<tops.length;i++)parts.push(escapeHtml(tops[i].k)+" "+(tops[i].b>=1024?Math.round(tops[i].b/1024)+" KB":tops[i].b+" B"));
+    if(parts.length)h+='<br><span style="opacity:.85">Heaviest: '+parts.join(" · ")+'</span>';
+    var tombN=0,tombB=2;try{tombN=Object.keys(state.deleted||{}).length;tombB=JSON.stringify(state.deleted||{}).length;}catch(e){}
+    if(tombN)h+='<br><span style="opacity:.85">Tombstones: '+tombN+' ('+(tombB>=1024?Math.round(tombB/1024)+" KB":tombB+" B")+', 30-day GC)</span>';
+    if(_lastSyncDocBytes>SYNC_DOC_WARN_BYTES)h+='<br><span style="color:#A07000">Sync doc is '+Math.round(_lastSyncDocBytes/1024)+' KB — getting large. Trim council history below.</span>';
+    if(isArr(state.council)&&state.council.length>COUNCIL_KEEP)h+='<br><button class="linklike" type="button" data-trim-council="1">Trim council history ('+state.council.length+' → newest '+COUNCIL_KEEP+')</button>';
+    el.innerHTML=h;
   }
   function renderSaveBanner(){
     var el=$("saveBanner");
@@ -2166,6 +2194,8 @@
   function syncPush(depth,force){
     if(!syncOn())return;
     var s=syncCfg(),base=relayBase(),doc=buildSyncDoc(),docStr=JSON.stringify(doc);
+    _lastSyncDocBytes=docStr.length;
+    if(docStr.length>SYNC_DOC_WARN_BYTES&&!_syncDocWarned){_syncDocWarned=true;toast("Your sync doc is over 1 MB — consider trimming council history (footer stats).");renderStorageStats();}
     relayPost("/sync/push",{key:s.key,doc:doc,baseRev:s.rev||0,deviceId:syncDeviceId(),force:!!force}).then(function(j){
       if(!j){s.err="sync error";renderSync();return;}
       if(j.ok){s.rev=j.rev||s.rev;s.updatedAt=j.updatedAt||s.updatedAt;s.lastSyncAt=Date.now();s.err="";s.dirty=false;_lastPushedDoc=docStr;persist();renderSync();return;}
@@ -2437,6 +2467,7 @@
     if(!state.council)state.council=[];
     var id=uid();
     state.council.unshift({id:id,text:t,status:"queued",createdAt:Date.now()});
+    trimCouncil(COUNCIL_KEEP);
     inp.value="";renderNext();save();
     if(relayOn())runCouncil(id);
   }
@@ -4050,7 +4081,8 @@
   function addCouncilFromText(t){
     t=(t||"").trim();if(!t)return;
     if(!state.council)state.council=[];
-    var id=uid();state.council.unshift({id:id,text:t,status:"queued",createdAt:Date.now()});save();
+    var id=uid();state.council.unshift({id:id,text:t,status:"queued",createdAt:Date.now()});
+    trimCouncil(COUNCIL_KEEP);save();
     if(relayOn())runCouncil(id);else renderCurrentRoom();
   }
   function handleTodayClick(e){
@@ -4820,6 +4852,13 @@
   $("backupBtn").addEventListener("click",exportBackup);
   $("restoreBtn").addEventListener("click",function(){$("restoreInput").click();});
   $("restoreInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importBackup(f);e.target.value="";});
+  $("storageStats").addEventListener("click",function(e){
+    if(e.target.closest("[data-trim-council]")){
+      var n=trimCouncil(COUNCIL_KEEP);
+      save();renderStorageStats();if(room==="next")renderNext();
+      toast(n?("Trimmed "+n+" old council session"+(n===1?"":"s")+" ✓"):"Nothing to trim.");
+    }
+  });
   $("importConfirm").addEventListener("click",function(e){
     if(e.target.closest("[data-import-continue]")){if(pendingImport){pendingImport.stage="confirm";renderImportConfirm();}return;}
     if(e.target.closest("[data-import-yes]")){var doc=pendingImport&&pendingImport.doc;pendingImport=null;renderImportConfirm();if(doc)doImportBackup(doc);return;}

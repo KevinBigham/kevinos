@@ -92,12 +92,25 @@ const { loadApp } = require("./harness");
   assert.deepStrictEqual(st.items.map((x) => x.id), ["cloud"], "applySyncDoc replaces arrays");
   assert.deepStrictEqual(st.deleted, { old: 42, newer: 7 }, "tombstones union even on authoritative apply");
 
-  // buildSyncDoc: skips SYNC_SKIP keys and GC-drops tombstones older than 30 days.
+  // buildSyncDoc: skips SYNC_SKIP keys and GC-drops tombstones older than 30 days
+  // — from the doc AND from state itself (item 80's GC pin).
   st.deleted = { fresh: Date.now(), stale: Date.now() - 31 * 86400000 };
   const doc = app.buildSyncDoc();
   assert.ok(!("sync" in doc) && !("relay" in doc) && !("push" in doc) && !("email" in doc), "SYNC_SKIP respected");
   assert.ok("fresh" in doc.deleted, "fresh tombstone kept");
-  assert.ok(!("stale" in doc.deleted), "30-day tombstone GC");
+  assert.ok(!("stale" in doc.deleted), "30-day tombstone GC in the doc");
+  assert.ok(!("stale" in st.deleted), "30-day tombstone GC prunes state.deleted too");
+
+  // trimCouncil (item 5): newest kept, trimmed ids buried so sync can't resurrect.
+  st.council = [];
+  for (let i = 0; i < 60; i++) st.council.push({ id: "c" + i, text: "q" + i });
+  st.deleted = {};
+  const trimmed = app.trimCouncil(app.COUNCIL_KEEP);
+  assert.strictEqual(trimmed, 10);
+  assert.strictEqual(st.council.length, 50);
+  assert.strictEqual(st.council[0].id, "c0", "newest (front) kept");
+  assert.ok(st.deleted["c59"] && st.deleted["c50"], "trimmed sessions tombstoned");
+  assert.strictEqual(app.trimCouncil(app.COUNCIL_KEEP), 0, "no-op under the cap");
 
   // W2.12 — hostile ids in a synced doc are re-minted at ingress.
   st.items = []; st.deleted = {};

@@ -97,6 +97,7 @@ const EXPORT_NAMES = [
   "buildSyncDoc", "applySyncDoc", "mergeById", "mergeRemoteDoc", "unionDeleted", "mergeRoomStats",
   "unfold", "icsUnescape", "parseDT", "parseRRule", "expandRecurrence", "parseICS", "icsEscape", "buildICS",
   "habitDoneToday", "habitCurrentStreak", "habitLongestStreak", "habitGrid7", "toggleHabitToday",
+  "trimCouncil", "COUNCIL_KEEP", "entityBytes", "docCountsText", "verifyBackup",
   "computeStreaks", "weekStartKey",
   "go", "normalizeRoom",
 ];
