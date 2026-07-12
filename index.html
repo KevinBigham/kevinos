@@ -947,6 +947,15 @@
     {id:"act-refresh-github",label:"Refresh GitHub",kind:"action",icon:"⌁",keywords:"refresh github repos commits streak",run:function(){go("github");if(typeof ghSync==="function")ghSync(true);}}
   ];
 
+  // THE canonical entity lists (audit F6). CONTENT_ARRAYS is the single
+  // source for the 17 synced/portable content arrays — consumed by
+  // portableDoc, applyPortableDoc, SYNC_ARRAYS, the boot loader, and the
+  // ingress id sanitizer. PORTABLE_OBJS is the portable meta/AI-continuity
+  // object list. Adding entity #18 = add it HERE (and to the initial state
+  // below); assertContentContract() screams at boot if the shapes drift.
+  var CONTENT_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"];
+  var PORTABLE_OBJS=["deleted","weatherLoc","roomStats","brief","launch","weekly","intake","peopleCfg","spendMeta"];
+
   var store=makeStore();
   var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},deleted:{},lastBackupAt:0,lastShutdown:"",v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
@@ -984,7 +993,7 @@
   function clearEditingState(){editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;editingGoalId="";editingPersonId="";spendEditId="";}
   function portableDoc(src){
     src=src||{};
-    var doc={v:SCHEMA_VERSION},arrays=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"],objs=["deleted","weatherLoc","roomStats","brief","launch","weekly","intake","peopleCfg","spendMeta"],i,k;
+    var doc={v:SCHEMA_VERSION},arrays=CONTENT_ARRAYS,objs=PORTABLE_OBJS,i,k;
     for(i=0;i<arrays.length;i++){k=arrays[i];doc[k]=isArr(src[k])?cloneJSON(src[k]):[];}
     for(i=0;i<objs.length;i++){k=objs[i];if(src[k]!=null)doc[k]=cloneJSON(src[k]);}
     if(typeof src.lastBackupAt==="number")doc.lastBackupAt=src.lastBackupAt;
@@ -994,7 +1003,7 @@
   }
   function applyPortableDoc(doc,opts){
     if(!doc||typeof doc!=="object")return false;
-    var arrays=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"],objs=["deleted","weatherLoc","roomStats","brief","launch","weekly","intake","peopleCfg","spendMeta"],i,k;
+    var arrays=CONTENT_ARRAYS,objs=PORTABLE_OBJS,i,k;
     for(i=0;i<arrays.length;i++){k=arrays[i];if(isArr(doc[k]))state[k]=cloneJSON(doc[k]);}
     for(i=0;i<objs.length;i++){k=objs[i];if(doc[k]!=null&&typeof doc[k]==="object")state[k]=cloneJSON(doc[k]);}
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=doc.lastBackupAt;
@@ -1992,7 +2001,7 @@
   function buildSyncDoc(){var d={},k,cut=Date.now()-2592000000;if(!state.deleted||typeof state.deleted!=="object")state.deleted={};for(k in state.deleted){if(state.deleted.hasOwnProperty(k)&&state.deleted[k]<cut)delete state.deleted[k];}for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}d.deleted=state.deleted;return d;}
   // Tombstones (id -> deletedAt ms) keep a deletion from resurrecting via merge; kept 30 days.
   function unionDeleted(m){if(!m||typeof m!=="object")return;if(!state.deleted||typeof state.deleted!=="object")state.deleted={};var k;for(k in m){if(m.hasOwnProperty(k)&&(m[k]||0)>(state.deleted[k]||0))state.deleted[k]=m[k];}}
-  var SYNC_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"];
+  var SYNC_ARRAYS=CONTENT_ARRAYS; // one list — content that syncs IS the portable content (F6)
   function applySyncDoc(doc){
     if(!doc||typeof doc!=="object")return false;
     unionDeleted(doc.deleted); // arrays below are authoritative; the tombstones still union so nothing resurrects later
@@ -4745,6 +4754,23 @@
   var _vEl=$("appVersion");if(_vEl)_vEl.textContent="KevinOS v"+APP_VERSION;
   $("evDate").value=calSel;
   function isArr(x){return Object.prototype.toString.call(x)==="[object Array]";}
+  // Boot-time contract check (F6): the canonical lists and the shapes that
+  // consume them must agree. Logs loudly, never blocks boot — a broken
+  // assertion must not brick a working app.
+  function assertContentContract(){
+    var problems=[],i,k,doc;
+    for(i=0;i<CONTENT_ARRAYS.length;i++){k=CONTENT_ARRAYS[i];if(!isArr(state[k]))problems.push("initial state."+k+" is not an array");if(SYNC_SKIP[k])problems.push(k+" is in both CONTENT_ARRAYS and SYNC_SKIP");}
+    if(SYNC_ARRAYS!==CONTENT_ARRAYS)problems.push("SYNC_ARRAYS is not the CONTENT_ARRAYS alias");
+    try{
+      doc=portableDoc(state);
+      for(i=0;i<CONTENT_ARRAYS.length;i++){k=CONTENT_ARRAYS[i];if(!isArr(doc[k]))problems.push("portableDoc missing array "+k);}
+      if(doc.sync||doc.push||doc.github||doc.email||doc.calendar)problems.push("portableDoc leaked a connection key");
+      if(doc.relay&&doc.relay.token)problems.push("portableDoc leaked relay.token");
+    }catch(e){problems.push("portableDoc threw: "+e);}
+    for(i=0;i<problems.length;i++){try{console.error("KevinOS CONTRACT VIOLATION: "+problems[i]);}catch(e2){}}
+    return problems.length===0;
+  }
+  assertContentContract();
   store.load().then(function(loadResult){
     if(!loadResult||!loadResult.ok){
       loadFailed=true;loadFailedRaw=loadResult?loadResult.raw:null;paintStatus(store.mode);renderStorageStats();renderLoadEmergency();return;
@@ -4752,28 +4778,13 @@
     var saved=loadResult.data;
     var prevV=(saved&&typeof saved==="object"&&(saved.v||0))||0;
     if(saved&&typeof saved==="object"){
-      if(isArr(saved.items))state.items=saved.items;
-      if(isArr(saved.events))state.events=saved.events;
-      if(isArr(saved.projects))state.projects=saved.projects;
-      if(isArr(saved.builds))state.builds=saved.builds;
-      if(isArr(saved.briefs))state.briefs=saved.briefs;
-      if(isArr(saved.links))state.links=saved.links;
-      if(isArr(saved.prompts))state.prompts=saved.prompts;
-      if(isArr(saved.notes))state.notes=saved.notes;
-      if(isArr(saved.stash))state.stash=saved.stash;
-      if(isArr(saved.people))state.people=saved.people;
-      if(isArr(saved.spend))state.spend=saved.spend;
-      if(isArr(saved.goals))state.goals=saved.goals;
-      if(isArr(saved.habits))state.habits=saved.habits;
+      var bi,bk;
+      for(bi=0;bi<CONTENT_ARRAYS.length;bi++){bk=CONTENT_ARRAYS[bi];if(isArr(saved[bk]))state[bk]=saved[bk];}
       if(saved.github&&typeof saved.github==="object"){
         state.github={token:saved.github.token||"",session:saved.github.session||"",login:saved.github.login||"",pendingOAuth:!!saved.github.pendingOAuth};
         if(saved.github.cache)ghMem.cache=saved.github.cache;
         if(saved.github.fetchedAt)ghMem.fetchedAt=saved.github.fetchedAt;
       }
-      if(isArr(saved.council))state.council=saved.council;
-      if(isArr(saved.pending))state.pending=saved.pending;
-      if(isArr(saved.profile))state.profile=saved.profile;
-      if(isArr(saved.sheets))state.sheets=saved.sheets;
       if(saved.intake&&typeof saved.intake==="object")state.intake=saved.intake;
       if(saved.swim&&typeof saved.swim==="object")swimMem=saved.swim;
       if(saved.sheetsCache&&typeof saved.sheetsCache==="object")sheetsMem=saved.sheetsCache;
