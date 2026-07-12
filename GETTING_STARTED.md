@@ -21,7 +21,7 @@ What is already live for Kevin:
 
 - Static app: https://kevinbigham.github.io/kevinos/
 - Relay: https://kevinos-relay.kevinbigham.workers.dev
-- App version shown in the footer: `KevinOS v0.45`
+- App version shown in the footer: `KevinOS v0.46`
 - Service worker cache: `kevinos-v0_44`
 - Persisted schema stamp: `state.v = 39`
 - Relay name: `kevinos-relay`
