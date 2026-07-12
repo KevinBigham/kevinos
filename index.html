@@ -1117,7 +1117,7 @@
   function inpEl(id,type,val){var i=document.createElement("input");i.className="inp";i.id=id;i.type=type;if(val!=null)i.value=val;return i;}
   function taEl(id,val){var t=document.createElement("textarea");t.className="inp";t.id=id;if(val!=null)t.value=val;return t;}
   function selEl(id,opts,sel){var s=document.createElement("select");s.className="inp";s.id=id;opts.forEach(function(o){var op=document.createElement("option");op.value=o.key;op.textContent=o.label||o.key;if(o.key===sel)op.selected=true;s.appendChild(op);});return s;}
-  function editActions(prefix,id){var a=document.createElement("div");a.className="edit-actions";a.innerHTML='<button class="add-btn" type="button" data-'+prefix+'-save="'+id+'">Save</button><button class="btn-ghost" type="button" data-'+prefix+'-cancel="1">Cancel</button><button class="btn-ghost danger" type="button" data-'+prefix+'-delete="'+id+'">Delete</button>';return a;}
+  function editActions(prefix,id){var a=document.createElement("div");a.className="edit-actions";a.innerHTML='<button class="add-btn" type="button" data-'+prefix+'-save="'+escapeHtml(id)+'">Save</button><button class="btn-ghost" type="button" data-'+prefix+'-cancel="1">Cancel</button><button class="btn-ghost danger" type="button" data-'+prefix+'-delete="'+escapeHtml(id)+'">Delete</button>';return a;}
   function projectOpts(){var o=[{key:"",label:"No project"}];state.projects.forEach(function(p){o.push({key:p.id,label:p.title});});return o;}
 
   var today=new Date();calCur={y:today.getFullYear(),m:today.getMonth()};calSel=dateKey(today);
@@ -1866,11 +1866,11 @@
         } else if(st==="running"){
           cq+='<span class="cq-pill running">asking the Council…</span>';
         } else if(st==="error"){
-          cq+='<span class="cq-pill err">'+escapeHtml(q.error||"failed")+'</span>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Retry</button>':'');
+          cq+='<span class="cq-pill err">'+escapeHtml(q.error||"failed")+'</span>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+escapeHtml(q.id)+'">Retry</button>':'');
         } else {
-          cq+='<span class="cq-pill">queued</span>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Run now</button>':'');
+          cq+='<span class="cq-pill">queued</span>'+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+escapeHtml(q.id)+'">Run now</button>':'');
         }
-        cq+='</div><button class="cq-del" type="button" data-council-del="'+q.id+'" aria-label="Remove">'+delSvg()+'</button></div>';
+        cq+='</div><button class="cq-del" type="button" data-council-del="'+escapeHtml(q.id)+'" aria-label="Remove">'+delSvg()+'</button></div>';
       });
       cq+='</div>';
     }
@@ -2176,7 +2176,7 @@
       return '<div class="cq-seat pending"><div class="cq-seat-head"><span class="cq-seat-label">'+lab+'</span><span class="cq-prov">'+lane+'</span></div><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
     }
     if(s.ok){
-      return '<div class="cq-seat"><div class="cq-seat-head"><span class="cq-seat-label">'+lab+'</span><span class="cq-prov">'+lane+'</span></div><div class="cq-answer">'+escapeHtml(s.text)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-seat="'+q.id+'" data-seat="'+i+'">'+copySvg()+'Copy</button><span class="cq-prov">'+escapeHtml((s.provider||"")+(s.ms?" · "+(s.ms/1000).toFixed(1)+"s":""))+'</span></div></div>';
+      return '<div class="cq-seat"><div class="cq-seat-head"><span class="cq-seat-label">'+lab+'</span><span class="cq-prov">'+lane+'</span></div><div class="cq-answer">'+escapeHtml(s.text)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-seat="'+escapeHtml(q.id)+'" data-seat="'+i+'">'+copySvg()+'Copy</button><span class="cq-prov">'+escapeHtml((s.provider||"")+(s.ms?" · "+(s.ms/1000).toFixed(1)+"s":""))+'</span></div></div>';
     }
     return '<div class="cq-seat err"><div class="cq-seat-head"><span class="cq-seat-label">'+lab+'</span><span class="cq-pill err">'+escapeHtml(s.error||"failed")+'</span></div></div>';
   }
@@ -2194,22 +2194,22 @@
   }
   function councilAnswerHTML(q,on){
     if((!q.seats||!q.seats.length)&&q.answer){
-      return '<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-legacy="'+q.id+'">'+copySvg()+'Copy</button><button class="linklike" type="button" data-council-save="'+q.id+'">Save to Notes</button>'+(on?'<button class="linklike" type="button" data-council-tasks="'+q.id+'">✨ Make tasks</button>':'')+'<span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>'+councilTasksHTML(q);
+      return '<div class="cq-answer">'+escapeHtml(q.answer)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-legacy="'+escapeHtml(q.id)+'">'+copySvg()+'Copy</button><button class="linklike" type="button" data-council-save="'+escapeHtml(q.id)+'">Save to Notes</button>'+(on?'<button class="linklike" type="button" data-council-tasks="'+escapeHtml(q.id)+'">✨ Make tasks</button>':'')+'<span class="cq-prov">'+escapeHtml(q.provider||"AI")+'</span></div>'+councilTasksHTML(q);
     }
     var h="",hasSynth=q.synthesis&&q.synthesis.ok&&q.synthesis.text;
     if(hasSynth){
-      h+='<div class="cq-synth"><div class="cq-synth-head">Council synthesis</div><div class="cq-answer">'+escapeHtml(q.synthesis.text)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-synth="'+q.id+'">'+copySvg()+'Copy</button><span class="cq-prov">chair · '+escapeHtml(q.synthesis.provider||"")+'</span></div></div>';
+      h+='<div class="cq-synth"><div class="cq-synth-head">Council synthesis</div><div class="cq-answer">'+escapeHtml(q.synthesis.text)+'</div><div class="cq-arow"><button class="copybtn" type="button" data-cpy-synth="'+escapeHtml(q.id)+'">'+copySvg()+'Copy</button><span class="cq-prov">chair · '+escapeHtml(q.synthesis.provider||"")+'</span></div></div>';
     }
     var open=councilSeatsOpen[q.id]===true||!hasSynth;
     var aCount=(typeof q.answered==="number")?q.answered:0,nCount=(typeof q.asked==="number")?q.asked:(q.seats?q.seats.length:0);
-    h+='<div class="cq-seats"><button class="cq-seat-toggle" type="button" data-council-seats="'+q.id+'">'+aCount+' of '+nCount+' answered'+(hasSynth?' · '+(open?"hide":"show")+' responses':"")+'</button>';
+    h+='<div class="cq-seats"><button class="cq-seat-toggle" type="button" data-council-seats="'+escapeHtml(q.id)+'">'+aCount+' of '+nCount+' answered'+(hasSynth?' · '+(open?"hide":"show")+' responses':"")+'</button>';
     if(open){
       h+='<div class="cq-seatlist">';
       (q.seats||[]).forEach(function(s,i){h+=councilSeatHTML(q,s,i);});
       h+='</div>';
     }
     h+='</div>';
-    h+='<div class="cq-arow"><button class="linklike" type="button" data-council-save="'+q.id+'">Save to Notes</button>'+(on?'<button class="linklike" type="button" data-council-tasks="'+q.id+'">✨ Make tasks</button>':'')+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+q.id+'">Ask again</button>':'')+'</div>';
+    h+='<div class="cq-arow"><button class="linklike" type="button" data-council-save="'+escapeHtml(q.id)+'">Save to Notes</button>'+(on?'<button class="linklike" type="button" data-council-tasks="'+escapeHtml(q.id)+'">✨ Make tasks</button>':'')+(on?'<button class="linklike cq-runlink" type="button" data-council-run="'+escapeHtml(q.id)+'">Ask again</button>':'')+'</div>';
     h+=councilTasksHTML(q);
     return h;
   }
@@ -2340,11 +2340,11 @@
   function councilTasksHTML(q){
     var ts=councilTasks[q.id];if(!ts)return"";
     if(ts.loading)return '<div class="cq-seat pending" style="margin-top:8px"><div class="cq-seat-head"><span class="cq-seat-label">Making tasks…</span></div><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
-    var h='<div data-ctasks="'+q.id+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px"><p class="section-label" style="margin-bottom:6px">Proposed next actions</p>';
+    var h='<div data-ctasks="'+escapeHtml(q.id)+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px"><p class="section-label" style="margin-bottom:6px">Proposed next actions</p>';
     ts.forEach(function(t,i){
       h+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><input type="checkbox" data-ctf="keep" data-i="'+i+'"'+(t.keep?" checked":"")+'><input class="inp" data-ctf="text" data-i="'+i+'" value="'+escapeHtml(t.text)+'" style="flex:1;min-width:80px"><select class="inp" data-ctf="area" data-i="'+i+'" style="width:auto">'+pendAreaOpts(t.area)+'</select></div>';
     });
-    h+='<div style="display:flex;gap:8px;margin-top:4px"><button class="add-btn" type="button" data-council-addtasks="'+q.id+'">Add to Tasks</button><button class="btn-ghost" type="button" data-council-canceltasks="'+q.id+'">Cancel</button></div></div>';
+    h+='<div style="display:flex;gap:8px;margin-top:4px"><button class="add-btn" type="button" data-council-addtasks="'+escapeHtml(q.id)+'">Add to Tasks</button><button class="btn-ghost" type="button" data-council-canceltasks="'+escapeHtml(q.id)+'">Cancel</button></div></div>';
     return h;
   }
   function addCouncilTasks(id){
@@ -2464,10 +2464,10 @@
     var list="";
     left.forEach(function(it){
       list+='<div class="wind-item"><span class="dot" style="background:'+areaColor(it.area)+'"></span><span class="wind-txt">'+escapeHtml(it.text)+'</span><span class="wind-acts">'+
-        '<button class="wind-b done" type="button" data-wind-done="'+it.id+'" aria-label="Mark done" title="Done">'+windCheck()+'</button>'+
-        '<button class="wind-b" type="button" data-wind-tom="'+it.id+'" aria-label="Push to tomorrow" title="Tomorrow">→</button>'+
-        '<button class="wind-b" type="button" data-wind-focus="'+it.id+'" aria-label="Tomorrow focus" title="Tomorrow focus">★</button>'+
-        '<button class="wind-b" type="button" data-wind-clear="'+it.id+'" aria-label="Take off today" title="Off today">✕</button>'+
+        '<button class="wind-b done" type="button" data-wind-done="'+escapeHtml(it.id)+'" aria-label="Mark done" title="Done">'+windCheck()+'</button>'+
+        '<button class="wind-b" type="button" data-wind-tom="'+escapeHtml(it.id)+'" aria-label="Push to tomorrow" title="Tomorrow">→</button>'+
+        '<button class="wind-b" type="button" data-wind-focus="'+escapeHtml(it.id)+'" aria-label="Tomorrow focus" title="Tomorrow focus">★</button>'+
+        '<button class="wind-b" type="button" data-wind-clear="'+escapeHtml(it.id)+'" aria-label="Take off today" title="Off today">✕</button>'+
         '</span></div>';
     });
     inner.innerHTML=top+'<h1 class="sweep-q">'+left.length+' still open.</h1><p class="sweep-prompt">Close out the day — finish what you can, push the rest to tomorrow, or let it go.</p><div class="wind-list">'+list+'</div><div class="sweep-nav"><button class="add-btn" type="button" data-wind="rollall">Push all to tomorrow</button><button class="btn-ghost" type="button" data-wind="close">Done for today</button></div>';
@@ -2896,7 +2896,7 @@
     if(!state.pending.length){box.innerHTML="";return;}
     var h='<div style="margin-top:12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><p class="section-label">Proposed events · '+state.pending.length+'</p><div><button class="linklike" type="button" data-pend="allapprove">Approve all</button> &nbsp;<button class="linklike" type="button" data-pend="alldismiss" style="color:#B25B5B">Dismiss all</button></div></div>';
     state.pending.forEach(function(p){
-      h+='<div class="pend-card" data-pcard="'+p.id+'" style="border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px;margin-bottom:8px">'+
+      h+='<div class="pend-card" data-pcard="'+escapeHtml(p.id)+'" style="border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px;margin-bottom:8px">'+
         '<input class="inp" data-pf="title" value="'+escapeHtml(p.title)+'" style="font-weight:600;margin-bottom:6px;width:100%">'+
         '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
           '<input class="inp" type="date" data-pf="date" value="'+escapeHtml(p.date)+'" style="width:auto">'+
@@ -2905,7 +2905,7 @@
         '</div>'+
         (p.location?'<p class="hint" style="margin:6px 0 0">📍 '+escapeHtml(p.location)+'</p>':'')+
         (p.notes?'<p class="hint" style="margin:4px 0 0">'+escapeHtml(p.notes)+'</p>':'')+
-        '<div style="display:flex;gap:8px;margin-top:8px"><button class="add-btn" type="button" data-pend="approve" data-pid="'+p.id+'">Add to calendar</button><button class="btn-ghost" type="button" data-pend="dismiss" data-pid="'+p.id+'">Dismiss</button></div>'+
+        '<div style="display:flex;gap:8px;margin-top:8px"><button class="add-btn" type="button" data-pend="approve" data-pid="'+escapeHtml(p.id)+'">Add to calendar</button><button class="btn-ghost" type="button" data-pend="dismiss" data-pid="'+escapeHtml(p.id)+'">Dismiss</button></div>'+
       '</div>';
     });
     h+='</div>';box.innerHTML=h;
@@ -3364,7 +3364,7 @@
     var f3=field("Tags");f3.appendChild(inpEl("brTags","text",b.tags||""));w.appendChild(f3);
     var f4=field("Body");f4.appendChild(taEl("brBody",b.body||""));w.appendChild(f4);
     var act=document.createElement("div");act.className="edit-actions";
-    act.innerHTML='<button class="add-btn" type="button" data-brief-save="'+b.id+'">Save</button><button class="copybtn" type="button" data-brief-copy="'+b.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn-ghost danger" type="button" data-brief-delete="'+b.id+'">Delete</button>';
+    act.innerHTML='<button class="add-btn" type="button" data-brief-save="'+escapeHtml(b.id)+'">Save</button><button class="copybtn" type="button" data-brief-copy="'+escapeHtml(b.id)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn-ghost danger" type="button" data-brief-delete="'+escapeHtml(b.id)+'">Delete</button>';
     w.appendChild(act);
     return w;
   }
@@ -3407,7 +3407,7 @@
     var ll=document.createElement("div");ll.className="ll";ll.textContent=l.label||l.url;a.appendChild(ll);
     var lu=document.createElement("div");lu.className="lu";lu.textContent=l.url||"";a.appendChild(lu);
     var ed=document.createElement("div");ed.className="ledit";
-    ed.innerHTML='<button type="button" data-link-edit="'+l.id+'" aria-label="Edit link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>';
+    ed.innerHTML='<button type="button" data-link-edit="'+escapeHtml(l.id)+'" aria-label="Edit link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>';
     a.appendChild(ed);
     return a;
   }
@@ -3433,7 +3433,7 @@
   /* ---------- PROMPTS ---------- */
   function findPrompt(id){for(var i=0;i<state.prompts.length;i++)if(state.prompts[i].id===id)return state.prompts[i];return null;}
   function addPrompt(){var t=($("promptInput").value||"").trim();if(!t)return;var id=uid();state.prompts.unshift({id:id,title:t,cat:promptAddCat,tags:"",body:"",createdAt:Date.now()});$("promptInput").value="";editingPromptId=id;renderPrompts();save();}
-  function buildPromptEditor(p){var w=document.createElement("div");w.className="edit-panel";var f1=field("Title");f1.appendChild(inpEl("prTitle","text",p.title));w.appendChild(f1);var f2=field("Category");f2.appendChild(selEl("prCat",PROMPT_CATS,p.cat));w.appendChild(f2);var f3=field("Tags");f3.appendChild(inpEl("prTags","text",p.tags||""));w.appendChild(f3);var f4=field("Prompt");f4.appendChild(taEl("prBody",p.body||""));w.appendChild(f4);var act=document.createElement("div");act.className="edit-actions";act.innerHTML='<button class="add-btn" type="button" data-prompt-save="'+p.id+'">Save</button><button class="copybtn" type="button" data-prompt-copy="'+p.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn-ghost danger" type="button" data-prompt-delete="'+p.id+'">Delete</button>';w.appendChild(act);return w;}
+  function buildPromptEditor(p){var w=document.createElement("div");w.className="edit-panel";var f1=field("Title");f1.appendChild(inpEl("prTitle","text",p.title));w.appendChild(f1);var f2=field("Category");f2.appendChild(selEl("prCat",PROMPT_CATS,p.cat));w.appendChild(f2);var f3=field("Tags");f3.appendChild(inpEl("prTags","text",p.tags||""));w.appendChild(f3);var f4=field("Prompt");f4.appendChild(taEl("prBody",p.body||""));w.appendChild(f4);var act=document.createElement("div");act.className="edit-actions";act.innerHTML='<button class="add-btn" type="button" data-prompt-save="'+escapeHtml(p.id)+'">Save</button><button class="copybtn" type="button" data-prompt-copy="'+escapeHtml(p.id)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn-ghost danger" type="button" data-prompt-delete="'+escapeHtml(p.id)+'">Delete</button>';w.appendChild(act);return w;}
   function promptCard(p){var wrap=document.createElement("div");var el=document.createElement("div");el.className="ecard";var top=document.createElement("div");top.className="ecard-top";var title=document.createElement("button");title.className="etitle";title.dataset.promptOpen=p.id;title.textContent=p.title;top.appendChild(title);var cat=document.createElement("span");cat.className="pill static";cat.textContent=p.cat;top.appendChild(cat);var copy=document.createElement("button");copy.className="copybtn";copy.dataset.promptCopy=p.id;copy.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy';top.appendChild(copy);el.appendChild(top);if(p.tags){var tg=document.createElement("div");tg.className="ecard-meta";var sp=document.createElement("span");sp.className="metatag";sp.textContent=p.tags;tg.appendChild(sp);el.appendChild(tg);}if(p.body){var sn=document.createElement("div");sn.className="snip";sn.textContent=p.body;el.appendChild(sn);}wrap.appendChild(el);if(editingPromptId===p.id)wrap.appendChild(buildPromptEditor(p));return wrap;}
   function promptMatch(p){if(promptCatFilter!=="All"&&p.cat!==promptCatFilter)return false;var q=(promptSearch||"").toLowerCase();if(!q)return true;return ((p.title||"")+" "+(p.tags||"")+" "+(p.body||"")).toLowerCase().indexOf(q)>=0;}
   function renderPromptList(){var box=$("promptList");box.innerHTML="";var arr=state.prompts.filter(promptMatch);if(!arr.length){box.innerHTML='<p class="empty">'+(state.prompts.length?"No matches.":"No prompts yet. Save a reusable prompt above.")+'</p>';return;}arr.forEach(function(p){box.appendChild(promptCard(p));});}
@@ -3443,7 +3443,7 @@
   /* ---------- NOTES (PARA) ---------- */
   function findNote(id){for(var i=0;i<state.notes.length;i++)if(state.notes[i].id===id)return state.notes[i];return null;}
   function addNote(){var t=($("noteInput").value||"").trim();if(!t)return;var id=uid();state.notes.unshift({id:id,title:t,para:noteAddPara,area:"Inbox",tags:"",body:"",createdAt:Date.now()});$("noteInput").value="";editingNoteId=id;renderNotes();save();}
-  function buildNoteEditor(n){var w=document.createElement("div");w.className="edit-panel";var f1=field("Title");f1.appendChild(inpEl("nTitle","text",n.title));w.appendChild(f1);var f2=field("PARA");f2.appendChild(selEl("nPara",PARA_BUCKETS,n.para));w.appendChild(f2);var f3=field("Area");f3.appendChild(selEl("nArea",AREA_OPTS,n.area));w.appendChild(f3);var f4=field("Tags");f4.appendChild(inpEl("nTags","text",n.tags||""));w.appendChild(f4);var f5=field("Note");f5.appendChild(taEl("nBody",n.body||""));w.appendChild(f5);var act=document.createElement("div");act.className="edit-actions";act.innerHTML='<button class="add-btn" type="button" data-note-save="'+n.id+'">Save</button><button class="copybtn" type="button" data-note-copy="'+n.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn-ghost danger" type="button" data-note-delete="'+n.id+'">Delete</button>';w.appendChild(act);return w;}
+  function buildNoteEditor(n){var w=document.createElement("div");w.className="edit-panel";var f1=field("Title");f1.appendChild(inpEl("nTitle","text",n.title));w.appendChild(f1);var f2=field("PARA");f2.appendChild(selEl("nPara",PARA_BUCKETS,n.para));w.appendChild(f2);var f3=field("Area");f3.appendChild(selEl("nArea",AREA_OPTS,n.area));w.appendChild(f3);var f4=field("Tags");f4.appendChild(inpEl("nTags","text",n.tags||""));w.appendChild(f4);var f5=field("Note");f5.appendChild(taEl("nBody",n.body||""));w.appendChild(f5);var act=document.createElement("div");act.className="edit-actions";act.innerHTML='<button class="add-btn" type="button" data-note-save="'+escapeHtml(n.id)+'">Save</button><button class="copybtn" type="button" data-note-copy="'+escapeHtml(n.id)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn-ghost danger" type="button" data-note-delete="'+escapeHtml(n.id)+'">Delete</button>';w.appendChild(act);return w;}
   function noteCard(n){var wrap=document.createElement("div");var el=document.createElement("div");el.className="ecard";var top=document.createElement("div");top.className="ecard-top";var title=document.createElement("button");title.className="etitle";title.dataset.noteOpen=n.id;title.textContent=n.title;top.appendChild(title);var pill=document.createElement("span");pill.className="pill static solid";pill.style.background=colorFor(PARA_BUCKETS,n.para);pill.textContent=n.para;top.appendChild(pill);el.appendChild(top);var meta=document.createElement("div");meta.className="ecard-meta";meta.innerHTML='<span class="dot" style="background:'+areaColor(n.area)+'"></span><span class="metatag">'+n.area+'</span>';if(n.tags){var sp=document.createElement("span");sp.className="metatag";sp.textContent=n.tags;meta.appendChild(sp);}el.appendChild(meta);if(n.body){var sn=document.createElement("div");sn.className="snip";sn.textContent=n.body;el.appendChild(sn);}wrap.appendChild(el);if(editingNoteId===n.id)wrap.appendChild(buildNoteEditor(n));return wrap;}
   function noteMatch(n){if(noteFilter!=="All"&&n.area!==noteFilter)return false;var q=(noteSearch||"").toLowerCase();if(!q)return true;return ((n.title||"")+" "+(n.tags||"")+" "+(n.body||"")).toLowerCase().indexOf(q)>=0;}
   function renderNoteList(){var box=$("noteList");box.innerHTML="";var ns=state.notes.filter(noteMatch);if(!ns.length){box.innerHTML='<p class="empty">'+(state.notes.length?"No matches.":"No notes yet. Capture a thought, reference, or resource above.")+'</p>';return;}if(noteView==="para"){PARA_BUCKETS.forEach(function(b){var arr=ns.filter(function(n){return n.para===b.key;});if(arr.length)sectionWith(box,b.key,arr,noteCard,b.color);});}else{AREAS.forEach(function(a){var arr=ns.filter(function(n){return n.area===a.key;});if(arr.length)sectionWith(box,a.key,arr,noteCard,a.color);});}}
@@ -3940,7 +3940,7 @@
     var rows=(state.pending||[]).filter(function(p){return p&&p.kind==="ai";});
     if(!rows.length)return "";
     var h='<div class="launch-card"><div class="lc-head"><p class="section-label">AI review queue</p></div><div class="ai-review-list">';
-    rows.forEach(function(p){h+='<div class="ai-review-row"><div class="ai-review-main"><strong>'+escapeHtml(p.title||"AI draft")+'</strong><p class="hint">'+escapeHtml((p.body||p.text||"Working...").slice(0,260))+'</p></div><div class="ai-review-actions"><button class="linklike" type="button" data-ai-save="'+p.id+'">Save to Notes</button><button class="linklike" type="button" data-ai-dismiss="'+p.id+'">Dismiss</button></div></div>';});
+    rows.forEach(function(p){h+='<div class="ai-review-row"><div class="ai-review-main"><strong>'+escapeHtml(p.title||"AI draft")+'</strong><p class="hint">'+escapeHtml((p.body||p.text||"Working...").slice(0,260))+'</p></div><div class="ai-review-actions"><button class="linklike" type="button" data-ai-save="'+escapeHtml(p.id)+'">Save to Notes</button><button class="linklike" type="button" data-ai-dismiss="'+escapeHtml(p.id)+'">Dismiss</button></div></div>';});
     return h+'</div></div>';
   }
   function renderToday(){
@@ -4372,7 +4372,7 @@
     var rows=snoozedRows();if(!rows.length)return"";
     var open=emailGroupsOpen.snoozed;
     var h='<div class="sec-head" style="margin-top:12px"><p class="section-label">💤 Snoozed · '+rows.length+'</p><button class="sec-link" type="button" data-em="grp" data-id="snoozed">'+(open?"Hide":"Show")+'</button></div>';
-    if(open){h+='<div class="rows">';rows.forEach(function(r){h+='<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(r.w.from))+'</strong><span class="hint">'+escapeHtml(snoozeUntilLabel(r.w.wakeAt))+'</span></div><div>'+escapeHtml(r.w.subject||"(no subject)")+'</div><button class="btn-soft" type="button" data-em="wake" data-id="'+r.id+'">Wake now</button></div>';});h+='</div>';}
+    if(open){h+='<div class="rows">';rows.forEach(function(r){h+='<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(r.w.from))+'</strong><span class="hint">'+escapeHtml(snoozeUntilLabel(r.w.wakeAt))+'</span></div><div>'+escapeHtml(r.w.subject||"(no subject)")+'</div><button class="btn-soft" type="button" data-em="wake" data-id="'+escapeHtml(r.id)+'">Wake now</button></div>';});h+='</div>';}
     return h;
   }
   function emailEnter(){pruneSnoozed();renderEmail();if(emailOn()){if(!emailThreads.length&&!emailLoading)loadThreads(false);fetchOvernight(false);}}
@@ -4500,27 +4500,27 @@
     var d=emailDrafts[id];if(!d)return"";
     if(d.loading)return '<div class="cq-seat pending" style="margin-top:8px"><div class="cq-thinking"><span class="cq-dot"></span><span class="cq-dot"></span><span class="cq-dot"></span></div></div>';
     var sending=!!emailSending[id],rewriting=!!emailRewriting[id],tone=emailTone[id]||d.tone||"";
-    var shell='<div data-dcard="'+id+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px">';
+    var shell='<div data-dcard="'+escapeHtml(id)+'" style="margin-top:8px;border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px">';
     var badge=d.overnight?'<div class="hint" style="margin-bottom:6px;color:#5B3B8C">📝 Drafted overnight — review &amp; send</div>':'';
     if(emailConfirm[id]){
       return shell+badge+
         '<div class="hint" style="color:var(--ink-soft);margin-bottom:8px">Send to <strong>'+escapeHtml(d.to||"")+'</strong>?</div>'+
-        (sending?'<div class="cq-prov" style="padding:8px 0">Sending…</div>':'<div class="draft-confirm"><button class="add-btn" type="button" data-em="sendyes" data-id="'+id+'">Yes, send</button><button class="btn-soft" type="button" data-em="sendno" data-id="'+id+'">Cancel</button></div>')+
+        (sending?'<div class="cq-prov" style="padding:8px 0">Sending…</div>':'<div class="draft-confirm"><button class="add-btn" type="button" data-em="sendyes" data-id="'+escapeHtml(id)+'">Yes, send</button><button class="btn-soft" type="button" data-em="sendno" data-id="'+escapeHtml(id)+'">Cancel</button></div>')+
         '</div>';
     }
     return shell+badge+
-      '<div class="draft-tones"><button class="chip'+(tone==="warm"?" active":"")+'" type="button" data-em="tone" data-id="'+id+'" data-tone="warm">Warm</button><button class="chip'+(tone==="terse"?" active":"")+'" type="button" data-em="tone" data-id="'+id+'" data-tone="terse">Terse</button><button class="chip'+(tone==="decline"?" active":"")+'" type="button" data-em="tone" data-id="'+id+'" data-tone="decline">Decline</button></div>'+
+      '<div class="draft-tones"><button class="chip'+(tone==="warm"?" active":"")+'" type="button" data-em="tone" data-id="'+escapeHtml(id)+'" data-tone="warm">Warm</button><button class="chip'+(tone==="terse"?" active":"")+'" type="button" data-em="tone" data-id="'+escapeHtml(id)+'" data-tone="terse">Terse</button><button class="chip'+(tone==="decline"?" active":"")+'" type="button" data-em="tone" data-id="'+escapeHtml(id)+'" data-tone="decline">Decline</button></div>'+
       '<div class="field" style="margin-bottom:6px"><label>To</label><input class="inp" data-df="to" value="'+escapeHtml(d.to||"")+'"></div>'+
       (rewriting?'<div class="field" style="margin-bottom:6px"><label>'+escapeHtml(d.subject||"")+'</label><div class="cq-prov" style="padding:8px 0">rewriting…</div></div>':'<div class="field" style="margin-bottom:6px"><label>'+escapeHtml(d.subject||"")+'</label><textarea class="inp" data-df="body" rows="6" style="width:100%;resize:vertical">'+escapeHtml(d.body||"")+'</textarea></div>')+
-      '<div style="display:flex;gap:8px"><button class="add-btn" type="button" data-em="send" data-id="'+id+'"'+((sending||rewriting)?" disabled":"")+'>'+(sending?"Sending…":(rewriting?"Rewriting…":"Approve & send"))+'</button><button class="btn-ghost" type="button" data-em="discard" data-id="'+id+'">Discard</button></div></div>';
+      '<div style="display:flex;gap:8px"><button class="add-btn" type="button" data-em="send" data-id="'+escapeHtml(id)+'"'+((sending||rewriting)?" disabled":"")+'>'+(sending?"Sending…":(rewriting?"Rewriting…":"Approve & send"))+'</button><button class="btn-ghost" type="button" data-em="discard" data-id="'+escapeHtml(id)+'">Discard</button></div></div>';
   }
   function emailRowHTML(m){
     var badge=(isUnified()&&m.account)?'<span class="cq-pill" style="background:rgba(91,59,140,.12);color:#5B3B8C">'+escapeHtml(acctShort(m.account))+'</span>':'';
     var tags=badge+(m.unread?'<span class="cq-pill" style="background:#5B3B8C;color:#fff">new</span>':'');
     var actions;
     if(emailDrafts[m.id])actions=emailDraftHTML(m.id);
-    else if(emailSnoozeOpen===m.id)actions='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px"><span class="hint">💤 Snooze:</span><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+m.id+'" data-when="3h">3 hours</button><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+m.id+'" data-when="tom">Tomorrow</button><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+m.id+'" data-when="wknd">Weekend</button><button class="btn-ghost" type="button" data-em="snoozecancel" data-id="'+m.id+'">✕</button></div>';
-    else actions='<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-soft" type="button" data-em="draft" data-id="'+m.id+'">✨ Draft reply</button><button class="btn-soft" type="button" data-em="archive" data-id="'+m.id+'">✓ Archive</button><button class="btn-soft" type="button" data-em="snooze" data-id="'+m.id+'">💤 Snooze</button></div>';
+    else if(emailSnoozeOpen===m.id)actions='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px"><span class="hint">💤 Snooze:</span><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+escapeHtml(m.id)+'" data-when="3h">3 hours</button><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+escapeHtml(m.id)+'" data-when="tom">Tomorrow</button><button class="btn-soft" type="button" data-em="snoozeset" data-id="'+escapeHtml(m.id)+'" data-when="wknd">Weekend</button><button class="btn-ghost" type="button" data-em="snoozecancel" data-id="'+escapeHtml(m.id)+'">✕</button></div>';
+    else actions='<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-soft" type="button" data-em="draft" data-id="'+escapeHtml(m.id)+'">✨ Draft reply</button><button class="btn-soft" type="button" data-em="archive" data-id="'+escapeHtml(m.id)+'">✓ Archive</button><button class="btn-soft" type="button" data-em="snooze" data-id="'+escapeHtml(m.id)+'">💤 Snooze</button></div>';
     return '<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)">'+
       '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong>'+escapeHtml(emailFromName(m.from))+'</strong><span style="display:flex;gap:6px;align-items:center">'+tags+'</span></div>'+
       '<div>'+escapeHtml(m.subject||"(no subject)")+'</div>'+
@@ -4645,7 +4645,7 @@
       var h='<div class="storage-stats" style="margin-top:12px"><strong>Snapshots</strong></div>';
       if(!rows.length){box.innerHTML=h+'<p class="hint">No local snapshots yet.</p>';return;}
       h+='<div class="snap-list">';
-      rows.forEach(function(r){h+='<div class="snap-row"><span>'+escapeHtml(fmtSnapDate(r.at))+' · '+escapeHtml(r.reason||"snapshot")+' · '+Math.round((r.bytes||0)/1024)+' KB</span><button class="btn-soft" type="button" data-snap-restore="'+r.at+'">Restore</button></div>';});
+      rows.forEach(function(r){h+='<div class="snap-row"><span>'+escapeHtml(fmtSnapDate(r.at))+' · '+escapeHtml(r.reason||"snapshot")+' · '+Math.round((r.bytes||0)/1024)+' KB</span><button class="btn-soft" type="button" data-snap-restore="'+escapeHtml(r.at)+'">Restore</button></div>';});
       box.innerHTML=h+'</div>';
     }).catch(function(e){snapWarn(e);box.innerHTML='<p class="hint">Snapshots unavailable on this browser.</p>';});
   }
