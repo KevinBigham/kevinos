@@ -1138,15 +1138,26 @@
     if(!el){el=document.createElement("div");el.id="saveBanner";el.className="save-banner";document.body.appendChild(el);}
     el.innerHTML='Saving is failing on this device - export a backup from Settings before closing. <button type="button" data-save-export="1">Export backup</button>';
   }
+  // Item 7: if the save-failure banner has been up for 5 minutes, download a
+  // backup automatically — belt for the suspenders, user-visible, never silent.
+  var _saveFailT=null,_autoBackupDone=false;
   function handleSaveResult(r){
     r=r||{ok:false,err:"unknown",bytes:0};
     lastSaveBytes=r.bytes||lastSaveBytes||0;
     if(r.ok){
       saveFailing=false;saveFailureToastShown=false;renderSaveBanner();renderStorageStats();
+      if(_saveFailT){clearTimeout(_saveFailT);_saveFailT=null;}
+      _autoBackupDone=false;
       if(typeof snapAfterSave==="function")snapAfterSave();
     }else{
       saveFailing=true;
       if(!saveFailureToastShown){saveFailureToastShown=true;toast("Save failed - your changes are NOT being stored. Export a backup now.");}
+      if(!_saveFailT&&!_autoBackupDone){
+        _saveFailT=setTimeout(function(){
+          _saveFailT=null;
+          if(saveFailing&&!_autoBackupDone){_autoBackupDone=true;exportBackup();toast("Saving has been failing for 5 minutes — a backup was downloaded automatically.");}
+        },SAVE_FAIL_BACKUP_MS);
+      }
       renderSaveBanner();renderStorageStats();
     }
     return r;
