@@ -106,6 +106,7 @@ const EXPORT_NAMES = [
   "armUndo", "runUndo", "findItem",
   "moveFocusTask", "windItems",
   "libraryPaletteEntries", "libraryRecords", "PALETTE_LIB_MAX",
+  "closeHourVal", "updateTomorrowFocus", "launchBodyShort",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

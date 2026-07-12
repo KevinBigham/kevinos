@@ -1019,7 +1019,7 @@
   var STATS_DEBOUNCE_MS=400;             // storage stats repaint once per save-burst (item 35)
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",v:SCHEMA_VERSION};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
   var relayHealth={status:"unknown",checkedAt:0,caps:null,err:""}, relayHealthOpen=false;
   var ghMem={cache:null,fetchedAt:0}, sheetsMem={at:0,text:""}, swimMem={at:0,items:[]};
@@ -1068,6 +1068,7 @@
     for(i=0;i<objs.length;i++){k=objs[i];if(src[k]!=null)doc[k]=cloneJSON(src[k]);}
     if(typeof src.lastBackupAt==="number")doc.lastBackupAt=src.lastBackupAt;
     if(typeof src.lastShutdown==="string")doc.lastShutdown=src.lastShutdown;
+    if(typeof src.closeHour==="number")doc.closeHour=src.closeHour;
     doc.relay={url:(src.relay&&src.relay.url)||"",token:""};
     return doc;
   }
@@ -1092,6 +1093,7 @@
     for(i=0;i<objs.length;i++){k=objs[i];if(doc[k]!=null&&typeof doc[k]==="object")state[k]=cloneJSON(doc[k]);}
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=doc.lastBackupAt;
     if(typeof doc.lastShutdown==="string")state.lastShutdown=doc.lastShutdown;
+    if(typeof doc.closeHour==="number")state.closeHour=doc.closeHour;
     delete state.sheetsCache;delete state.swim;
     if(!state.github||typeof state.github!=="object")state.github={token:"",session:"",login:"",pendingOAuth:false};
     delete state.github.cache;delete state.github.fetchedAt;
@@ -1711,13 +1713,19 @@
   function generateLaunch(force){
     var base=relayBase();if(!base)return;
     var dk=todayKey(),d=dayDigest(dk);
+    if(!state.launch||typeof state.launch!=="object")state.launch={date:"",text:""};
     var es=(state.email&&state.email.session&&state.email.accounts&&state.email.accounts.length)?state.email.session:"";
-    if(!force&&!d.nTasks&&!d.nEvents&&!es){state.launch={date:dk,text:""};persist();renderLaunch();return;}
+    if(!force&&!d.nTasks&&!d.nEvents&&!es){state.launch.date=dk;state.launch.text="";persist();renderLaunch();return;}
     if(launchBusy)return;launchBusy=true;renderLaunch();
     var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
-    relayPost("/launch",{syncKey:(syncOn()?state.sync.key:""),emailSession:es,dateKey:dk,tz:tz,context:briefContextText(dk),fallback:launchBodyShort(dk)}).then(function(j){
-      launchBusy=false;state.launch={date:dk,text:(j&&j.text)?j.text:""};persist();renderCurrentRoom();
-    }).catch(function(){launchBusy=false;state.launch={date:dk,text:""};persist();renderCurrentRoom();});
+    // W6 item 46 — the top-3 chosen at last night's Close reaches the AI
+    // narration explicitly, and the result no longer clobbers nextFocus
+    // (assign fields, don't replace the object).
+    var nf=(state.launch.nextFocusDate===dk&&isArr(state.launch.nextFocus)&&state.launch.nextFocus.length)?state.launch.nextFocus.slice(0,3):null;
+    var ctx=briefContextText(dk)+(nf?"\nChosen focus for today (picked at last night's close — name these explicitly): "+nf.join("; "):"");
+    relayPost("/launch",{syncKey:(syncOn()?state.sync.key:""),emailSession:es,dateKey:dk,tz:tz,context:ctx,fallback:launchBodyShort(dk)}).then(function(j){
+      launchBusy=false;state.launch.date=dk;state.launch.text=(j&&j.text)?j.text:"";persist();renderCurrentRoom();
+    }).catch(function(){launchBusy=false;state.launch.date=dk;state.launch.text="";persist();renderCurrentRoom();});
   }
   function maybeAutoLaunch(){if(room!=="today"||!relayOn()||launchBusy)return;if(state.launch&&state.launch.date===todayKey())return;generateLaunch(false);}
   /* ---------- weekly review (v0.26) — a Sunday "here's your week" brief ---------- */
@@ -2235,7 +2243,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,v:1};
   var _syncPushT=null,_syncBusy=false,_lastPushedDoc=null;
   // Sync activity log (item 71): last 20 pull/push events, device-local and
   // memory-only — debuggability, not data.
@@ -2805,7 +2813,7 @@
     if(pn){
       html+='<button class="gh-nudge" type="button" data-go="people" style="background:var(--surface-2);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">◎</span><span class="nu-txt"><strong>People.</strong> '+pn+' '+(pn===1?'person':'people')+' overdue to reach out.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
     }
-    if(hr>=17&&openToday>0&&state.lastShutdown!==tk){
+    if(hr>=closeHourVal()&&openToday>0&&state.lastShutdown!==tk){
       html+='<button class="gh-nudge" type="button" data-openwind="1" style="background:var(--accent-soft);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">'+moonSvg()+'</span><span class="nu-txt"><strong>Wind down the day.</strong> '+openToday+' still open — close it out and rest.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
     }
     var hasData=state.items.length||state.notes.length||state.projects.length||state.events.length;
@@ -2818,6 +2826,9 @@
   }
   var windActive=false;
   function windItems(){var tk=todayKey();return state.items.filter(function(i){return !i.done&&(i.today||(i.due&&i.due<=tk));});}
+  // W6 item 46 — the Close ritual's start hour, configurable in the wind-down
+  // overlay. Device-local (SYNC_SKIP, like push.hour) but carried in backups.
+  function closeHourVal(){var h=state.closeHour;return (typeof h==="number"&&h>=12&&h<=23)?h:17;}
   function openWind(){windActive=true;$("windOverlay").classList.add("active");document.body.style.overflow="hidden";renderWind();}
   function closeWind(){windActive=false;$("windOverlay").classList.remove("active");document.body.style.overflow="";state.lastShutdown=todayKey();save();renderHome();if(room==="next")renderNext();}
   function updateTomorrowFocus(){
@@ -2826,11 +2837,13 @@
     state.launch.nextFocusDate=tm;state.launch.nextFocus=arr.map(function(i){return i.text;});
   }
   function windCheck(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>';}
+  function closeHourOpts(){var h=closeHourVal(),o="",i;for(i=15;i<=21;i++){o+='<option value="'+i+'"'+(i===h?" selected":"")+'>'+(i%12===0?12:i%12)+' PM</option>';}return o;}
+  function closeHourRowHTML(){return '<p class="hint" style="margin-top:14px">Nudge me to close the day after <select id="windHourSel" class="inp" style="width:auto;display:inline-block;padding:2px 8px;font-size:13px">'+closeHourOpts()+'</select></p>';}
   function renderWind(){
     var inner=$("windInner");if(!inner)return;
     var left=windItems();
     var top='<div class="sweep-top"><p class="sweep-eyebrow">Wind down</p><button class="sweep-exit" type="button" data-wind="close">Close</button></div>';
-    if(!left.length){inner.innerHTML=top+'<h1 class="sweep-q">Your board is clear.</h1><p class="sweep-prompt sweep-serif">Nothing left for today. Rest well — tomorrow starts fresh.</p><div class="sweep-nav"><button class="add-btn" type="button" data-wind="close">Good night</button></div>';return;}
+    if(!left.length){inner.innerHTML=top+'<h1 class="sweep-q">Your board is clear.</h1><p class="sweep-prompt sweep-serif">Nothing left for today. Rest well — tomorrow starts fresh.</p><div class="sweep-nav"><button class="add-btn" type="button" data-wind="close">Good night</button></div>'+closeHourRowHTML();return;}
     var list="";
     left.forEach(function(it){
       list+='<div class="wind-item"><span class="dot" style="background:'+areaColor(it.area)+'"></span><span class="wind-txt">'+escapeHtml(it.text)+'</span><span class="wind-acts">'+
@@ -2840,7 +2853,7 @@
         '<button class="wind-b" type="button" data-wind-clear="'+escapeHtml(it.id)+'" aria-label="Take off today" title="Off today">✕</button>'+
         '</span></div>';
     });
-    inner.innerHTML=top+'<h1 class="sweep-q">'+left.length+' still open.</h1><p class="sweep-prompt">Close out the day — finish what you can, push the rest to tomorrow, or let it go.</p><div class="wind-list">'+list+'</div><div class="sweep-nav"><button class="add-btn" type="button" data-wind="rollall">Push all to tomorrow</button><button class="btn-ghost" type="button" data-wind="close">Done for today</button></div>';
+    inner.innerHTML=top+'<h1 class="sweep-q">'+left.length+' still open.</h1><p class="sweep-prompt">Close out the day — finish what you can, push the rest to tomorrow, or let it go.</p><div class="wind-list">'+list+'</div><div class="sweep-nav"><button class="add-btn" type="button" data-wind="rollall">Push all to tomorrow</button><button class="btn-ghost" type="button" data-wind="close">Done for today</button></div>'+closeHourRowHTML();
   }
   function handleWind(e){
     var c=e.target.closest("[data-wind],[data-wind-done],[data-wind-tom],[data-wind-clear],[data-wind-focus]");if(!c)return;
@@ -4328,7 +4341,7 @@
   }
   function todayNudgesHTML(){
     var html="",hr=(new Date()).getHours(),openToday=openTodayCount();
-    if(hr>=17&&openToday>0&&state.lastShutdown!==todayKey())html+='<button class="gh-nudge" type="button" data-openwind="1" style="background:var(--accent-soft);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">'+moonSvg()+'</span><span class="nu-txt"><strong>Wind down the day.</strong> '+openToday+' still open - close it out and rest.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
+    if(hr>=closeHourVal()&&openToday>0&&state.lastShutdown!==todayKey())html+='<button class="gh-nudge" type="button" data-openwind="1" style="background:var(--accent-soft);margin-top:14px"><span class="gh-fire" style="color:var(--accent)">'+moonSvg()+'</span><span class="nu-txt"><strong>Wind down the day.</strong> '+openToday+' still open - close it out and rest.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';
     if(state.habits&&state.habits.length){var hd=0,i;for(i=0;i<state.habits.length;i++){if(habitDoneToday(state.habits[i]))hd++;}html+='<button class="gh-nudge" type="button" data-go="habits" style="background:var(--gold-soft);margin-top:14px"><span class="gh-fire" style="color:var(--clay)">🔥</span><span class="nu-txt"><strong>Habits.</strong> '+hd+'/'+state.habits.length+' done today.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';}
     return html;
   }
@@ -4350,7 +4363,7 @@
       ((typeof emailOn==="function"&&emailOn())?launchInboxCardHTML():"")+
       weeklyCardHTML()+
       '<details class="launch-card"><summary class="section-label" style="cursor:pointer">Council</summary><div class="capture-row" style="margin-top:10px"><input id="todayCouncilInput" class="capture-input" type="text" placeholder="Ask the Council..." autocomplete="off"><button class="add-btn" type="button" data-today-council="1">Ask</button></div><p class="hint"><button class="linklike" type="button" data-go="next">Open Council & Briefs</button></p></details>'+
-      '<div class="today-actions"><button class="btn-soft" type="button" data-go="next">Council & Briefs</button><button class="btn-soft" type="button" data-start-sweep="1">Start Life Sweep</button>'+((new Date()).getHours()>=17?'<button class="btn-soft" type="button" data-openwind="1">Wind down</button>':"")+'</div>'+
+      '<div class="today-actions"><button class="btn-soft" type="button" data-go="next">Council & Briefs</button><button class="btn-soft" type="button" data-start-sweep="1">Start Life Sweep</button>'+((new Date()).getHours()>=closeHourVal()?'<button class="btn-soft" type="button" data-openwind="1">Wind down</button>':"")+'</div>'+
       todayNudgesHTML()+
       '<button class="sweep-card" type="button" data-start-intake="1" style="margin-top:12px"><span class="sw-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg></span><span class="sw-txt"><span class="sw-title">Get to know me</span><span class="sw-sub">Add context KevinOS can use in plans and briefs.</span></span><span class="sw-arrow">'+chevSvg()+'</span></button>';
     if(calOn())loadGcal(false);
@@ -4697,6 +4710,7 @@
   $("sweepInner").addEventListener("click",handleSweep);
   $("sweepInner").addEventListener("keydown",function(e){if(e.key==="Enter"){var step=SWEEP_STEPS[sweep.step];if(step&&step.type==="area"){e.preventDefault();sweepAdd();}}});
   $("windInner").addEventListener("click",handleWind);
+  $("windInner").addEventListener("change",function(e){if(e.target&&e.target.id==="windHourSel"){state.closeHour=parseInt(e.target.value,10)||17;persist();toast("Close ritual set for "+fmtTime(pad(closeHourVal())+":00"));}});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(sweep.active)exitSweep();else if(windActive)closeWind();else if(intakeActive)exitIntake();}});
 
   $("projAddBtn").addEventListener("click",addProject);

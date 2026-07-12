@@ -144,6 +144,29 @@ const { loadApp } = require("./harness");
   assert.deepStrictEqual(app.libraryPaletteEntries("nomatchxyz"), [], "no false hits");
   st48.notes = st48.notes.filter((n) => n.id !== "n48");
 
+  // W6 item 46 — configurable Close hour: defensive read defaults to 17,
+  // accepts sane values, is device-local (SYNC_SKIP) but rides backups.
+  const st46 = app.getState();
+  const tomorrowKey = app.addDaysKey(tk, 1);
+  assert.strictEqual(app.closeHourVal(), 17, "default close hour");
+  st46.closeHour = 19;
+  assert.strictEqual(app.closeHourVal(), 19);
+  st46.closeHour = "7pm";
+  assert.strictEqual(app.closeHourVal(), 17, "garbage falls back to 17");
+  st46.closeHour = 3;
+  assert.strictEqual(app.closeHourVal(), 17, "out-of-range falls back to 17");
+  st46.closeHour = 19;
+  assert.ok(app.SYNC_SKIP.closeHour, "closeHour never syncs (device-local)");
+  assert.strictEqual(app.portableDoc(st46).closeHour, 19, "closeHour rides backups");
+  // tomorrow's chosen top-3 reaches the fallback narration
+  st46.items.push({ id: "nf1", text: "Ship v0.45", area: "Work", done: false, due: tomorrowKey, today: true, focusTomorrow: true });
+  app.updateTomorrowFocus();
+  assert.deepStrictEqual(st46.launch.nextFocus, ["Ship v0.45"]);
+  assert.ok(app.launchBodyShort(tomorrowKey).indexOf("Focus: Ship v0.45") >= 0, "narration names the chosen focus");
+  st46.items = st46.items.filter((i) => i.id !== "nf1");
+  st46.closeHour = 17;
+  app.invalidateDayCache();
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");
