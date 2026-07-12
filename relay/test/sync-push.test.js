@@ -32,6 +32,10 @@ function fakeSync() {
                 const r = rows.get(args[0]);
                 return r ? { rev: r.rev } : null;
               }
+              if (sql.indexOf("SELECT updated_at") === 0) {
+                const r = rows.get(args[0]);
+                return r ? { updated_at: r.updated_at } : null;
+              }
               throw new Error("unexpected first(): " + sql);
             },
             async run() {
@@ -158,6 +162,26 @@ async function post(worker, env, pathname, body) {
   // Token-locked relay: sync routes are protected.
   r = await post(worker, { SYNC, KEVINOS_TOKEN: "secret" }, "/sync/pull", { key: KEY });
   assert.strictEqual(r.status, 401, "sync routes require the relay token when set");
+
+  // ── W5.78: weekly cloud snapshot row ───────────────────────────────────
+  // The pushes above created a snapshot row; a fresh push within 7 days
+  // must not touch it.
+  const snapRow = SYNC._rows.get(KEY + ":snap");
+  assert.ok(snapRow, "first accepted push created <key>:snap");
+  const snapDocBefore = snapRow.doc;
+  // (KEY row was corrupted above; re-seed and push to prove no snap churn)
+  SYNC._rows.set(KEY, { doc: JSON.stringify({ items: [] }), updated_at: 1, rev: 20 });
+  r = await post(worker, env, "/sync/push", { key: KEY, doc: { items: [{ id: "later" }] }, baseRev: 20 });
+  assert.strictEqual(r.j.ok, true);
+  assert.strictEqual(SYNC._rows.get(KEY + ":snap").doc, snapDocBefore, "snap untouched within 7 days");
+  // Age the snap out; the next push refreshes it.
+  SYNC._rows.set(KEY + ":snap", { doc: snapDocBefore, updated_at: Date.now() - 8 * 86400000, rev: 1 });
+  r = await post(worker, env, "/sync/push", { key: KEY, doc: { items: [{ id: "fresh-snap" }] }, baseRev: 21 });
+  assert.strictEqual(r.j.ok, true);
+  assert.ok(SYNC._rows.get(KEY + ":snap").doc.indexOf("fresh-snap") >= 0, "aged snap refreshed by the next push");
+  // Pull with {snap:true} reads the snapshot row.
+  r = await post(worker, env, "/sync/pull", { key: KEY, snap: true });
+  assert.deepStrictEqual(r.j.doc.items.map((x) => x.id), ["fresh-snap"], "snap pull returns the recovery copy");
 
   // ── W4.15: v2 sync keys accepted alongside v1 ──────────────────────────
   const V2KEY = "v2:" + "ab12cd34".repeat(8); // v2: + 64 hex

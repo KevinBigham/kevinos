@@ -1761,7 +1761,10 @@ async function handleRequest(request, env, origin) {
     try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
     const key = ((payload && payload.key) || "").toString();
     if (!validSyncKey(key)) return json({ error: "Missing or invalid key" }, 400, origin);
-    const row = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
+    // {snap:true} reads the weekly cloud-snapshot row (item 78) — the
+    // every-local-device-died recovery copy.
+    const rowId = payload && payload.snap ? key + ":snap" : key;
+    const row = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(rowId).first();
     if (!row) return json({ ok: true, doc: null, updatedAt: 0, rev: 0 }, 200, origin);
     let doc = null;
     try { doc = JSON.parse(row.doc); } catch (e) { /* corrupt row → treat as empty */ }
@@ -1797,6 +1800,21 @@ async function handleRequest(request, env, origin) {
     };
     const existing = await env.SYNC.prepare("SELECT doc, updated_at, rev FROM docs WHERE id = ?").bind(key).first();
     const updatedAt = Date.now();
+    // Weekly cloud snapshot (item 78): after any accepted push, refresh
+    // <key>:snap when it's absent or older than 7 days. Best-effort — a
+    // snapshot hiccup must never fail the push. Recovery: /sync/pull with
+    // {snap:true} (surfaced later in the Sync doctor) or a manual D1 query.
+    const refreshSnap = async () => {
+      try {
+        const snapId = key + ":snap";
+        const cur = await env.SYNC.prepare("SELECT updated_at FROM docs WHERE id = ?").bind(snapId).first();
+        if (cur && updatedAt - cur.updated_at < 7 * 86400000) return;
+        await env.SYNC.prepare(
+          "INSERT INTO docs (id, doc, updated_at, rev, device_id) VALUES (?1, ?2, ?3, ?4, ?5) " +
+          "ON CONFLICT(id) DO UPDATE SET doc = ?2, updated_at = ?3, rev = ?4, device_id = ?5"
+        ).bind(snapId, docStr, updatedAt, 1, "weekly-snap").run();
+      } catch (e) { /* best-effort */ }
+    };
     if (existing && !force) {
       if (existing.rev !== baseRev) return staleFrom(existing);
       // Atomic optimistic write — only lands if rev is STILL baseRev, so a
@@ -1812,6 +1830,7 @@ async function handleRequest(request, env, origin) {
       // The winning UPDATE's rev is deterministic (baseRev + 1) — an unconditional
       // re-read here could observe a later writer and report a rev one ahead of the
       // doc this client actually holds, making its next pull skip that newer doc.
+      await refreshSnap();
       return json({ ok: true, rev: baseRev + 1, updatedAt }, 200, origin);
     }
     if (!existing && !force) {
@@ -1825,6 +1844,7 @@ async function handleRequest(request, env, origin) {
         if (row) return staleFrom(row);
         throw e;
       }
+      await refreshSnap();
       return json({ ok: true, rev: 1, updatedAt }, 200, origin);
     }
     // force: unconditional overwrite — rev = the stored rev re-read at write time, +1.
@@ -1834,6 +1854,7 @@ async function handleRequest(request, env, origin) {
       "INSERT INTO docs (id, doc, updated_at, rev, device_id) VALUES (?1, ?2, ?3, ?4, ?5) " +
       "ON CONFLICT(id) DO UPDATE SET doc = ?2, updated_at = ?3, rev = ?4, device_id = ?5"
     ).bind(key, docStr, updatedAt, rev, deviceId).run();
+    await refreshSnap();
     return json({ ok: true, rev, updatedAt }, 200, origin);
   }
 
