@@ -38,6 +38,12 @@ MISTRAL_MODEL = "mistral-small-latest"
 OPENROUTER_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-31b-it:free"
 ZAI_MODEL = "glm-4.7-flash"
 MAX_TOKENS = "1024"
+# Council lane pinning (item 62) — comma-separated "seatId=laneKey" pairs, e.g.
+# "groq=devil,gemini=grounded". Seats: gemini cloudflare groq mistral openrouter
+# zai. Lanes: grounded tactical research open devil outside. This is only the
+# server-side DEFAULT — the app's Settings panel sends per-ask overrides, so
+# lane swaps never need a redeploy. Unknown ids/lanes are ignored.
+LANE_PINS = ""
 # AI-route rate limit per caller (token) per hour — a leaked URL+token can't
 # silently drain the free tiers. "0" disables. Uses the PUSH KV namespace.
 AI_RATE_LIMIT_PER_HOUR = "120"

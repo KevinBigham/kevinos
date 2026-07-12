@@ -217,27 +217,54 @@ async function callCloudflare(env, system, prompt, model) {
   return ((out && (out.response || out.result || "")) + "").trim();
 }
 
+// The Council lanes (item 62) — a lane is a seat's role in the panel. Each
+// seat has a default lane; LANE_PINS (wrangler.toml) re-pins seats server-side,
+// and a per-request `lanes` map from the app overrides both — so Kevin swaps
+// lanes from Settings without a redeploy.
+const COUNCIL_LANES = {
+  grounded: { lane: "Grounded", role: "Be the grounded, fact-first voice. Anchor your answer in what is verifiably true and concrete; flag what is uncertain. Specifics over generalities." },
+  open: { lane: "Open-model", role: "Be the open-model wildcard. Offer the angle the mainstream models miss — an unconventional but genuinely workable approach." },
+  tactical: { lane: "Fast tactical", role: "Be the fast tactical voice. Give the punchiest, most actionable take — what to do next, in order. Bias hard to action." },
+  research: { lane: "Research", role: "Be the research voice. Bring rigor: weigh the main options, name the trade-offs, and surface edge cases and what the evidence favors." },
+  devil: { lane: "Devil's advocate", role: "Be the contrarian. Challenge the obvious answer; make the strongest case against the likely consensus and name the risk others will miss." },
+  outside: { lane: "Outside view", role: "Be the outside view. Answer from first principles: question the assumptions the other advisors probably share, and surface the non-obvious angle or reframing. Be concrete, not contrarian for its own sake." },
+};
+
+// Merge lane pins: env.LANE_PINS ("groq=devil,gemini=grounded") first, then the
+// request's `lanes` object. Unknown lane keys are ignored; seat ids are checked
+// against the live roster inside councilSeats.
+function lanePins(env, requested) {
+  const pins = {};
+  const add = (id, key) => { if (id && COUNCIL_LANES[key]) pins[id] = key; };
+  ((env.LANE_PINS || "") + "").split(",").forEach((pair) => {
+    const eq = pair.indexOf("=");
+    if (eq > 0) add(pair.slice(0, eq).trim().toLowerCase(), pair.slice(eq + 1).trim().toLowerCase());
+  });
+  if (requested && typeof requested === "object" && !Array.isArray(requested)) {
+    for (const id of Object.keys(requested)) add(id.trim().toLowerCase(), ((requested[id] || "") + "").trim().toLowerCase());
+  }
+  return pins;
+}
+
 // The Council roster — only seats whose credential is present are returned.
-function councilSeats(env) {
+// pins (optional, from lanePins) re-assigns lane + role per seat id.
+function councilSeats(env, pins) {
   const seats = [];
   if (env.GEMINI_API_KEY)
     seats.push({
-      id: "gemini", label: "Gemini", lane: "Grounded", provider: "google",
-      role: "Be the grounded, fact-first voice. Anchor your answer in what is verifiably true and concrete; flag what is uncertain. Specifics over generalities.",
+      id: "gemini", label: "Gemini", laneKey: "grounded", provider: "google",
       model: env.GEMINI_MODEL || DEFAULTS.geminiModel,
       run: (system, prompt) => callGemini(env, system, prompt),
     });
   if (env.AI)
     seats.push({
-      id: "cloudflare", label: "Llama · Cloudflare", lane: "Open-model", provider: "cloudflare",
-      role: "Be the open-model wildcard. Offer the angle the mainstream models miss — an unconventional but genuinely workable approach.",
+      id: "cloudflare", label: "Llama · Cloudflare", laneKey: "open", provider: "cloudflare",
       model: env.CF_MODEL || DEFAULTS.cfModel,
       run: (system, prompt) => callCloudflare(env, system, prompt),
     });
   if (env.GROQ_API_KEY)
     seats.push({
-      id: "groq", label: "Groq", lane: "Fast tactical", provider: "groq",
-      role: "Be the fast tactical voice. Give the punchiest, most actionable take — what to do next, in order. Bias hard to action.",
+      id: "groq", label: "Groq", laneKey: "tactical", provider: "groq",
       model: env.GROQ_MODEL || DEFAULTS.groqModel,
       run: (system, prompt) =>
         callOpenAICompatible({
@@ -248,8 +275,7 @@ function councilSeats(env) {
     });
   if (env.MISTRAL_API_KEY)
     seats.push({
-      id: "mistral", label: "Mistral", lane: "Research", provider: "mistral",
-      role: "Be the research voice. Bring rigor: weigh the main options, name the trade-offs, and surface edge cases and what the evidence favors.",
+      id: "mistral", label: "Mistral", laneKey: "research", provider: "mistral",
       model: env.MISTRAL_MODEL || DEFAULTS.mistralModel,
       run: (system, prompt) =>
         callOpenAICompatible({
@@ -262,8 +288,7 @@ function councilSeats(env) {
     const orModels = (env.OPENROUTER_MODEL || DEFAULTS.openrouterModel)
       .split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3); // OpenRouter caps the fallback array at 3
     seats.push({
-      id: "openrouter", label: "OpenRouter", lane: "Devil's advocate", provider: "openrouter",
-      role: "Be the contrarian. Challenge the obvious answer; make the strongest case against the likely consensus and name the risk others will miss.",
+      id: "openrouter", label: "OpenRouter", laneKey: "devil", provider: "openrouter",
       model: orModels[0],
       run: (system, prompt) =>
         callOpenAICompatible({
@@ -279,8 +304,7 @@ function councilSeats(env) {
   }
   if (env.ZAI_API_KEY)
     seats.push({
-      id: "zai", label: "Z.ai GLM", lane: "Outside view", provider: "zai",
-      role: "Be the outside view. Answer from first principles: question the assumptions the other advisors probably share, and surface the non-obvious angle or reframing. Be concrete, not contrarian for its own sake.",
+      id: "zai", label: "Z.ai GLM", laneKey: "outside", provider: "zai",
       model: env.ZAI_MODEL || DEFAULTS.zaiModel,
       run: (system, prompt) =>
         callOpenAICompatible({
@@ -291,6 +315,12 @@ function councilSeats(env) {
           reasoningFallback: true, // GLM can still answer via reasoning_content even with thinking disabled
         }),
     });
+  const eff = pins || lanePins(env, null);
+  for (const s of seats) {
+    const def = COUNCIL_LANES[eff[s.id]] || COUNCIL_LANES[s.laneKey];
+    s.lane = def.lane;
+    s.role = def.role;
+  }
   return seats;
 }
 
@@ -1467,8 +1497,9 @@ async function handleRequest(request, env, origin) {
   const provider = (env.PROVIDER || "claude").toLowerCase();
 
   if (request.method === "GET" && url.pathname === "/") {
-    const seats = councilSeats(env).map((s) => s.id);
-    return json({ ok: true, service: "kevinos-relay", provider, seats, auth: !!relayToken(env), push: !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.PUSH), github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && env.PUSH), sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!(env.GEMINI_API_KEY && env.PUSH && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), launch: !!env.GEMINI_API_KEY, calendar: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), habits: !!(env.SYNC && env.PUSH && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY), email: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), peopleEnrich: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), intake: !!env.GEMINI_API_KEY, swim: !!(env.GEMINI_API_KEY && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), sheets: !!(env.GEMINI_API_KEY && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH) }, 200, origin);
+    const roster = councilSeats(env);
+    const seats = roster.map((s) => s.id);
+    return json({ ok: true, service: "kevinos-relay", provider, seats, roster: roster.map((s) => ({ id: s.id, label: s.label, lane: s.lane })), lanes: Object.keys(COUNCIL_LANES), auth: !!relayToken(env), push: !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.PUSH), github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && env.PUSH), sync: !!env.SYNC, extract: !!env.GEMINI_API_KEY, capture: !!env.GEMINI_API_KEY, summarize: !!env.GEMINI_API_KEY, spend: !!(env.GEMINI_API_KEY && env.PUSH && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), launch: !!env.GEMINI_API_KEY, calendar: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), habits: !!(env.SYNC && env.PUSH && env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY), email: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), peopleEnrich: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), intake: !!env.GEMINI_API_KEY, swim: !!(env.GEMINI_API_KEY && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH), sheets: !!(env.GEMINI_API_KEY && env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUSH) }, 200, origin);
   }
 
   // Council — fan one prompt out to every configured seat, then synthesize.
@@ -1485,13 +1516,16 @@ async function handleRequest(request, env, origin) {
     const wantStream = !!(payload && payload.stream);
     if (!prompt) return json({ error: "Missing prompt" }, 400, origin);
 
-    const seats = councilSeats(env);
+    const pins = lanePins(env, payload && payload.lanes);
+    const seats = councilSeats(env, pins);
     if (!seats.length) return json({ error: "No Council seats configured on the relay" }, 500, origin);
+    // A re-pinned panel is a different council — the pin signature joins the cache key below.
+    const pinSig = Object.keys(pins).sort().map((k) => k + "=" + pins[k]).join(",");
 
     // 24h identical-question cache (item 68): an accidental double-ask must
     // not double-spend six seats. Keyed by full sha256 of prompt+system+shape.
     const cacheKey = env.PUSH
-      ? "cq:" + (await sha256Hex(prompt + "\u0000" + system + "\u0000" + (wantSynth ? "s" : "") + (wantStream ? "n" : "j")))
+      ? "cq:" + (await sha256Hex(prompt + "\u0000" + system + "\u0000" + (wantSynth ? "s" : "") + (wantStream ? "n" : "j") + pinSig))
       : null;
     if (cacheKey) {
       try {

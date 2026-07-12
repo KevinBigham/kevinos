@@ -108,6 +108,7 @@ const EXPORT_NAMES = [
   "libraryPaletteEntries", "libraryRecords", "PALETTE_LIB_MAX",
   "closeHourVal", "updateTomorrowFocus", "launchBodyShort",
   "sweepStreak", "mergeSweepLog",
+  "lanePinsClean", "councilRosterList",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

@@ -1036,7 +1036,7 @@
   // object list. Adding entity #18 = add it HERE (and to the initial state
   // below); assertContentContract() screams at boot if the shapes drift.
   var CONTENT_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"];
-  var PORTABLE_OBJS=["deleted","weatherLoc","roomStats","sweepLog","brief","launch","weekly","intake","peopleCfg","spendMeta"];
+  var PORTABLE_OBJS=["deleted","weatherLoc","roomStats","sweepLog","lanePins","brief","launch","weekly","intake","peopleCfg","spendMeta"];
 
   // Policy constants (audit item 86) — numbers that encode a promise, named
   // so the promise is greppable. Change these deliberately, never in passing.
@@ -1057,7 +1057,7 @@
   var PTR_PX=70;                         // pull distance that triggers Today's pull-to-refresh (item 55)
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",v:SCHEMA_VERSION};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",lanePins:{},v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
   var relayHealth={status:"unknown",checkedAt:0,caps:null,err:""}, relayHealthOpen=false;
   var ghMem={cache:null,fetchedAt:0}, sheetsMem={at:0,text:""}, swimMem={at:0,items:[]};
@@ -2116,7 +2116,7 @@
     var on=relayOn();
     var cq='<hr class="surface-line"><div class="sec-head" style="margin-top:6px"><p class="section-label">Council queue</p><button class="sec-link" type="button" data-relay-toggle="1">'+(on?"AI connected ✓":"Connect AI")+'</button></div>';
     if(relayOpen){
-      cq+='<div class="edit-panel"><div class="field"><label for="relayUrl">Relay URL</label><input class="inp" id="relayUrl" type="text" placeholder="https://kevinos-relay.…workers.dev" value="'+escapeHtml((state.relay&&state.relay.url)||"")+'" autocomplete="off" spellcheck="false"></div><div class="field"><label for="relayToken">Relay token (optional)</label><input class="inp" id="relayToken" type="password" placeholder="X-KevinOS-Token" value="'+escapeHtml((state.relay&&state.relay.token)||"")+'" autocomplete="off" spellcheck="false"></div><div class="edit-actions"><button class="add-btn" type="button" data-relay-save="1">Save</button>'+(on?'<button class="btn-ghost danger" type="button" data-relay-clear="1">Disconnect</button>':'')+'</div><p class="hint">Paste your Cloudflare Worker URL (see <code>relay/RELAY_SETUP.md</code>). If your relay has a token, it stays only on this device and is never exported in backups.</p></div>';
+      cq+='<div class="edit-panel"><div class="field"><label for="relayUrl">Relay URL</label><input class="inp" id="relayUrl" type="text" placeholder="https://kevinos-relay.…workers.dev" value="'+escapeHtml((state.relay&&state.relay.url)||"")+'" autocomplete="off" spellcheck="false"></div><div class="field"><label for="relayToken">Relay token (optional)</label><input class="inp" id="relayToken" type="password" placeholder="X-KevinOS-Token" value="'+escapeHtml((state.relay&&state.relay.token)||"")+'" autocomplete="off" spellcheck="false"></div>'+(on?lanePinRowsHTML():'')+'<div class="edit-actions"><button class="add-btn" type="button" data-relay-save="1">Save</button>'+(on?'<button class="btn-ghost danger" type="button" data-relay-clear="1">Disconnect</button>':'')+'</div><p class="hint">Paste your Cloudflare Worker URL (see <code>relay/RELAY_SETUP.md</code>). If your relay has a token, it stays only on this device and is never exported in backups.</p></div>';
     }
     cq+='<div class="capture-row"><input id="councilInput" class="capture-input" type="text" placeholder="Ask the Council something…" autocomplete="off" aria-label="Council question"><button class="add-btn" type="button" data-council-add="1">'+(on?"Ask":"Queue")+'</button></div>';
     if(state.council&&state.council.length){
@@ -2180,7 +2180,14 @@
       else o.onTimeout();
     }).catch(function(){if(n<60)setTimeout(function(){oauthPoll(n+1,o);},2500);else if(o.onNetFail)o.onNetFail();});
   }
-  function saveRelayUrl(){var ri=$("relayUrl"),rt=$("relayToken");if(ri){if(!state.relay)state.relay={url:"",token:""};state.relay.url=(ri.value||"").trim();state.relay.token=rt?(rt.value||"").trim():((state.relay&&state.relay.token)||"");relayAuthRejected=false;relayAuthToastShown=false;relayHealth={status:"unknown",checkedAt:0,caps:null,err:""};}relayOpen=false;renderNext();save();renderSync();if(relayOn())runQueuedCouncil();}
+  function saveRelayUrl(){
+    var ri=$("relayUrl"),rt=$("relayToken");
+    if(ri){if(!state.relay)state.relay={url:"",token:""};state.relay.url=(ri.value||"").trim();state.relay.token=rt?(rt.value||"").trim():((state.relay&&state.relay.token)||"");relayAuthRejected=false;relayAuthToastShown=false;relayHealth={status:"unknown",checkedAt:0,caps:null,err:""};}
+    var sels=document.querySelectorAll("[data-lanepin]"),pins={},i,id,v;
+    for(i=0;i<sels.length;i++){id=sels[i].getAttribute("data-lanepin");v=sels[i].value||"";if(id&&laneKeyOk(v))pins[id]=v;}
+    if(sels.length)state.lanePins=pins;
+    relayOpen=false;renderNext();save();renderSync();if(relayOn())runQueuedCouncil();
+  }
 
   /* ---------- phone reminders / Web Push (v0.14) ---------- */
   var _syncT=null;
@@ -2296,7 +2303,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,theme:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,theme:1,lanePins:1,v:1};
   var _syncPushT=null,_syncBusy=false,_lastPushedDoc=null;
   // Sync activity log (item 71): last 20 pull/push events, device-local and
   // memory-only — debuggability, not data.
@@ -2654,13 +2661,40 @@
     h+=councilTasksHTML(q);
     return h;
   }
+  // Lane pinning (item 62). state.lanePins {seatId:laneKey} is device-local
+  // (SYNC_SKIP, rides backups). Sent per-ask as body.lanes — the relay's
+  // LANE_PINS var is only the server default, so swaps need no redeploy.
+  var LANE_OPTS=[["","Default"],["grounded","Grounded"],["tactical","Fast tactical"],["research","Research"],["open","Open-model"],["devil","Devil's advocate"],["outside","Outside view"]];
+  function laneKeyOk(k){var i;for(i=1;i<LANE_OPTS.length;i++)if(LANE_OPTS[i][0]===k)return true;return false;}
+  function lanePinsClean(){
+    var src=(state.lanePins&&typeof state.lanePins==="object")?state.lanePins:{},out=null,k,v;
+    for(k in src){if(!src.hasOwnProperty(k))continue;v=String(src[k]||"");if(laneKeyOk(v)){if(!out)out={};out[k]=v;}}
+    return out;
+  }
+  function councilRosterList(){
+    if(relayHealth.caps&&isArr(relayHealth.caps.roster)&&relayHealth.caps.roster.length)return relayHealth.caps.roster;
+    var i,q;
+    if(isArr(state.council)){for(i=0;i<state.council.length;i++){q=state.council[i];if(q&&isArr(q.seats)&&q.seats.length)return q.seats;}}
+    return [{id:"gemini",label:"Gemini"},{id:"cloudflare",label:"Llama · Cloudflare"},{id:"groq",label:"Groq"},{id:"mistral",label:"Mistral"},{id:"openrouter",label:"OpenRouter"},{id:"zai",label:"Z.ai GLM"}];
+  }
+  function lanePinRowsHTML(){
+    var pins=(state.lanePins&&typeof state.lanePins==="object")?state.lanePins:{},seats=councilRosterList(),h="",i,s,cur,j,sel;
+    for(i=0;i<seats.length;i++){
+      s=seats[i];cur=String(pins[s.id]||"");
+      h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span style="flex:1;font-size:13px">'+escapeHtml(s.label||s.id)+'</span><select class="inp" data-lanepin="'+escapeHtml(s.id)+'" style="width:auto" aria-label="Lane for '+escapeHtml(s.label||s.id)+'">';
+      for(j=0;j<LANE_OPTS.length;j++){sel=(LANE_OPTS[j][0]===cur)?" selected":"";h+='<option value="'+LANE_OPTS[j][0]+'"'+sel+'>'+LANE_OPTS[j][1]+'</option>';}
+      h+='</select></div>';
+    }
+    return '<div class="field"><label>Council lanes (pin a seat to a role — applies on Save)</label>'+h+'</div>';
+  }
   var COUNCIL_SYS="You are one voice on Kevin's Council inside KevinOS, his calm personal operating system. Answer the question directly, concisely, and practically. Lead with your recommendation, then the why. Plain text, no preamble.";
   function runCouncil(id){
     var base=relayBase();if(!base)return;
     var q=findCouncil(id);if(!q)return;
     q.status="running";q.error="";q.seats=null;q.synthesis=null;q.answer="";q.provider="";q.streaming=false;renderNext();
-    var body={prompt:q.text,synthesize:true,stream:true},pd=profileDigest();
+    var body={prompt:q.text,synthesize:true,stream:true},pd=profileDigest(),lp=lanePinsClean();
     if(pd)body.system=COUNCIL_SYS+"\nContext about Kevin: "+pd;
+    if(lp)body.lanes=lp;
     relayCall("/council",body,{raw:true})
       .then(function(r){
         if(r.status===401){councilFail(id,"Relay token rejected - re-paste it in Settings.");return;}

@@ -196,6 +196,19 @@ const { loadApp } = require("./harness");
   const deepBad = await loadApp({ search: "?room=nonsense" });
   assert.strictEqual(deepBad.app.getRoom(), "today", "unknown rooms fall back to today");
 
+  // W8 item 62 — lane pins: defensive read, lane-key filtering, sync skip.
+  const st62 = deep.app.getState();
+  delete st62.lanePins;
+  assert.strictEqual(deep.app.lanePinsClean(), null, "missing lanePins reads as none");
+  st62.lanePins = { gemini: "devil", groq: "", cloudflare: "bogus", zai: "outside" };
+  assert.deepStrictEqual(deep.app.lanePinsClean(), { gemini: "devil", zai: "outside" },
+    "clean keeps only real lane keys (seat ids are the relay's to validate)");
+  assert.strictEqual(deep.app.buildSyncDoc().lanePins, undefined, "lanePins is device-local (SYNC_SKIP)");
+  assert.ok(deep.app.portableDoc(st62).lanePins, "lanePins rides portable backups");
+  const roster62 = deep.app.councilRosterList();
+  assert.ok(Array.isArray(roster62) && roster62.length === 6 && roster62[0].id === "gemini",
+    "roster falls back to the six known seats before any relay contact");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

@@ -35,6 +35,7 @@ node test/convergence.test.js
 echo "── relay suites ───────────────────────────────"
 node relay/test/route-auth.test.js
 node relay/test/sync-push.test.js
+node relay/test/lane-pins.test.js
 
 echo "───────────────────────────────────────────────"
 echo "ALL GREEN ✓"
