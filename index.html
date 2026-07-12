@@ -5437,12 +5437,15 @@
     if(!state.roomStats||typeof state.roomStats!=="object")state.roomStats={};
     state.v=SCHEMA_VERSION;
     sanitizeIds(); // storage written before this version may hold pre-sanitizer ids
+    // W7 item 60 — ?room= deep link (manifest shortcuts + push URLs use it).
+    // Read before ingestShared, whose replaceState strips the query string.
+    var roomQ=null;try{roomQ=new URLSearchParams(location.search).get("room");}catch(e){}
     var sharedMsg=ingestShared();
     recordLastGoodBoot();
     applyTheme();renderThemeToggle();
     renderOfflineChip();
     checkPushHealth();
-    go("today");
+    go(roomQ&&RENDERERS[normalizeRoom(roomQ)]?roomQ:"today");
     vcDetect();
     save();
     renderStorageStats();if(typeof renderSnapshots==="function")renderSnapshots();if(typeof snapBootMaybe==="function")snapBootMaybe();

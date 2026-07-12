@@ -188,6 +188,14 @@ const { loadApp } = require("./harness");
   assert.ok(app.portableDoc(st47).sweepLog, "sweepLog rides backups (PORTABLE_OBJS)");
   st47.sweepLog = {};
 
+  // W7 item 60 — ?room= deep link (fresh app instances; boot reads the param).
+  const deep = await loadApp({ search: "?room=tasks" });
+  assert.strictEqual(deep.app.getRoom(), "tasks", "?room=tasks boots into Tasks");
+  const deepAlias = await loadApp({ search: "?room=launch" });
+  assert.strictEqual(deepAlias.app.getRoom(), "today", "aliases normalize (launch -> today)");
+  const deepBad = await loadApp({ search: "?room=nonsense" });
+  assert.strictEqual(deepBad.app.getRoom(), "today", "unknown rooms fall back to today");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

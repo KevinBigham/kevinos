@@ -143,7 +143,7 @@ function loadApp(opts) {
     confirm() { return true; },
   };
   const navigatorStub = { onLine: true, userAgent: "kevinos-test" };
-  const locationStub = { search: "", protocol: "file:", origin: "null", pathname: "/", hash: "" };
+  const locationStub = { search: opts.search || "", protocol: "file:", origin: "null", pathname: "/", hash: "" };
   const historyStub = { replaceState() {} };
   const setIntervalStub = function () { return 0; };
 
