@@ -346,15 +346,17 @@ async function synthesize(env, prompt, answered) {
   const system =
     "You are the Chair of Kevin's Council of AIs. Several models answered the same question independently, " +
     "each from an assigned lane (grounded, fast tactical, research, open-model, devil's advocate, outside view). " +
-    "Synthesize their answers into one decision-ready brief. Be concise, specific, plain text, no preamble.";
+    "Synthesize their answers into one decision-ready brief. Be concise, specific, plain text, no preamble. " +
+    "Attribute as you go: when a point comes from one advisor, name that seat — Kevin uses this to learn which lanes earn trust.";
   const body =
     "QUESTION:\n" + prompt + "\n\nThe Council's answers (each tagged with its lane):\n\n" +
     answered.map((a) => "[" + a.label + (a.lane ? " · " + a.lane : "") + "]\n" + a.text).join("\n\n") +
-    "\n\nReturn exactly these four short sections:\n" +
+    "\n\nReturn exactly these five short sections:\n" +
     "1) Consensus — where they agree\n" +
     "2) Split — where they diverge and why it matters\n" +
-    "3) Recommendation — the single strongest path forward\n" +
-    "4) Watch-fors — what would change the answer";
+    "3) Recommendation — the single strongest path forward, naming the seat(s) whose reasoning drove it\n" +
+    "4) Watch-fors — what would change the answer\n" +
+    "5) Why — one line per seat that shaped this brief: the seat's name and what it uniquely contributed (skip seats that added nothing)";
   try {
     const text = await withTimeout(ch.run(system, body), DEFAULTS.seatTimeoutMs, "synthesis");
     return { ok: true, provider: ch.provider, text };
