@@ -175,7 +175,7 @@ Never run concurrently:
 ## 7. Progress tracker
 
 - [x] W0 Truth & Hotfixes → v0.40 *(2026-07-11, all 12 items)*
-- [ ] W1 Test Harness + CI green
+- [x] W1 Test Harness locally green *(2026-07-11; CI green pending first push)*
 - [ ] W2 Safety Refactors → v0.41 *(suite green throughout)*
 - [ ] W3 Data Trust → v0.42 *(schema 40 if bumped)*
 - [ ] W4 Relay Hardening + Key v2 → v0.43 + deploy #1
@@ -205,3 +205,17 @@ Never run concurrently:
 - **Deviations:** (a) git init + baseline commit performed because the checkout wasn't a repo (data-safety insurance; approved by Kevin's BEGIN on the flagged plan). (b) Item 82 scope: also fixed GETTING_STARTED's stale cron fact (`* * * * *` → `*/2`) and README's pre-P9 nav list — factually wrong statements adjacent to the version sweep; safer reading. (c) Item 90: APP_VERSION stamps the footer at boot; static footer text kept as no-JS fallback (two strings, one grep checks both).
 - **Awaiting Kevin:** `git push` (batch at wave boundaries — needs remote wired first, see Setup note).
 - **Next task:** W1 item 21 — `test/app-logic.test.js` harness (awk extraction + window/document/localStorage stubs).
+
+### W1 — Test Harness (2026-07-11) ✅ (CI pending push)
+- **Items completed (10/10):** 21 (harness + app-logic), 22 (capture, 26 cases), 23 (merge convergence), 24 (portable round-trips), 25 (parseICS fixtures), 26 (rollRecurring), 27 (habit streaks), 28 (worker /sync/push vs fake D1), 29 (`sh test/run.sh` runner + MISSION.md ritual), 30 (GitHub Actions CI).
+- **Files added:** `test/harness.js` (loads the app IIFE in Node via `new Function` + stub DOM/localStorage, harvests internals), `test/{app-logic,capture,merge,portable,ics,recurrence,streaks}.test.js`, `relay/test/sync-push.test.js`, `test/run.sh`, `.github/workflows/ci.yml`. `MISSION.md` ritual now points at the runner. Zero `index.html` edits.
+- **Commits:** 4bbea9c, 796ef6e, 78319c1, 3a52f04, 09bcddb, 9f0d5ab, e5d32e9, 74ca2b0, 8595872+b4e5b9c, 053ff01.
+- **Tests run:** `sh test/run.sh` ALL GREEN (static checks, ES5 scan, 7 app suites, 2 relay suites). Scanner negative-tested (planted `const` caught). No app code changed; no version bump (per plan).
+- **MANUAL-UNVERIFIED:** CI workflow itself — needs the first `git push` to a GitHub remote; expect a green Actions run of `sh test/run.sh` on node 20.
+- **Pre-existing quirks found by characterization (bugs for Kevin to triage, none data-safety):**
+  1. *Capture:* a leading `@token` (e.g. `"@tomorrow only"`) is neither parsed as a date nor stripped — the date regex requires a preceding space. Pinned as-is in `test/capture.test.js`.
+  2. *Recurrence:* monthly repeat from Jan 31 rolls to Mar 3 (JS Date overflow), not "last day of Feb". Pinned as-is.
+  3. *ICS:* an EXDATE-excluded occurrence still consumes RRULE COUNT (6-count MWF rule with 1 EXDATE yields 5 events). Matches most calendar apps' interpretation; pinned as-is.
+  4. *ICS:* date-only DTEND yields `end:null` (multi-day all-day events lose their end date on import). Pinned as-is.
+- **Deviations:** run.sh's whole-script ES5 scan uses statement-position matching for `const`/`let` because UI copy ("…or let it go") false-positives the naive pattern; the stricter diff-scan is unchanged.
+- **Next task:** W2 item 31 — render-time probe (measure before touching).
