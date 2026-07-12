@@ -26,11 +26,15 @@ Live: **https://kevinbigham.github.io/kevinos/**
 
 Every release bumps all of these together, or none — drift here has bitten before (a v0.39 app shipped with a v0_38 service-worker cache):
 
-1. `index.html` footer version — `KevinOS v0.NN`.
+1. `APP_VERSION` in `index.html` — the single version source; it stamps the footer at boot (the static footer text is kept in step as the no-JS fallback).
 2. `sw.js` — `CACHE = "kevinos-v0_NN"`.
 3. `SCHEMA_VERSION` in `index.html` — **only** if the persisted data shape changed, and always with a `prevV<NN` migration gate. Never bump it casually.
 
-Check all three before every commit that ships a version.
+Check all three before every commit that ships a version. One grep verifies:
+
+```sh
+grep -n 'APP_VERSION=' index.html; grep -n 'KevinOS v0' index.html | head -1; grep -n 'CACHE = ' sw.js; grep -n 'SCHEMA_VERSION=' index.html
+```
 
 ## Repo layout
 - `index.html` — the whole app (one file, ES5-style vanilla JS, zero deps). `manifest.json` + `sw.js` make it an offline PWA.
