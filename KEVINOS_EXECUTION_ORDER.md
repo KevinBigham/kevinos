@@ -178,7 +178,7 @@ Never run concurrently:
 - [x] W1 Test Harness locally green *(2026-07-11; CI green pending first push)*
 - [x] W2 Safety Refactors → v0.41 *(2026-07-11, suite green throughout)*
 - [x] W3 Data Trust → v0.42 *(2026-07-11; schema NOT bumped — item 9 landed as a sidecar key)*
-- [ ] W4 Relay Hardening + Key v2 → v0.43 + deploy #1
+- [x] W4 Relay Hardening + Key v2 → v0.43 code-complete *(2026-07-11; deploy #1 AWAITING KEVIN)*
 - [ ] W5 Sync Observability → v0.44 + deploy #2 · **GATE-76 decided: ___**
 - [ ] W6 Daily-Driver UX → v0.45
 - [ ] W7 Theme/Mobile/PWA → v0.46
@@ -236,3 +236,16 @@ Never run concurrently:
 - **MANUAL-UNVERIFIED:** (1) 5-minute auto-backup — on a quota-limited profile, force failing saves, wait 5 min, expect one automatic download + toast; (2) in-card disconnect confirms for GitHub/Gmail/GCal against live connections (arm → cancel → arm → confirm; verify revocation happens only on confirm); (3) >1 MB sync-doc warning with real data volume.
 - **Deviations:** (a) item 9 landed as sidecar localStorage key `kevinos:lastGoodBoot` instead of a state field — a state field is unreadable exactly when the emergency screen needs it; consequently **no SCHEMA_VERSION bump was needed** (the anticipated →40 didn't happen; next candidate bump is W5/GATE-76). (b) item 4 folded into 41/8's shared counting helper (same region, strict dependency chain). (c) Emergency-mode import skips the in-card confirm (footer card would sit behind the overlay; the original window.confirm was reachable, the card isn't — user already explicitly chose Import from the recovery screen).
 - **Next task:** W4 item 19 — relay health `auth:` flag + app "relay unlocked" warning (deploy window #1; code-complete then queue deploy for Kevin).
+
+### W4 — Relay Hardening + Key v2 → v0.43 CODE-COMPLETE (2026-07-11) ⏸ deploy #1 awaiting Kevin
+- **Items completed (6/6):** 19 (health `auth:` flag + amber "Relay online — unlocked" chip + Part 3.5 pointer in the chip explanation; route-auth test extended both ways), 17 (KV rate limit: 13 AI routes, hour-bucketed counter per token-hash, AI_RATE_LIMIT_PER_HOUR=120 var, fails open; 5 tests), 68 (24h /council identical-question cache: full-sha256 key in PUSH KV; streams cache their NDJSON transcript, JSON path caches the body; success-only, best-effort), 36 (**verified already implemented** — `_lastRemindersJson` byte-compare skip in syncReminders; no change), 15 (PBKDF2 v2 sync keys: `v2:`+PBKDF2-SHA256@210k, reference-vector tested; worker `validSyncKey` accepts v1+v2 at all 8 key sites; migration = pull v1 → union-merge → push v2 → force-push v1 doc back with `__movedToV2` marker so v1 devices stop pushing and show a re-key nudge — **forkproof, and the v1 row keeps its data as the one-version read fallback**; forced reminder re-sync on connect per C2), 16 (strength meter + 8-char minimum). Release bump → v0.43.
+- **Commits:** be3ebde, 78a3ff4, ab244ea, ac82ff7, a86fa68, 114f2bd. Nothing pushed/deployed.
+- **Tests run:** `sh test/run.sh` ALL GREEN throughout (route-auth: auth-flag both states; sync-push: v2 accept, v3/non-hex reject, rate-limit trip/disable/fail-open; app-logic: PBKDF2 reference vector vs Node crypto). Browser: strength meter all four tiers, short-phrase block, boot clean at v0.43.
+- **Incident, resolved:** first W4.68 edit embedded two raw NUL bytes (a ` ` separator got JSON-decoded to a real NUL) — made worker.js grep-binary. Caught by the grep ritual going silent; replaced with escaped ` `; `node --check` had passed throughout (NUL is legal in a JS string), so greppability checks matter.
+- **MANUAL-UNVERIFIED (live, after deploy):** (1) `curl -s https://kevinos-relay.kevinbigham.workers.dev/` shows `"auth":true` and the app chip stays green (not "unlocked"); (2) same council question twice within a minute → second response carries `X-KevinOS-Cache: hit` header and costs no seats; (3) rate limit: 121st AI call in an hour → 429 (or set AI_RATE_LIMIT_PER_HOUR="2" on a test deploy and trip it with 3 curls); (4) re-key drill: on the phone, Disconnect sync → Connect with the passphrase → expect "Sync upgraded ✓"; then on the Mac (still v1) expect the "moved to a stronger key" nudge and NO pushes until re-keyed; then re-key the Mac; verify both devices converge and the 8am brief still generates (fire-time reminders carry the v2 key); (5) link code display: after re-key the footer link code shows the first 6 chars of "v2:..." — cosmetic, confirm it matches on both devices.
+- **⏸ AWAITING KEVIN — deploy window #1 (paste-ready, IN THIS ORDER):**
+  1. `cd relay && npx wrangler deploy`   *(relay first — it accepts v1+v2; the app's new connect flow needs it)*
+  2. `curl -s https://kevinos-relay.kevinbigham.workers.dev/` → confirm `"auth":true` (or set the token now: `npx wrangler secret put KEVINOS_TOKEN` then redeploy)
+  3. `git push` (after wiring the remote — see Setup note) → GitHub Pages ships v0.43
+  4. Run the re-key drill above when convenient (it's opt-in; v1 devices keep working untouched until you re-enter the passphrase).
+- **Next task:** W5 item 71 — sync activity log (then 73→72→74→75→78→79 → **GATE-76 decision for Kevin**).
