@@ -58,7 +58,12 @@ const { loadApp } = require("./harness");
     ["émoji task 🏊 #Personal", { type: "task", text: "émoji task 🏊", area: "Personal", due: null, today: false }],
     ["multi @tue @fri", { type: "task", text: "multi", area: "Inbox", due: nextWD(5), today: false }], // last date token wins
     ["two tags #Work #Teaching", { type: "task", text: "two tags", area: "Work", due: null, today: false }], // first known area wins, rest stripped
-    ["@tomorrow only", { type: "task", text: "@tomorrow only", area: "Inbox", due: null, today: false }], // leading @token needs a preceding space per regex — neither parsed nor stripped (pre-existing quirk, logged in Wave Log)
+    // W6.0a contract change: @tokens now match at start-of-string, same as
+    // mid-string (old pin: "@tomorrow only" was neither parsed nor stripped).
+    ["@tomorrow only", { type: "task", text: "only", area: "Inbox", due: tomorrow, today: false }],
+    ["@tomorrow", { type: "task", text: "@tomorrow", area: "Inbox", due: tomorrow, today: false }], // token-only: date parsed, raw kept as text fallback (mirrors "#Work")
+    ["@notaday thing", { type: "task", text: "thing", area: "Inbox", due: null, today: false }], // leading unknown @token stripped like mid-string ones
+    ["#groceries milk", { type: "task", text: "#groceries milk", area: "Inbox", due: null, today: false }], // leading unknown #tag still kept — # grammar finalizes in W6 item 44
   ];
 
   let n = 0;
