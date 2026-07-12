@@ -111,7 +111,7 @@ const EXPORT_NAMES = [
   "lanePinsClean", "councilRosterList",
   "recordSeatResult", "seatReliability", "seatDotHTML",
   "COUNCIL_PRESETS", "councilPresetSystem", "councilPresetLabel",
-  "councilLengthOk",
+  "councilLengthOk", "aiContext",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

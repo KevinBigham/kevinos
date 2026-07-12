@@ -3272,6 +3272,8 @@
         var dot=document.createElement("span");dot.className="dot";dot.style.background=areaColor(e.area);row.appendChild(dot);
         var title=document.createElement("span");title.className="ev-title";title.textContent=e.title||"(untitled)";row.appendChild(title);
         if(e.source&&e.source!=="app"){var src=document.createElement("span");src.className="ev-src";src.textContent=e.source;row.appendChild(src);}
+        var evAi=document.createElement("button");evAi.className="icon-btn show";evAi.type="button";evAi.setAttribute("aria-label","Draft with AI");evAi.title="Draft with AI";evAi.setAttribute("data-ai-kind","event");evAi.setAttribute("data-ai-id",e.id);evAi.textContent="AI";row.appendChild(evAi);
+        var evCl=document.createElement("button");evCl.className="icon-btn show";evCl.type="button";evCl.setAttribute("aria-label","Send to Council");evCl.title="Send to Council";evCl.setAttribute("data-ai-kind","event");evCl.setAttribute("data-ai-id",e.id);evCl.setAttribute("data-ai-mode","council");evCl.textContent="Council";row.appendChild(evCl);
         var del=document.createElement("button");del.className="icon-btn";del.type="button";del.style.opacity="1";del.dataset.del=e.id;del.setAttribute("aria-label","Delete event");del.innerHTML=delSvg();row.appendChild(del);
       }
       box.appendChild(row);
@@ -4124,7 +4126,7 @@
       }else if(status==="failed"){
         card.innerHTML='<div class="stash-title">'+title+'</div><p class="stash-failed">Couldn&#39;t read this page &mdash; summarize it yourself:</p><textarea class="stash-manual" id="stashNote-'+escapeHtml(it.id)+'">'+escapeHtml(it.summary||"")+'</textarea><div class="stash-actions"><button class="add-btn" type="button" data-stashact="savemanual" data-id="'+escapeHtml(it.id)+'">Save note</button><a href="'+href+'" target="_blank" rel="noopener">Open</a><button class="btn-ghost danger" type="button" data-stashact="del" data-id="'+escapeHtml(it.id)+'">Delete</button></div>';
       }else{
-        card.innerHTML='<div class="stash-title"><a href="'+href+'" target="_blank" rel="noopener">'+title+'</a></div>'+(summary?'<div class="stash-summary">'+summary+'</div>':"")+(tagHtml?'<div class="stash-card-tags">'+tagHtml+'</div>':"")+'<div class="stash-actions"><span class="cq-prov">'+escapeHtml(stashDate(it.ts))+(it.manual?" · manual":"")+'</span><a href="'+href+'" target="_blank" rel="noopener">Open</a><button class="btn-ghost danger" type="button" data-stashact="del" data-id="'+escapeHtml(it.id)+'">Delete</button></div>';
+        card.innerHTML='<div class="stash-title"><a href="'+href+'" target="_blank" rel="noopener">'+title+'</a></div>'+(summary?'<div class="stash-summary">'+summary+'</div>':"")+(tagHtml?'<div class="stash-card-tags">'+tagHtml+'</div>':"")+'<div class="stash-actions"><span class="cq-prov">'+escapeHtml(stashDate(it.ts))+(it.manual?" · manual":"")+'</span><a href="'+href+'" target="_blank" rel="noopener">Open</a>'+universalAIActionsHTML("stash",it.id)+'<button class="btn-ghost danger" type="button" data-stashact="del" data-id="'+escapeHtml(it.id)+'">Delete</button></div>';
       }
       box.appendChild(card);
     }
@@ -4682,6 +4684,18 @@
     if(kind==="project"){x=findProject(id);if(!x)return null;return {title:x.title||"Project",text:"Project: "+(x.title||"")+"\nOutcome: "+(x.outcome||"")+"\nNext action: "+(x.nextAction||"")+"\nNotes: "+(x.notes||"")};}
     if(kind==="person"){x=findPerson(id);if(!x)return null;return {title:x.name||"Person",text:"Person: "+(x.name||"")+"\nEmail: "+(x.email||"")+"\nNotes: "+(x.notes||"")+"\nLast contact: "+(x.lastContact||"")};}
     if(kind==="library"){r=findLibraryRecord(id);if(!r)return null;return {title:r.title||"Library item",text:r.kind+": "+r.title+"\n\n"+(r.body||r.url||"")};}
+    var i;
+    if(kind==="event"){
+      for(i=0;i<state.events.length;i++)if(state.events[i].id===id){x=state.events[i];break;}
+      if(!x)return null;
+      return {title:x.title||"Event",text:"Event: "+(x.title||"")+"\nWhen: "+(x.date||"")+(x.time?" at "+x.time:" (all day)")+(x.end?", through "+x.end:"")+(x.location?"\nWhere: "+x.location:"")+(x.notes?"\nNotes: "+x.notes:"")};
+    }
+    if(kind==="stash"){
+      if(!isArr(state.stash))state.stash=[];
+      for(i=0;i<state.stash.length;i++)if(state.stash[i].id===id){x=state.stash[i];break;}
+      if(!x)return null;
+      return {title:x.title||x.url||"Stashed link",text:"Stashed link: "+(x.title||x.url||"")+"\nURL: "+(x.url||"")+(x.tags?"\nTags: "+x.tags:"")+(x.summary?"\nSummary: "+x.summary:"")};
+    }
     return null;
   }
   function universalAIActionsHTML(kind,id){return '<button class="linklike" type="button" data-ai-kind="'+escapeHtml(kind)+'" data-ai-id="'+escapeHtml(id)+'">Draft with AI</button><button class="linklike" type="button" data-ai-kind="'+escapeHtml(kind)+'" data-ai-id="'+escapeHtml(id)+'" data-ai-mode="council">Send to Council</button>';}

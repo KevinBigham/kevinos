@@ -243,6 +243,16 @@ const { loadApp } = require("./harness");
   assert.strictEqual(deep.app.councilLengthOk(""), false, "Standard is the relay default, not a request field");
   assert.strictEqual(deep.app.councilLengthOk("huge"), false);
 
+  // W8 item 66 — universal AI context now covers events and stash items.
+  st62.events.push({ id: "ev-66", title: "Dentist", date: "2026-07-20", time: "09:30", end: null, area: "Inbox", source: "app", location: "Main St" });
+  st62.stash.push({ id: "st-66", title: "ES5 tricks", url: "https://example.com/es5", tags: "js,notes", summary: "Old-school patterns.", status: "done", ts: 0 });
+  const evCtx = deep.app.aiContext("event", "ev-66");
+  assert.ok(evCtx && /Dentist/.test(evCtx.text) && /2026-07-20 at 09:30/.test(evCtx.text) && /Main St/.test(evCtx.text), "event context carries when/where");
+  const stCtx = deep.app.aiContext("stash", "st-66");
+  assert.ok(stCtx && /example\.com\/es5/.test(stCtx.text) && /Old-school patterns/.test(stCtx.text), "stash context carries url+summary");
+  assert.strictEqual(deep.app.aiContext("event", "nope"), null, "unknown event -> null");
+  assert.strictEqual(deep.app.aiContext("stash", "nope"), null, "unknown stash -> null");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");
