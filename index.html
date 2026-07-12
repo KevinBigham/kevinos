@@ -4731,17 +4731,25 @@
       box.innerHTML=h+'</div>';
     }).catch(function(e){snapWarn(e);box.innerHTML='<p class="hint">Snapshots unavailable on this browser.</p>';});
   }
-  // Item 4's diff preview lives on the arm step: counts from the snapshot doc
-  // vs what's on the device right now, so restores are informed, not blind.
-  function snapDiffText(rec){
-    if(!rec||!rec.doc)return "";
+  // Shared dry-run counting (items 8 + 4): what a portable doc holds vs what
+  // is on this device right now — so imports and restores are informed, not blind.
+  function docCountsText(doc,noun){
+    if(!doc||typeof doc!=="object")return "";
     var labels={items:"tasks",events:"events",notes:"notes",people:"people",habits:"habits",projects:"projects"},parts=[],k;
     for(k in labels){
       if(!labels.hasOwnProperty(k))continue;
-      var snapN=isArr(rec.doc[k])?rec.doc[k].length:0,curN=isArr(state[k])?state[k].length:0;
-      if(snapN||curN)parts.push(snapN+" "+labels[k]+(snapN!==curN?" <span style=\"opacity:.7\">(you have "+curN+")</span>":""));
+      var docN=isArr(doc[k])?doc[k].length:0,curN=isArr(state[k])?state[k].length:0;
+      if(docN||curN)parts.push(docN+" "+labels[k]+(docN!==curN?" <span style=\"opacity:.7\">(you have "+curN+")</span>":""));
     }
-    return parts.length?("This snapshot has "+parts.join(", ")+".<br>"):"";
+    return parts.length?("This "+noun+" has "+parts.join(", ")+".<br>"):"";
+  }
+  function snapDiffText(rec){return rec?docCountsText(rec.doc,"snapshot"):"";}
+  // verifyBackup (item 8): the dry-run report shown BEFORE the destructive
+  // confirm — schema stamp, counts vs current, and the credential promise.
+  function verifyBackup(doc){
+    var v=doc.v||0;
+    var schemaLine="Schema v"+v+" (this app writes v"+SCHEMA_VERSION+").<br>";
+    return schemaLine+docCountsText(doc,"backup")+"Connections and credentials are never imported.<br>";
   }
   function restoreSnapshot(at){
     snapConfirmAt=parseInt(at,10)||0;renderSnapshots();
@@ -4788,6 +4796,12 @@
     if(!pendingImport){box.innerHTML="";return;}
     var doc=pendingImport.doc;
     var warn=((doc.v||0)>SCHEMA_VERSION)?"<strong>This backup is from a newer KevinOS — unknown data may be dropped.</strong><br>":"";
+    if(pendingImport.stage!=="confirm"){
+      // Stage 1 (item 8): the dry-run report. Nothing has been touched yet.
+      box.innerHTML=confirmCardHTML("<strong>Backup check — &ldquo;"+escapeHtml(pendingImport.name)+"&rdquo;</strong><br>"+verifyBackup(doc)+warn,'data-import-continue="1"',"Continue",'data-import-no="1"');
+      return;
+    }
+    // Stage 2: the destructive confirm.
     box.innerHTML=confirmCardHTML(warn+"Import &ldquo;"+escapeHtml(pendingImport.name)+"&rdquo;? It replaces everything in KevinOS on this device (a pre-import snapshot is taken first). If cross-device sync is on, the restored data will be MERGED with your synced data, not replace it.",'data-import-yes="1"',"Import backup",'data-import-no="1"');
   }
   function doImportBackup(saved){
@@ -4806,6 +4820,7 @@
   $("restoreBtn").addEventListener("click",function(){$("restoreInput").click();});
   $("restoreInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importBackup(f);e.target.value="";});
   $("importConfirm").addEventListener("click",function(e){
+    if(e.target.closest("[data-import-continue]")){if(pendingImport){pendingImport.stage="confirm";renderImportConfirm();}return;}
     if(e.target.closest("[data-import-yes]")){var doc=pendingImport&&pendingImport.doc;pendingImport=null;renderImportConfirm();if(doc)doImportBackup(doc);return;}
     if(e.target.closest("[data-import-no]")){pendingImport=null;renderImportConfirm();}
   });
