@@ -176,7 +176,7 @@ Never run concurrently:
 
 - [x] W0 Truth & Hotfixes → v0.40 *(2026-07-11, all 12 items)*
 - [x] W1 Test Harness locally green *(2026-07-11; CI green pending first push)*
-- [ ] W2 Safety Refactors → v0.41 *(suite green throughout)*
+- [x] W2 Safety Refactors → v0.41 *(2026-07-11, suite green throughout)*
 - [ ] W3 Data Trust → v0.42 *(schema 40 if bumped)*
 - [ ] W4 Relay Hardening + Key v2 → v0.43 + deploy #1
 - [ ] W5 Sync Observability → v0.44 + deploy #2 · **GATE-76 decided: ___**
@@ -219,3 +219,12 @@ Never run concurrently:
   4. *ICS:* date-only DTEND yields `end:null` (multi-day all-day events lose their end date on import). Pinned as-is.
 - **Deviations:** run.sh's whole-script ES5 scan uses statement-position matching for `const`/`let` because UI copy ("…or let it go") false-positives the naive pattern; the stricter diff-scan is unchanged.
 - **Next task:** W2 item 31 — render-time probe (measure before touching).
+
+### W2 — Safety Refactors → v0.41 (2026-07-11) ✅
+- **Items completed (9/9, in order):** 31 (?perf=1 probe; baseline on empty data: today 0.5ms / calendar 2ms / attic 1.5ms), 1 (CONTENT_ARRAYS + PORTABLE_OBJS + boot assertContentContract; boot loader loop replaces 17 lines; SYNC_ARRAYS aliased), 86 (policy constants SNAP_*/SYNC_*/TOMBSTONE_TTL/STORAGE_*), 32 (RENDERERS map in renderCurrentRoom/syncRerender/go; email skip on sync preserved), 87 (relayCall consolidation — 12 sites converted; relayPost aliased; grep proves relayCall is the only relay fetch), 14 (escapeHtml + apostrophe + invariant comment; test pin updated), 13 (53 render id interpolations wrapped in escapeHtml), 12 (sanitizeIds at applyPortableDoc/applySyncDoc/mergeRemoteDoc/boot; /^[a-z0-9-]{1,40}$/i, re-mint via uid; tests added), 85 (function TOC). Release bump → v0.41.
+- **C6 design ruling (implement in W9 item 92):** AREAS stays a var with the exact read shape `[{key,color},…]`; W9 hydrates it from state at boot. Readers keep reading the var, never state. Recorded as a comment at the AREAS declaration.
+- **Commits:** c2b919a, 180335b, 82f09ee, 79b8423, 246a784, cd0e7c7, e6811f5, 8e3fcb1, b723d8b, 3e52c63. Nothing pushed/deployed.
+- **Tests run:** `sh test/run.sh` ALL GREEN after every item. Browser (real Chromium, localhost:8128): boots with pre-existing data intact; footer stamps v0.41; all 18 rooms activate through nav+Attic; capture `note: w2 smoke #Work` lands as a Work note; wind-down roll-to-tomorrow works; zero console errors; zero contract-violation logs; ?perf=1 logs per-room ms.
+- **MANUAL-UNVERIFIED:** (1) live 401 path through relayCall against the real relay — wrong token in Settings → expect one "Relay token rejected" toast, red health chip, Council row error (W4.19 re-tests this anyway); (2) push enable/disable + reminder sync through relayCall on the installed PWA — turn reminders off/on, send test push; (3) Gmail/GCal/GitHub OAuth flows through relayCall (connect once each, confirm no regression).
+- **Deviations:** (a) refreshRelayHealth now stores caps only on a healthy response (was: also on HTTP-error responses); caps has no reader today, noted for the record. (b) sanitizeIds also runs at boot (audit named three ingress sites; pre-existing storage is a fourth — safer reading). (c) run.sh's ES5 scan already documented in W1.
+- **Next task:** W3 item 41 — in-card confirm pattern replacing all seven window.confirm dialogs.
