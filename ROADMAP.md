@@ -44,6 +44,9 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **Mission wave #8 — Spend Pulse** | **Shipped** v0.34 → private weekly spend card, cash ledger, Gmail receipt scan, category bars |
 | ✅ | **Mission wave #9 — Goals & Weekly Check-In** | **Shipped** v0.35 → synced goals, Sunday check-in, `/weekly` goal momentum |
 | ✅ | **Mission wave #10 — Morning Launch Sequence** | **Shipped** v0.36 → Launch ritual, `/launch` game plan, agenda/inbox/focus/habits |
+| ✅ | **Sync hardening + whole-life AI** (tombstones · newer-wins merge · life intake → profile facts in every prompt · multi-calendar · weather · swim desk · Sheets digest) | **Shipped** v0.37–v0.38 |
+| ✅ | **Evolution Marathon P1–P10** (trust guardrails · blob diet · snapshot ring · Today cockpit · global capture + bottom nav · relay health chip · federated Library · Attic collapse · evening Close + universal AI · opt-in relay auth) | **Shipped** v0.39 → spec + ledger in `MISSION.md`, executed by Codex in one run |
+| 🚧 | **GOAT audit + wave roadmap** (100-item roadmap to v1.0) | **In flight** → `KEVINOS_AUDIT.md` + `KEVINOS_EXECUTION_ORDER.md`, W0 ships v0.40 |
 
 ---
 
