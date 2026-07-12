@@ -845,6 +845,7 @@
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
+      <div id="importConfirm"></div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
       <div style="margin-top:10px"><span id="appVersion">KevinOS v0.41</span> · Life intake & whole-life Launch · Morning Launch Sequence · Goals & Weekly Check-In · Spend Pulse · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
@@ -1039,6 +1040,14 @@
   try{perfProbe=(location.search&&location.search.indexOf("perf=1")>=0);}catch(e){}
   function perfNow(){try{if(window.performance&&window.performance.now)return window.performance.now();}catch(e){}return Date.now();}
   function perfLog(label,t0){if(!perfProbe)return;try{console.log("[perf] "+label+" "+(Math.round((perfNow()-t0)*10)/10)+"ms");}catch(e){}}
+
+  // In-card confirm pattern (audit F9 / item 41): destructive actions arm an
+  // inline card instead of a blocking window.confirm. One-Tap Send modeled it.
+  // msg may contain trusted markup; caller escapes any user data inside it.
+  function confirmCardHTML(msg,yesAttr,yesLabel,noAttr){
+    return '<div class="edit-panel" style="margin-top:8px"><p class="hint" style="margin:0 0 8px">'+msg+'</p><div class="draft-confirm"><button class="add-btn" type="button" '+yesAttr+'>'+yesLabel+'</button><button class="btn-soft" type="button" '+noAttr+'>Cancel</button></div></div>';
+  }
+  var calDiscArm=false, ghDiscArm=false, emailDiscArm=false, snapConfirmAt=0, pendingImport=null;
 
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
@@ -2668,17 +2677,17 @@
   }
   function calPickSlot(idx){var s=calSlots[idx];if(!s)return;calDraft={title:"",date:s.date,start:s.start,end:s.end,allDay:false,location:"",notes:""};renderCalendar();}
   function calDisconnect(){
-    if(!window.confirm("Disconnect Google Calendar on this device?"))return;
     if(!emailOn()&&relayBase()&&calSession()){relayCall("/google/logout",{session:calSession()},{silent401:true}).catch(function(){});}
-    calCfg().connected=false;gcalEvents=[];calDraft=null;calSlots=[];save();renderCalendar();
+    calDiscArm=false;calCfg().connected=false;gcalEvents=[];calDraft=null;calSlots=[];save();renderCalendar();
   }
   function renderCalConnect(){
     var box=$("calConnect");if(!box)return;
     var err=gcalError?'<p class="gh-err">'+escapeHtml(gcalError)+'</p>':"";
-    if(calConnecting){box.innerHTML='<div class="gcal-card"><div class="sec-head"><p class="section-label">Connect Google Calendar</p></div><p class="gh-lead">Waiting for Google… approve the calendar re-consent in the tab that opened, then come back here.</p>'+err+'<div class="edit-actions"><button class="add-btn" type="button" data-cal="checkoauth">I’ve authorized — check now</button><button class="btn-soft" type="button" data-cal="disconnect">Cancel</button></div></div>';return;}
+    var disc=calDiscArm?confirmCardHTML("Disconnect Google Calendar on this device?",'data-cal="disc-yes"',"Disconnect",'data-cal="disc-no"'):"";
+    if(calConnecting){box.innerHTML='<div class="gcal-card"><div class="sec-head"><p class="section-label">Connect Google Calendar</p></div><p class="gh-lead">Waiting for Google… approve the calendar re-consent in the tab that opened, then come back here.</p>'+err+'<div class="edit-actions"><button class="add-btn" type="button" data-cal="checkoauth">I’ve authorized — check now</button><button class="btn-soft" type="button" data-cal="disconnect">Cancel</button></div>'+disc+'</div>';return;}
     if(!calOn()){box.innerHTML='<div class="gcal-card"><div class="sec-head"><p class="section-label">Connect Google Calendar</p></div><p class="gh-lead">Bring your real Google Calendar into this room. This uses the same Google session as Email, but needs one quick reconnect to grant calendar access.</p>'+err+'<div class="edit-actions" style="margin-top:14px"><button class="add-btn" type="button" data-cal="connect">Connect Google Calendar ↗</button></div><p class="hint">No new secret is stored in the browser; the relay keeps Google tokens server-side.</p></div>';return;}
     var acct=calAccount()||"primary account";
-    box.innerHTML='<div class="gcal-strip"><div class="gcal-strip-main"><span class="gcal-dot"></span><span class="section-label" style="margin:0">Google Calendar</span><span>'+escapeHtml(acct)+'</span>'+(gcalLoading?'<span class="gh-syncing">Syncing…</span>':(calCfg().lastSyncAt?'<span class="gh-synced" style="margin:0">Synced '+ghAgo(new Date(calCfg().lastSyncAt).toISOString())+'</span>':""))+'</div><div class="gcal-inline" style="gap:6px"><button class="btn-soft" type="button" data-cal="choose">'+(calListOpen?"Hide calendars":"Choose calendars")+'</button><button class="btn-soft" type="button" data-cal="refresh">↻ Refresh</button><button class="btn-soft" type="button" data-cal="disconnect">Disconnect</button></div></div>'+err+calPickerHTML();
+    box.innerHTML='<div class="gcal-strip"><div class="gcal-strip-main"><span class="gcal-dot"></span><span class="section-label" style="margin:0">Google Calendar</span><span>'+escapeHtml(acct)+'</span>'+(gcalLoading?'<span class="gh-syncing">Syncing…</span>':(calCfg().lastSyncAt?'<span class="gh-synced" style="margin:0">Synced '+ghAgo(new Date(calCfg().lastSyncAt).toISOString())+'</span>':""))+'</div><div class="gcal-inline" style="gap:6px"><button class="btn-soft" type="button" data-cal="choose">'+(calListOpen?"Hide calendars":"Choose calendars")+'</button><button class="btn-soft" type="button" data-cal="refresh">↻ Refresh</button><button class="btn-soft" type="button" data-cal="disconnect">Disconnect</button></div></div>'+disc+err+calPickerHTML();
   }
   function renderCalCompose(){
     var box=$("calCompose");if(!box)return;
@@ -2706,7 +2715,9 @@
     else if(act==="pick")calPickToggle(a.getAttribute("data-calid"));
     else if(act==="callist-retry")loadCalList(true);
     else if(act==="refresh")loadGcal(true);
-    else if(act==="disconnect")calDisconnect();
+    else if(act==="disconnect"){calDiscArm=true;renderCalConnect();}
+    else if(act==="disc-yes")calDisconnect();
+    else if(act==="disc-no"){calDiscArm=false;renderCalConnect();}
     else if(act==="parse")calParse();
     else if(act==="create")calCreate();
     else if(act==="cancel")calDraftCancel();
@@ -3837,7 +3848,9 @@
     else if(act==="canceloauth")ghClear();
     else if(act==="refresh")ghSync(true);
     else if(act==="reset")ghClear();
-    else if(act==="disconnect"){if(window.confirm("Disconnect GitHub? The token is revoked on GitHub and removed from the relay."))ghClear();}
+    else if(act==="disconnect"){ghDiscArm=true;renderGithub();}
+    else if(act==="disc-yes"){ghDiscArm=false;ghClear();}
+    else if(act==="disc-no"){ghDiscArm=false;renderGithub();}
   }
 
   function ghConnectHTML(){
@@ -3893,7 +3906,8 @@
       (ghLoading?'<span class="gh-syncing">Syncing…</span>':'')+
       '<button class="btn-soft" type="button" data-gh="refresh">Refresh</button>'+
       '<button class="btn-soft" type="button" data-gh="disconnect">Disconnect</button>'+
-      '</div></div>';
+      '</div></div>'+
+      (ghDiscArm?confirmCardHTML("Disconnect GitHub? The token is revoked on GitHub and removed from the relay.",'data-gh="disc-yes"',"Disconnect",'data-gh="disc-no"'):"");
     if(ghError==="auth"){
       box.innerHTML=head+'<p class="gh-err">Your GitHub token expired or was revoked. Reconnect to keep the streak going.</p><div class="edit-actions"><button class="add-btn" type="button" data-gh="reset">Reconnect</button></div>';
       return;
@@ -4272,7 +4286,11 @@
   $("libraryFilters").addEventListener("click",handleLibraryClick);
   $("libraryList").addEventListener("click",handleLibraryClick);
   $("atticGrid").addEventListener("click",handleAtticClick);
-  $("snapshotPanel").addEventListener("click",function(e){var b=e.target.closest("[data-snap-restore]");if(b)restoreSnapshot(b.getAttribute("data-snap-restore"));});
+  $("snapshotPanel").addEventListener("click",function(e){
+    var y=e.target.closest("[data-snap-confirm]");if(y){doRestoreSnapshot(parseInt(y.getAttribute("data-snap-confirm"),10)||0);return;}
+    if(e.target.closest("[data-snap-cancel]")){snapConfirmAt=0;renderSnapshots();return;}
+    var b=e.target.closest("[data-snap-restore]");if(b)restoreSnapshot(b.getAttribute("data-snap-restore"));
+  });
   $("bottomNav").addEventListener("click",function(e){var c=e.target.closest("[data-bottom-capture]");if(c){vcOpenPanel();return;}var b=e.target.closest("[data-bottom-room]");if(b)go(b.getAttribute("data-bottom-room"));});
   document.addEventListener("click",function(e){if(e.target.closest("[data-save-export]")){exportBackup();return;}if(e.target.closest("[data-raw-storage]")){downloadRawStorage();return;}if(e.target.closest("[data-emergency-import]")){$("restoreInput").click();return;}var ai=e.target.closest("[data-ai-kind]");if(ai){startUniversalAI(ai.getAttribute("data-ai-kind"),ai.getAttribute("data-ai-id"),ai.getAttribute("data-ai-mode")||"draft");}});
   $("cmdkBtn").addEventListener("click",function(){openPalette();});
@@ -4606,6 +4624,7 @@
     if(accs.length>1){head+='<select class="inp" data-em-acct style="width:auto"><option value="'+UNIFIED+'"'+(active===UNIFIED?" selected":"")+'>📥 All inboxes</option>';accs.forEach(function(a){head+='<option value="'+escapeHtml(a)+'"'+(a===active?" selected":"")+">"+escapeHtml(a)+"</option>";});head+="</select>";}
     else if(accs.length===1)head+='<span class="cq-prov">'+escapeHtml(active)+'</span>';
     head+='<button class="btn-soft" type="button" data-em="add">+ Account</button><button class="btn-soft" type="button" data-em="draftall"'+(emailDrafting?' disabled':'')+'>'+(emailDrafting?"Drafting…":"✨ Draft all")+'</button><button class="btn-soft" type="button" data-em="refresh">Refresh</button><button class="btn-soft" type="button" data-em="disconnect">Disconnect</button></div></div>';
+    if(emailDiscArm)head+=confirmCardHTML(isUnified()?"Disconnect ALL Gmail accounts? Every sign-in is revoked on Google and removed from the relay.":"Disconnect "+escapeHtml(emailActive()||"Gmail")+"? The sign-in is revoked on Google and removed from the relay.",'data-em="disc-yes"',"Disconnect",'data-em="disc-no"');
     var body="";
     if(emailLoading)body='<p class="empty">Loading your inbox…</p>';
     else if(emailError)body='<p class="gh-err">'+escapeHtml(emailError)+' <button class="linklike" type="button" data-em="refresh">Try again</button></p>';
@@ -4648,10 +4667,9 @@
     else if(act==="sheetadd")sheetAdd();
     else if(act==="sheetdel")sheetDelete(id);
     else if(act==="wake")wakeSnooze(id);
-    else if(act==="disconnect"){
-      if(isUnified()){if(window.confirm("Disconnect ALL Gmail accounts? Every sign-in is revoked on Google and removed from the relay."))emailDisconnect(null);}
-      else if(window.confirm("Disconnect "+(emailActive()||"Gmail")+"? The sign-in is revoked on Google and removed from the relay."))emailDisconnect(emailActive());
-    }
+    else if(act==="disconnect"){emailDiscArm=true;renderEmail();}
+    else if(act==="disc-yes"){emailDiscArm=false;if(isUnified())emailDisconnect(null);else emailDisconnect(emailActive());}
+    else if(act==="disc-no"){emailDiscArm=false;renderEmail();}
   }
 
   /* ---------- snapshots (P3) ---------- */
@@ -4706,12 +4724,30 @@
       var h='<div class="storage-stats" style="margin-top:12px"><strong>Snapshots</strong></div>';
       if(!rows.length){box.innerHTML=h+'<p class="hint">No local snapshots yet.</p>';return;}
       h+='<div class="snap-list">';
-      rows.forEach(function(r){h+='<div class="snap-row"><span>'+escapeHtml(fmtSnapDate(r.at))+' · '+escapeHtml(r.reason||"snapshot")+' · '+Math.round((r.bytes||0)/1024)+' KB</span><button class="btn-soft" type="button" data-snap-restore="'+escapeHtml(r.at)+'">Restore</button></div>';});
+      rows.forEach(function(r){
+        h+='<div class="snap-row"><span>'+escapeHtml(fmtSnapDate(r.at))+' · '+escapeHtml(r.reason||"snapshot")+' · '+Math.round((r.bytes||0)/1024)+' KB</span><button class="btn-soft" type="button" data-snap-restore="'+escapeHtml(r.at)+'">Restore</button></div>';
+        if(snapConfirmAt===r.at)h+=confirmCardHTML(snapDiffText(r)+"Current KevinOS data on this device will be replaced (a pre-restore snapshot is taken first); synced data merges back in if sync is linked.",'data-snap-confirm="'+escapeHtml(r.at)+'"',"Restore snapshot",'data-snap-cancel="1"');
+      });
       box.innerHTML=h+'</div>';
     }).catch(function(e){snapWarn(e);box.innerHTML='<p class="hint">Snapshots unavailable on this browser.</p>';});
   }
+  // Item 4's diff preview lives on the arm step: counts from the snapshot doc
+  // vs what's on the device right now, so restores are informed, not blind.
+  function snapDiffText(rec){
+    if(!rec||!rec.doc)return "";
+    var labels={items:"tasks",events:"events",notes:"notes",people:"people",habits:"habits",projects:"projects"},parts=[],k;
+    for(k in labels){
+      if(!labels.hasOwnProperty(k))continue;
+      var snapN=isArr(rec.doc[k])?rec.doc[k].length:0,curN=isArr(state[k])?state[k].length:0;
+      if(snapN||curN)parts.push(snapN+" "+labels[k]+(snapN!==curN?" <span style=\"opacity:.7\">(you have "+curN+")</span>":""));
+    }
+    return parts.length?("This snapshot has "+parts.join(", ")+".<br>"):"";
+  }
   function restoreSnapshot(at){
-    if(!window.confirm("Restore this local snapshot? Current KevinOS data on this device will be replaced, then synced data will merge if sync is linked."))return;
+    snapConfirmAt=parseInt(at,10)||0;renderSnapshots();
+  }
+  function doRestoreSnapshot(at){
+    snapConfirmAt=0;
     snapPut(portableDoc(state),"pre-restore").then(function(){
       snapGet(at).then(function(rec){
         if(!rec||!rec.doc){toast("Snapshot unavailable.");return;}
@@ -4739,25 +4775,40 @@
     reader.onload=function(){
       var saved;try{saved=JSON.parse(String(reader.result));}catch(e){window.alert("That file isn’t a valid KevinOS backup.");return;}
       if(!saved||typeof saved!=="object"){window.alert("That file isn’t a valid KevinOS backup.");return;}
-      if((saved.v||0)>SCHEMA_VERSION&&!window.confirm("This backup is from a newer KevinOS. Import anyway? Unknown data may be dropped."))return;
-      if(!window.confirm("Import this backup? It replaces everything in KevinOS on this device. Tip: export a backup first. If cross-device sync is on, the restored data will be MERGED with your synced data, not replace it."))return;
-      // P3: snapPut(portableDoc(state), "pre-import") before applying import.
-      var before=(typeof snapPut==="function"&&!loadFailed)?snapPut(portableDoc(state),"pre-import"):Promise.resolve(false);
-      before.then(function(){
-        applyPortableDoc(saved,{reason:"import"});
-        if(loadFailed){
-          completeRecovery().then(function(){go(room);if(syncOn())syncPull();window.alert("Backup imported — recovery is restored.");});
-        }else{
-          save().then(function(){go(room);if(syncOn())syncPull();window.alert("Backup imported — everything’s restored.");});
-        }
-      });
+      if(loadFailed){doImportBackup(saved);return;} // emergency recovery: the user already chose to import; the footer card would sit behind the overlay
+      pendingImport={doc:saved,name:(file&&file.name)||"backup"};
+      renderImportConfirm();
+      var el=$("importConfirm");if(el&&el.scrollIntoView){try{el.scrollIntoView({block:"center"});}catch(e2){}}
     };
     reader.onerror=function(){window.alert("Couldn’t read that file.");};
     reader.readAsText(file);
   }
+  function renderImportConfirm(){
+    var box=$("importConfirm");if(!box)return;
+    if(!pendingImport){box.innerHTML="";return;}
+    var doc=pendingImport.doc;
+    var warn=((doc.v||0)>SCHEMA_VERSION)?"<strong>This backup is from a newer KevinOS — unknown data may be dropped.</strong><br>":"";
+    box.innerHTML=confirmCardHTML(warn+"Import &ldquo;"+escapeHtml(pendingImport.name)+"&rdquo;? It replaces everything in KevinOS on this device (a pre-import snapshot is taken first). If cross-device sync is on, the restored data will be MERGED with your synced data, not replace it.",'data-import-yes="1"',"Import backup",'data-import-no="1"');
+  }
+  function doImportBackup(saved){
+    // P3: snapPut(portableDoc(state), "pre-import") before applying import.
+    var before=(typeof snapPut==="function"&&!loadFailed)?snapPut(portableDoc(state),"pre-import"):Promise.resolve(false);
+    before.then(function(){
+      applyPortableDoc(saved,{reason:"import"});
+      if(loadFailed){
+        completeRecovery().then(function(){go(room);if(syncOn())syncPull();window.alert("Backup imported — recovery is restored.");});
+      }else{
+        save().then(function(){go(room);if(syncOn())syncPull();window.alert("Backup imported — everything’s restored.");});
+      }
+    });
+  }
   $("backupBtn").addEventListener("click",exportBackup);
   $("restoreBtn").addEventListener("click",function(){$("restoreInput").click();});
   $("restoreInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importBackup(f);e.target.value="";});
+  $("importConfirm").addEventListener("click",function(e){
+    if(e.target.closest("[data-import-yes]")){var doc=pendingImport&&pendingImport.doc;pendingImport=null;renderImportConfirm();if(doc)doImportBackup(doc);return;}
+    if(e.target.closest("[data-import-no]")){pendingImport=null;renderImportConfirm();}
+  });
   $("syncRow").addEventListener("click",handleSyncClick);
   $("syncRow").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="syncPass"){e.preventDefault();connectSync(e.target.value);}});
   window.addEventListener("focus",function(){if(syncOn())syncPull();});
