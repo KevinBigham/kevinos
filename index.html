@@ -4287,6 +4287,7 @@
   $("libraryList").addEventListener("click",handleLibraryClick);
   $("atticGrid").addEventListener("click",handleAtticClick);
   $("snapshotPanel").addEventListener("click",function(e){
+    if(e.target.closest("[data-snap-now]")){if(loadFailed){toast("Fix recovery first — nothing readable to snapshot.");return;}snapPut(portableDoc(state),"manual").then(function(ok){toast(ok?"Snapshot saved ✓":"Snapshots unavailable on this browser.");});return;}
     var y=e.target.closest("[data-snap-confirm]");if(y){doRestoreSnapshot(parseInt(y.getAttribute("data-snap-confirm"),10)||0);return;}
     if(e.target.closest("[data-snap-cancel]")){snapConfirmAt=0;renderSnapshots();return;}
     var b=e.target.closest("[data-snap-restore]");if(b)restoreSnapshot(b.getAttribute("data-snap-restore"));
@@ -4721,7 +4722,7 @@
   function renderSnapshots(){
     var box=$("snapshotPanel");if(!box)return;
     snapList().then(function(rows){
-      var h='<div class="storage-stats" style="margin-top:12px"><strong>Snapshots</strong></div>';
+      var h='<div class="storage-stats" style="margin-top:12px;display:flex;gap:10px;align-items:center"><strong>Snapshots</strong><button class="linklike" type="button" data-snap-now="1">Snapshot now</button></div>';
       if(!rows.length){box.innerHTML=h+'<p class="hint">No local snapshots yet.</p>';return;}
       h+='<div class="snap-list">';
       rows.forEach(function(r){
