@@ -237,6 +237,12 @@ const { loadApp } = require("./harness");
   assert.match(deep.app.councilPresetSystem("devil"), /Do not balance it with upside/, "devil framing is one-sided by design");
   assert.strictEqual(deep.app.councilPresetSystem("nope"), "", "unknown preset adds nothing");
 
+  // W8 item 67 — only brief/deep ride the ask; Standard sends nothing.
+  assert.strictEqual(deep.app.councilLengthOk("brief"), true);
+  assert.strictEqual(deep.app.councilLengthOk("deep"), true);
+  assert.strictEqual(deep.app.councilLengthOk(""), false, "Standard is the relay default, not a request field");
+  assert.strictEqual(deep.app.councilLengthOk("huge"), false);
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

@@ -2120,7 +2120,7 @@
     if(relayOpen){
       cq+='<div class="edit-panel"><div class="field"><label for="relayUrl">Relay URL</label><input class="inp" id="relayUrl" type="text" placeholder="https://kevinos-relay.…workers.dev" value="'+escapeHtml((state.relay&&state.relay.url)||"")+'" autocomplete="off" spellcheck="false"></div><div class="field"><label for="relayToken">Relay token (optional)</label><input class="inp" id="relayToken" type="password" placeholder="X-KevinOS-Token" value="'+escapeHtml((state.relay&&state.relay.token)||"")+'" autocomplete="off" spellcheck="false"></div>'+(on?lanePinRowsHTML():'')+'<div class="edit-actions"><button class="add-btn" type="button" data-relay-save="1">Save</button>'+(on?'<button class="btn-ghost danger" type="button" data-relay-clear="1">Disconnect</button>':'')+'</div><p class="hint">Paste your Cloudflare Worker URL (see <code>relay/RELAY_SETUP.md</code>). If your relay has a token, it stays only on this device and is never exported in backups.</p></div>';
     }
-    cq+='<div class="capture-row"><input id="councilInput" class="capture-input" type="text" placeholder="Ask the Council something…" autocomplete="off" aria-label="Council question"><button class="add-btn" type="button" data-council-add="1">'+(on?"Ask":"Queue")+'</button></div>';
+    cq+='<div class="capture-row"><input id="councilInput" class="capture-input" type="text" placeholder="Ask the Council something…" autocomplete="off" aria-label="Council question"><select class="inp" id="councilLength" style="width:auto" aria-label="Answer length"><option value=""'+(councilLength===""?" selected":"")+'>Standard</option><option value="brief"'+(councilLength==="brief"?" selected":"")+'>Brief</option><option value="deep"'+(councilLength==="deep"?" selected":"")+'>Deep</option></select><button class="add-btn" type="button" data-council-add="1">'+(on?"Ask":"Queue")+'</button></div>';
     cq+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
     COUNCIL_PRESETS.forEach(function(p){var act=councilPreset===p[0];cq+='<button class="chip'+(act?' active" style="background:var(--accent);color:var(--on-accent)':'')+'" type="button" data-council-preset="'+p[0]+'">'+p[1]+'</button>';});
     cq+='</div>';
@@ -2130,6 +2130,7 @@
         var st=q.status||"queued";
         cq+='<div class="cq-item"><div class="cq-main"><div class="cq-text">'+escapeHtml(q.text)+'</div>';
         if(q.preset&&councilPresetLabel(q.preset))cq+='<span class="cq-pill">'+escapeHtml(councilPresetLabel(q.preset))+'</span>';
+        if(q.length==="brief"||q.length==="deep")cq+='<span class="cq-pill">'+(q.length==="brief"?"Brief":"Deep")+'</span>';
         if(st==="answered"&&((q.seats&&q.seats.length)||q.answer)){
           cq+=councilAnswerHTML(q,on);
         } else if(st==="running"&&q.seats&&q.seats.length){
@@ -2725,7 +2726,10 @@
     ["devil","Devil's advocate only","Play devil's advocate ONLY: argue against the idea as presented — the strongest objections, the likeliest failure modes, and what Kevin is not seeing. Do not balance it with upside."],
     ["coach","Coach-speak","Answer as a straight-talking coach: direct, encouraging, zero fluff. Tell Kevin exactly what to do next and hold him to a standard."]
   ];
-  var councilPreset="";
+  var councilPreset="",councilLength="";
+  // Response-length control (item 67) — brief/deep map to a MAX_TOKENS
+  // override on the relay; "" (Standard) keeps the relay's default budget.
+  function councilLengthOk(v){return v==="brief"||v==="deep";}
   function councilPresetSystem(key){var i;for(i=0;i<COUNCIL_PRESETS.length;i++)if(COUNCIL_PRESETS[i][0]===key)return COUNCIL_PRESETS[i][2];return"";}
   function councilPresetLabel(key){var i;for(i=0;i<COUNCIL_PRESETS.length;i++)if(COUNCIL_PRESETS[i][0]===key)return COUNCIL_PRESETS[i][1];return"";}
   function runCouncil(id){
@@ -2738,6 +2742,7 @@
     if(pd)sysx+="\nContext about Kevin: "+pd;
     if(ps||pd)body.system=sysx;
     if(lp)body.lanes=lp;
+    if(councilLengthOk(q.length||""))body.length=q.length;
     relayCall("/council",body,{raw:true})
       .then(function(r){
         if(r.status===401){councilFail(id,"Relay token rejected - re-paste it in Settings.");return;}
@@ -2889,7 +2894,7 @@
     var inp=$("councilInput");if(!inp)return;var t=(inp.value||"").trim();if(!t)return;
     if(!state.council)state.council=[];
     var id=uid();
-    state.council.unshift({id:id,text:t,preset:councilPreset||"",status:"queued",createdAt:Date.now()});
+    state.council.unshift({id:id,text:t,preset:councilPreset||"",length:councilLengthOk(councilLength)?councilLength:"",status:"queued",createdAt:Date.now()});
     trimCouncil(COUNCIL_KEEP);
     inp.value="";councilPreset="";renderNext();save();
     if(relayOn())runCouncil(id);
@@ -4823,6 +4828,7 @@
   $("todayView").addEventListener("click",handleTodayClick);
   $("todayView").addEventListener("keydown",handleTodayKeydown);
   $("nextView").addEventListener("click",handleNextClick);
+  $("nextView").addEventListener("change",function(e){if(e.target&&e.target.id==="councilLength")councilLength=e.target.value||"";});
   $("launchView").addEventListener("click",handleLaunchClick);
   $("nextView").addEventListener("keydown",function(e){if(e.key!=="Enter")return;var t=e.target;if(t&&t.id==="nextInput"){e.preventDefault();addNextTask();}else if(t&&t.id==="councilInput"){e.preventDefault();addCouncil();}else if(t&&t.id==="relayUrl"){e.preventDefault();saveRelayUrl();}});
   $("nextView").addEventListener("change",function(e){var t=e.target;if(t&&t.id==="briefHour"){if(!state.push)state.push={enabled:false,endpoint:"",hour:8,syncedAt:0};state.push.hour=parseInt(t.value,10)||8;save();renderNext();}});

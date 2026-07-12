@@ -50,6 +50,15 @@ function json(data, status, origin) {
   });
 }
 
+// Response-length control (item 67): a per-ask "length" of brief/deep swaps
+// the MAX_TOKENS budget for that council only (standard = the env default).
+// Free-tier tokens are the budget — Brief keeps everyday asks cheap.
+const LENGTH_TOKENS = { brief: 320, deep: 2048 };
+function lengthEnv(env, length) {
+  const t = LENGTH_TOKENS[((length || "") + "").toLowerCase()];
+  return t ? Object.assign(Object.create(env), { MAX_TOKENS: String(t) }) : env;
+}
+
 function maxTokens(env) {
   return Number(env.MAX_TOKENS) || DEFAULTS.maxTokens;
 }
@@ -1517,10 +1526,12 @@ async function handleRequest(request, env, origin) {
     if (!prompt) return json({ error: "Missing prompt" }, 400, origin);
 
     const pins = lanePins(env, payload && payload.lanes);
-    const seats = councilSeats(env, pins);
+    const lengthKey = LENGTH_TOKENS[(((payload && payload.length) || "") + "").toLowerCase()] ? payload.length.toLowerCase() : "";
+    const envL = lengthEnv(env, lengthKey);
+    const seats = councilSeats(envL, pins);
     if (!seats.length) return json({ error: "No Council seats configured on the relay" }, 500, origin);
-    // A re-pinned panel is a different council — the pin signature joins the cache key below.
-    const pinSig = Object.keys(pins).sort().map((k) => k + "=" + pins[k]).join(",");
+    // A re-pinned or re-sized panel is a different council — both join the cache key below.
+    const pinSig = Object.keys(pins).sort().map((k) => k + "=" + pins[k]).join(",") + ";" + lengthKey;
 
     // 24h identical-question cache (item 68): an accidental double-ask must
     // not double-spend six seats. Keyed by full sha256 of prompt+system+shape.
@@ -1539,12 +1550,12 @@ async function handleRequest(request, env, origin) {
       } catch (e2) { /* cache is best-effort */ }
     }
 
-    if (wantStream) return streamCouncil(env, seats, system, prompt, wantSynth, origin, cacheKey);
+    if (wantStream) return streamCouncil(envL, seats, system, prompt, wantSynth, origin, cacheKey);
 
     const results = await Promise.all(seats.map((seat) => runSeat(seat, system, prompt)));
 
     const answered = results.filter((r) => r.ok);
-    const synthesis = wantSynth ? await synthesize(env, prompt, answered) : null;
+    const synthesis = wantSynth ? await synthesize(envL, prompt, answered) : null;
     const bodyObj = { seats: results, synthesis, asked: results.length, answered: answered.length };
     if (cacheKey && answered.length > 0) {
       try { await env.PUSH.put(cacheKey, JSON.stringify(bodyObj), { expirationTtl: 86400 }); } catch (e3) { /* best-effort */ }
