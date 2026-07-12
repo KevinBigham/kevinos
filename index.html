@@ -1927,7 +1927,20 @@
     if(weeklyBusy)inner='<span class="cq-prov">writing your weekly review…</span>';
     else if(wkText)inner='<div>'+escapeHtml(wkText)+'</div>';
     else inner='<div>'+escapeHtml(weeklyBodyShort(todayKey()))+'</div>';
-    return '<div class="brief-card" style="background:linear-gradient(135deg,rgba(184,144,31,.13),rgba(58,44,89,.10));border-radius:14px;padding:14px;margin:2px 0 14px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><strong>🗓️ Your week</strong>'+(relayOn()?'<button class="linklike" type="button" data-weekly-refresh="1">↻</button>':'')+'</div>'+inner+'</div>';
+    var retro=relayOn()?'<div style="margin-top:8px"><button class="linklike" type="button" data-weekly-retro="1">Ask the Council what to change next week →</button></div>':'';
+    return '<div class="brief-card" style="background:linear-gradient(135deg,rgba(184,144,31,.13),rgba(58,44,89,.10));border-radius:14px;padding:14px;margin:2px 0 14px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><strong>🗓️ Your week</strong>'+(relayOn()?'<button class="linklike" type="button" data-weekly-refresh="1">↻</button>':'')+'</div>'+inner+retro+'</div>';
+  }
+  // Weekly Council retro (item 65) — the week digest is composed CLIENT-side
+  // from state (weeklyContextText) and rides the question as q.ctx; the relay
+  // never reads the sync doc for this. q.ctx joins the prompt at run time so
+  // the queue card stays readable and Ask again keeps the same week context.
+  function councilRetroAsk(){
+    if(!state.council)state.council=[];
+    var id=uid();
+    state.council.unshift({id:id,text:"Weekly retro: what should I change next week? Name what to stop, start, and keep — be specific.",ctx:"My week:\n"+weeklyContextText(todayKey()),preset:"",status:"queued",createdAt:Date.now()});
+    trimCouncil(COUNCIL_KEEP);
+    save();go("next");
+    if(relayOn())runCouncil(id);
   }
   function generateWeekly(force){
     var base=relayBase();if(!base)return;
@@ -2737,7 +2750,7 @@
     var base=relayBase();if(!base)return;
     var q=findCouncil(id);if(!q)return;
     q.status="running";q.error="";q.seats=null;q.synthesis=null;q.answer="";q.provider="";q.streaming=false;renderNext();
-    var body={prompt:q.text,synthesize:true,stream:true},pd=profileDigest(),lp=lanePinsClean(),ps=councilPresetSystem(q.preset||"");
+    var body={prompt:q.text+(q.ctx?"\n\n"+q.ctx:""),synthesize:true,stream:true},pd=profileDigest(),lp=lanePinsClean(),ps=councilPresetSystem(q.preset||"");
     var sysx=COUNCIL_SYS;
     if(ps)sysx+="\n"+ps;
     if(pd)sysx+="\nContext about Kevin: "+pd;
@@ -2844,7 +2857,7 @@
   function runCouncilLegacy(id){
     var base=relayBase();if(!base)return;var q=findCouncil(id);if(!q)return;
     var pd=profileDigest(),psL=councilPresetSystem(q.preset||"");
-    relayCall("/ai",{prompt:q.text,system:"You are the Council inside KevinOS, Kevin's calm personal operating system. Answer directly, concisely, and practically. Lead with the recommendation, then the why. Plain text, no preamble."+(psL?"\n"+psL:"")+(pd?"\nContext about Kevin: "+pd:"")})
+    relayCall("/ai",{prompt:q.text+(q.ctx?"\n\n"+q.ctx:""),system:"You are the Council inside KevinOS, Kevin's calm personal operating system. Answer directly, concisely, and practically. Lead with the recommendation, then the why. Plain text, no preamble."+(psL?"\n"+psL:"")+(pd?"\nContext about Kevin: "+pd:"")})
       .then(function(j){if(j&&j.error==="unauthorized")return {ok:false,j:{error:"Relay token rejected - re-paste it in Settings."}};if(j&&j.error==="bad-json")return {ok:false,j:null};return {ok:!!(j&&typeof j.status==="number"&&j.status>=200&&j.status<300),j:j};})
       .then(function(res){
         var cur=findCouncil(id);if(!cur)return;
@@ -4870,7 +4883,7 @@
     var b=e.target.closest("[data-snap-restore]");if(b)restoreSnapshot(b.getAttribute("data-snap-restore"));
   });
   $("bottomNav").addEventListener("click",function(e){var c=e.target.closest("[data-bottom-capture]");if(c){vcOpenPanel();return;}var b=e.target.closest("[data-bottom-room]");if(b)go(b.getAttribute("data-bottom-room"));});
-  document.addEventListener("click",function(e){if(e.target.closest("[data-save-export]")){exportBackup();return;}if(e.target.closest("[data-raw-storage]")){downloadRawStorage();return;}if(e.target.closest("[data-emergency-import]")){$("restoreInput").click();return;}var ai=e.target.closest("[data-ai-kind]");if(ai){startUniversalAI(ai.getAttribute("data-ai-kind"),ai.getAttribute("data-ai-id"),ai.getAttribute("data-ai-mode")||"draft");}});
+  document.addEventListener("click",function(e){if(e.target.closest("[data-save-export]")){exportBackup();return;}if(e.target.closest("[data-raw-storage]")){downloadRawStorage();return;}if(e.target.closest("[data-emergency-import]")){$("restoreInput").click();return;}if(e.target.closest("[data-weekly-retro]")){councilRetroAsk();return;}var ai=e.target.closest("[data-ai-kind]");if(ai){startUniversalAI(ai.getAttribute("data-ai-kind"),ai.getAttribute("data-ai-id"),ai.getAttribute("data-ai-mode")||"draft");}});
   $("cmdkBtn").addEventListener("click",function(){openPalette();});
   document.addEventListener("keydown",function(e){
     if((e.metaKey||e.ctrlKey)&&(e.key==="k"||e.key==="K")){e.preventDefault();if(paletteOpen){closePalette();}else{openPalette();}return;}

@@ -253,6 +253,17 @@ const { loadApp } = require("./harness");
   assert.strictEqual(deep.app.aiContext("event", "nope"), null, "unknown event -> null");
   assert.strictEqual(deep.app.aiContext("stash", "nope"), null, "unknown stash -> null");
 
+  // W8 item 65 — weekly Council retro: client-side digest rides the question
+  // as q.ctx (no server doc read); the queue card text stays short.
+  st62.items.unshift({ id: "t-65", text: "File the taxes", area: "Money", today: false, done: false, due: deep.app.todayKey(), projectId: null, repeat: "" });
+  const wc65 = deep.app.weeklyContextText(deep.app.todayKey());
+  assert.ok(/^Week starting: /.test(wc65) && /File the taxes/.test(wc65), "digest is built from local state");
+  deep.app.councilRetroAsk();
+  const q65 = deep.app.getState().council[0];
+  assert.match(q65.text, /Weekly retro:/, "retro question queued");
+  assert.ok(/^My week:\n/.test(q65.ctx) && /File the taxes/.test(q65.ctx), "week digest rides as ctx, not in the visible text");
+  assert.strictEqual(q65.status, "queued", "no relay in tests -> stays queued");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

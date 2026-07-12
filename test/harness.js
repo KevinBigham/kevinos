@@ -112,6 +112,7 @@ const EXPORT_NAMES = [
   "recordSeatResult", "seatReliability", "seatDotHTML",
   "COUNCIL_PRESETS", "councilPresetSystem", "councilPresetLabel",
   "councilLengthOk", "aiContext",
+  "weeklyContextText", "councilRetroAsk",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.
