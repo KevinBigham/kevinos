@@ -264,6 +264,23 @@ const { loadApp } = require("./harness");
   assert.ok(/^My week:\n/.test(q65.ctx) && /File the taxes/.test(q65.ctx), "week digest rides as ctx, not in the visible text");
   assert.strictEqual(q65.status, "queued", "no relay in tests -> stays queued");
 
+  // W8 item 70 — profile-fact hygiene: dedupe keeps the freshest copy and
+  // tombstones the rest; the stale card surfaces the oldest unreviewed fact.
+  const now70 = Date.now();
+  st62.profile = [
+    { id: "f-old", t: "Kevin ships KevinOS.", cat: "context", createdAt: now70 - 200 * 86400000 },
+    { id: "f-new", t: "kevin  ships kevinos", cat: "context", createdAt: now70, u: now70 },
+    { id: "f-keep", t: "Coaches football on Fridays", cat: "schedule", createdAt: now70 - 100 * 86400000, u: now70 - 100 * 86400000 },
+    { id: "f-fresh", t: "Prefers ES5", cat: "preference", createdAt: now70 },
+  ];
+  assert.deepStrictEqual(deep.app.profileDupeIds(), ["f-old"], "case/space/punctuation variants collapse; freshest survives");
+  assert.strictEqual(deep.app.staleFact().id, "f-old", "oldest stale fact surfaces first");
+  assert.strictEqual(deep.app.dedupeProfileFacts(), 1, "one duplicate removed");
+  assert.ok(deep.app.getState().deleted["f-old"], "removed duplicate is tombstoned for sync");
+  assert.strictEqual(deep.app.staleFact().id, "f-keep", "next-oldest stale fact is up for review");
+  deep.app.touch(deep.app.getState().profile.filter((f) => f.id === "f-keep")[0]);
+  assert.strictEqual(deep.app.staleFact(), null, "touch marks a fact reviewed for another " + deep.app.FACT_STALE_DAYS + " days");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

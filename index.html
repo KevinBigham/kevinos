@@ -1057,6 +1057,7 @@
   var DAY_CHECK_MS=60000;                // foreground midnight-crossing check cadence (item 54)
   var STATS_DEBOUNCE_MS=400;             // storage stats repaint once per save-burst (item 35)
   var COUNCIL_RENDER_MS=80;              // council stream repaints coalesce per burst (item 37)
+  var FACT_STALE_DAYS=90;                // profile facts unreviewed this long get a "still true?" card (item 70)
   var PTR_PX=70;                         // pull distance that triggers Today's pull-to-refresh (item 55)
 
   var store=makeStore();
@@ -3698,11 +3699,46 @@
     persist();renderLaunch();
     intakeSubmit(q,ans,function(nextQ,added){toast("Added "+added+" fact"+(added===1?"":"s")+".");if(room==="launch")renderLaunch();});
   }
+  // Profile-fact hygiene (item 70) — the intake corpus feeds every AI prompt,
+  // so duplicates and stale facts quietly poison briefs, launches, and councils.
+  function factNorm(t){return String(t||"").toLowerCase().replace(/\s+/g," ").replace(/[.!]+$/,"").trim();}
+  function profileDupeIds(){
+    if(!isArr(state.profile))state.profile=[];
+    var seen={},out=[],i,f,k,prev;
+    for(i=0;i<state.profile.length;i++){
+      f=state.profile[i];if(!f||!f.t)continue;k=factNorm(f.t);if(!k)continue;
+      prev=seen[k];
+      if(!prev){seen[k]=f;continue;}
+      if((f.u||f.createdAt||0)>(prev.u||prev.createdAt||0)){out.push(prev.id);seen[k]=f;}
+      else out.push(f.id);
+    }
+    return out;
+  }
+  function dedupeProfileFacts(){
+    var ids=profileDupeIds(),kill={},i;
+    if(!ids.length)return 0;
+    for(i=0;i<ids.length;i++){bury(ids[i]);kill[ids[i]]=1;}
+    state.profile=state.profile.filter(function(f){return !(f&&kill[f.id]);});
+    return ids.length;
+  }
+  function staleFact(){
+    if(!isArr(state.profile))state.profile=[];
+    var cut=Date.now()-FACT_STALE_DAYS*86400000,oldest=null,i,f,ts;
+    for(i=0;i<state.profile.length;i++){
+      f=state.profile[i];if(!f||!f.t)continue;ts=f.u||f.createdAt||0;
+      if(ts<cut&&(!oldest||ts<(oldest.u||oldest.createdAt||0)))oldest=f;
+    }
+    return oldest;
+  }
   function renderProfileList(){
     var box=$("profileList");if(!box)return;
     if(!isArr(state.profile))state.profile=[];
     var h='<div class="sec-head" style="margin-top:24px"><p class="section-label">About Kevin · '+state.profile.length+' fact'+(state.profile.length===1?'':'s')+'</p></div>';
     if(!state.profile.length){box.innerHTML=h+'<p class="empty">No facts yet. Answer the “Get to know me” questions on Home or in Launch.</p>';return;}
+    var dupes=profileDupeIds();
+    if(dupes.length)h+='<div style="margin:6px 0 10px"><button class="linklike" type="button" data-fact-dedupe="1">Remove '+dupes.length+' duplicate fact'+(dupes.length===1?'':'s')+'</button></div>';
+    var stale=staleFact();
+    if(stale)h+='<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0 12px"><p class="section-label" style="margin-bottom:6px">Still true?</p><div style="font-size:14px;margin-bottom:8px">'+escapeHtml(stale.t||"")+'</div><div style="display:flex;gap:8px"><button class="btn-soft" type="button" data-fact-fresh="'+escapeHtml(stale.id)+'">Still true ✓</button><button class="btn-ghost danger" type="button" data-fact-del="'+escapeHtml(stale.id)+'">Remove</button></div></div>';
     var i,f;
     for(i=0;i<state.profile.length;i++){
       f=state.profile[i];if(!f)continue;
@@ -3711,6 +3747,14 @@
     box.innerHTML=h;
   }
   function handleProfileClick(e){
+    if(e.target.closest("[data-fact-dedupe]")){var n70=dedupeProfileFacts();renderProfileList();save();toast(n70?("Removed "+n70+" duplicate"+(n70===1?"":"s")):"No duplicates.");return;}
+    var fr=e.target.closest("[data-fact-fresh]");
+    if(fr){
+      var fid=fr.getAttribute("data-fact-fresh"),f70=null,i70;
+      for(i70=0;i70<state.profile.length;i70++)if(state.profile[i70]&&state.profile[i70].id===fid){f70=state.profile[i70];break;}
+      if(f70){touch(f70);save();}
+      renderProfileList();return;
+    }
     var d=e.target.closest("[data-fact-del]");if(!d)return;
     var id=d.getAttribute("data-fact-del");
     bury(id);state.profile=state.profile.filter(function(x){return x.id!==id;});

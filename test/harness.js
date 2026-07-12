@@ -113,6 +113,7 @@ const EXPORT_NAMES = [
   "COUNCIL_PRESETS", "councilPresetSystem", "councilPresetLabel",
   "councilLengthOk", "aiContext",
   "weeklyContextText", "councilRetroAsk",
+  "factNorm", "profileDupeIds", "dedupeProfileFacts", "staleFact", "FACT_STALE_DAYS",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.
