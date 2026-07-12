@@ -1214,10 +1214,15 @@
   function todayKey(){return dateKey(new Date());}
   function addDaysKey(k,n){var p=keyToParts(k);var d=new Date(p.y,p.m,p.d+n);return dateKey(d);}
   function repeatLabel(r){return r==="daily"?"Daily":r==="weekdays"?"Weekdays":r==="weekly"?"Weekly":r==="monthly"?"Monthly":"";}
+  // W6.0b: month arithmetic clamps to the target month's last day instead of
+  // letting Date overflow roll into the next month (Jan 31 + 1mo = Feb 28/29,
+  // never Mar 3). Callers that know the original anchor day pass it as d so
+  // "the 31st" recovers in longer months instead of drifting.
+  function clampMonthKey(y,m,d){var last=new Date(y,m+1,0).getDate();return dateKey(new Date(y,m,Math.min(d,last)));}
   function nextRepeatKey(k,repeat){
     if(repeat==="daily")return addDaysKey(k,1);
     if(repeat==="weekly")return addDaysKey(k,7);
-    if(repeat==="monthly"){var p=keyToParts(k);return dateKey(new Date(p.y,p.m+1,p.d));}
+    if(repeat==="monthly"){var p=keyToParts(k);return clampMonthKey(p.y,p.m+1,p.d);}
     if(repeat==="weekdays"){var nk=addDaysKey(k,1);var q=keyToParts(nk);var wd=new Date(q.y,q.m,q.d).getDay();if(wd===6)nk=addDaysKey(nk,2);else if(wd===0)nk=addDaysKey(nk,1);return nk;}
     return null;
   }
@@ -3026,7 +3031,7 @@
     var interval=parseInt(r.INTERVAL,10)||1,count=r.COUNT?parseInt(r.COUNT,10):0;
     var until=null;if(r.UNTIL){var u=parseDT(r.UNTIL);if(u)until=u.date;}
     var exd={};(e.exdates||[]).forEach(function(d){exd[d]=true;});
-    var cap=count||366,out=[],made=0,guard=0;
+    var cap=count||366,out=[],made=0,guard=0,anchor=keyToParts(e.date).d;
     function add(dk){made++;if(!exd[dk])out.push({title:e.title,date:dk,time:e.time,allDay:e.allDay,end:e.end||null,location:e.location||"",notes:e.notes||"",uid:e.uid?e.uid+"-"+dk:null});}
     if(freq==="WEEKLY"&&r.BYDAY){
       var days=r.BYDAY.split(",").map(function(x){return ICS_WD[x.replace(/^[+-]?\d+/,"")];}).filter(function(x){return x!=null;});
@@ -3042,8 +3047,8 @@
         if(until&&k>=until)break;
         if(freq==="DAILY")k=addDaysKey(k,interval);
         else if(freq==="WEEKLY")k=addDaysKey(k,7*interval);
-        else if(freq==="MONTHLY"){var pm=keyToParts(k);k=dateKey(new Date(pm.y,pm.m+interval,pm.d));}
-        else if(freq==="YEARLY"){var py=keyToParts(k);k=dateKey(new Date(py.y+interval,py.m,py.d));}
+        else if(freq==="MONTHLY"){var pm=keyToParts(k);k=clampMonthKey(pm.y,pm.m+interval,anchor);}
+        else if(freq==="YEARLY"){var py=keyToParts(k);k=clampMonthKey(py.y+interval,py.m,anchor);}
         else break;
       }
     }

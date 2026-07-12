@@ -72,6 +72,19 @@ function ics(lines) {
   ]));
   assert.deepStrictEqual(r.events.map((e) => e.date), ["2026-01-15", "2026-03-15", "2026-05-15"]);
 
+  // ── W6.0b: monthly on the 31st clamps to short months but keeps its
+  //    anchor day, so longer months recover the 31st (no drift) ───────────
+  r = app.parseICS(ics([
+    "BEGIN:VEVENT", "SUMMARY:Rent due", "DTSTART;VALUE=DATE:20260131", "RRULE:FREQ=MONTHLY;COUNT=4", "END:VEVENT",
+  ]));
+  assert.deepStrictEqual(r.events.map((e) => e.date), ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30"], "monthly clamp keeps the 31st anchor");
+
+  // ── W6.0b: yearly Feb 29 clamps to Feb 28 off-leap, recovers on leap ───
+  r = app.parseICS(ics([
+    "BEGIN:VEVENT", "SUMMARY:Leap day", "DTSTART;VALUE=DATE:20240229", "RRULE:FREQ=YEARLY;COUNT=5", "END:VEVENT",
+  ]));
+  assert.deepStrictEqual(r.events.map((e) => e.date), ["2024-02-29", "2025-02-28", "2026-02-28", "2027-02-28", "2028-02-29"], "yearly leap-day clamp with anchor recovery");
+
   // ── yearly ─────────────────────────────────────────────────────────────
   r = app.parseICS(ics([
     "BEGIN:VEVENT", "SUMMARY:Anniversary", "DTSTART;VALUE=DATE:20260220", "RRULE:FREQ=YEARLY;COUNT=3", "END:VEVENT",

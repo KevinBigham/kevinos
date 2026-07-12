@@ -49,7 +49,7 @@ const { loadApp } = require("./harness");
   // nextRepeatKey semantics.
   assert.strictEqual(app.nextRepeatKey("2026-07-10", "daily"), "2026-07-11");
   assert.strictEqual(app.nextRepeatKey("2026-07-10", "weekly"), "2026-07-17");
-  assert.strictEqual(app.nextRepeatKey("2026-01-31", "monthly"), "2026-03-03", "monthly overflow rolls via Date (current behavior)");
+  assert.strictEqual(app.nextRepeatKey("2026-01-31", "monthly"), "2026-02-28", "W6.0b: monthly overflow clamps to the target month's last day (old pin: 2026-03-03 via Date rollover)");
   assert.strictEqual(app.nextRepeatKey("2026-07-10", "weekdays"), "2026-07-13", "Fri+weekdays -> Mon");
   assert.strictEqual(app.nextRepeatKey("2026-07-11", "weekdays"), "2026-07-13", "Sat+weekdays -> Mon");
   assert.strictEqual(app.nextRepeatKey("2026-07-10", "nope"), null);
