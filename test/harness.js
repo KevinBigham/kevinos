@@ -107,6 +107,7 @@ const EXPORT_NAMES = [
   "moveFocusTask", "windItems",
   "libraryPaletteEntries", "libraryRecords", "PALETTE_LIB_MAX",
   "closeHourVal", "updateTomorrowFocus", "launchBodyShort",
+  "sweepStreak", "mergeSweepLog",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

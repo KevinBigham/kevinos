@@ -999,7 +999,7 @@
   // object list. Adding entity #18 = add it HERE (and to the initial state
   // below); assertContentContract() screams at boot if the shapes drift.
   var CONTENT_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"];
-  var PORTABLE_OBJS=["deleted","weatherLoc","roomStats","brief","launch","weekly","intake","peopleCfg","spendMeta"];
+  var PORTABLE_OBJS=["deleted","weatherLoc","roomStats","sweepLog","brief","launch","weekly","intake","peopleCfg","spendMeta"];
 
   // Policy constants (audit item 86) — numbers that encode a promise, named
   // so the promise is greppable. Change these deliberately, never in passing.
@@ -1019,7 +1019,7 @@
   var STATS_DEBOUNCE_MS=400;             // storage stats repaint once per save-burst (item 35)
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,v:SCHEMA_VERSION};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
   var relayHealth={status:"unknown",checkedAt:0,caps:null,err:""}, relayHealthOpen=false;
   var ghMem={cache:null,fetchedAt:0}, sheetsMem={at:0,text:""}, swimMem={at:0,items:[]};
@@ -2294,6 +2294,7 @@
     SYNC_ARRAYS.forEach(function(k){if(isArr(doc[k]))state[k]=doc[k];});
     mergeDevices(doc.devices);
     mergeRoomStats(doc.roomStats);
+    mergeSweepLog(doc.sweepLog);
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=doc.lastBackupAt;
     if(typeof doc.lastShutdown==="string")state.lastShutdown=doc.lastShutdown;
     sanitizeIds();
@@ -2336,6 +2337,7 @@
     });
     mergeDevices(doc.devices);
     mergeRoomStats(doc.roomStats);
+    mergeSweepLog(doc.sweepLog);
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=Math.max(state.lastBackupAt||0,doc.lastBackupAt);
     if(typeof doc.lastShutdown==="string"&&(!state.lastShutdown||doc.lastShutdown>state.lastShutdown))state.lastShutdown=doc.lastShutdown;
     sanitizeIds();
@@ -3353,7 +3355,7 @@
   function renderSweep(){
     var inner=$("sweepInner");var step=SWEEP_STEPS[sweep.step];
     var top='<div class="sweep-top">'+sweepDots()+'<button class="sweep-exit" type="button" data-sw="exit">Save &amp; close</button></div>';
-    if(step.type==="intro"){inner.innerHTML=top+'<p class="sweep-eyebrow">Life Sweep</p><h1 class="sweep-q">Let\u2019s clear your head.</h1><p class="sweep-prompt">We\u2019ll move through your life one area at a time. Don\u2019t organize, don\u2019t judge \u2014 just empty your head into each one. <span class="sweep-serif">Nothing gets added to your list until you say so at the end.</span></p><div class="sweep-nav"><button class="add-btn" type="button" data-sw="next">Begin</button></div>';return;}
+    if(step.type==="intro"){var swk=sweepStreak();inner.innerHTML=top+'<p class="sweep-eyebrow">Life Sweep'+(swk?' \u00b7 '+swk+'-week streak':'')+'</p><h1 class="sweep-q">Let\u2019s clear your head.</h1><p class="sweep-prompt">We\u2019ll move through your life one area at a time. Don\u2019t organize, don\u2019t judge \u2014 just empty your head into each one. <span class="sweep-serif">Nothing gets added to your list until you say so at the end.</span></p><div class="sweep-nav"><button class="add-btn" type="button" data-sw="next">Begin</button></div>';return;}
     if(step.type==="area"){
       var items=sweep.data[step.area]||[];var list="";
       items.forEach(function(t,idx){list+='<div class="sw-item"><span class="dot" style="background:'+areaColor(step.area)+'"></span><span class="swt">'+escapeHtml(t)+'</span><button class="icon-btn" style="opacity:1" type="button" data-sw-del="'+idx+'" aria-label="Remove">'+delSvg()+'</button></div>';});
@@ -3368,7 +3370,7 @@
     }
   }
   function sweepAdd(){var step=SWEEP_STEPS[sweep.step];if(step.type!=="area")return;var inp=$("sweepInput");var v=(inp.value||"").trim();if(!v)return;sweep.data[step.area].push(v);inp.value="";renderSweep();}
-  function sweepCommit(){AREAS.forEach(function(a){(sweep.data[a.key]||[]).forEach(function(t){state.items.unshift({id:uid(),text:t,area:a.key,today:false,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});});});exitSweep();save();taskFilter="All";taskView="due";go("tasks");}
+  function sweepCommit(){AREAS.forEach(function(a){(sweep.data[a.key]||[]).forEach(function(t){state.items.unshift({id:uid(),text:t,area:a.key,today:false,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});});});if(!state.sweepLog||typeof state.sweepLog!=="object")state.sweepLog={};state.sweepLog[weekStartKey(todayKey())]=Date.now();exitSweep();save();taskFilter="All";taskView="due";go("tasks");var sk=sweepStreak();toast(sk>1?"Sweep complete — "+sk+"-week streak":"Sweep complete");}
   function handleSweep(e){
     var t=e.target.closest("[data-sw],[data-sw-del]");if(!t)return;
     if(t.dataset.swDel!==undefined){var step=SWEEP_STEPS[sweep.step];sweep.data[step.area].splice(+t.dataset.swDel,1);renderSweep();return;}
@@ -4308,6 +4310,19 @@
       r=remote[k]||{};l=state.roomStats[k]||{visits:0,last:0};
       state.roomStats[k]={visits:Math.max(l.visits||0,r.visits||0),last:Math.max(l.last||0,r.last||0)};
     }
+  }
+  // W6 item 47 — sweepLog: weekStartKey -> completion timestamp, newest wins
+  // per week (the roomStats merge pattern). Feeds the Life Sweep streak.
+  function mergeSweepLog(remote){
+    if(!remote||typeof remote!=="object")return;
+    if(!state.sweepLog||typeof state.sweepLog!=="object")state.sweepLog={};
+    var k;for(k in remote){if(remote.hasOwnProperty(k)&&(remote[k]||0)>(state.sweepLog[k]||0))state.sweepLog[k]=remote[k];}
+  }
+  function sweepStreak(){
+    var log=(state.sweepLog&&typeof state.sweepLog==="object")?state.sweepLog:{},wk=weekStartKey(todayKey()),n=0;
+    if(!log[wk])wk=addDaysKey(wk,-7); // this week still pending doesn't break the chain
+    while(log[wk]){n++;wk=addDaysKey(wk,-7);}
+    return n;
   }
   function relayUnlocked(){return !!(relayHealth.status==="ok"&&relayHealth.caps&&relayHealth.caps.auth===false);}
   function relayHealthLabel(){

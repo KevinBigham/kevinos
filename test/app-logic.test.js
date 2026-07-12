@@ -167,6 +167,27 @@ const { loadApp } = require("./harness");
   st46.closeHour = 17;
   app.invalidateDayCache();
 
+  // W6 item 47 — Life Sweep streak: consecutive swept weeks; the current
+  // week still being pending doesn't break the chain; a gap does.
+  const st47 = app.getState();
+  const w0 = app.weekStartKey(tk);
+  const wMinus = (n) => app.addDaysKey(w0, -7 * n);
+  st47.sweepLog = {};
+  assert.strictEqual(app.sweepStreak(), 0, "no sweeps, no streak");
+  st47.sweepLog[wMinus(1)] = 100; st47.sweepLog[wMinus(2)] = 90;
+  assert.strictEqual(app.sweepStreak(), 2, "pending current week doesn't break the chain");
+  st47.sweepLog[w0] = 110;
+  assert.strictEqual(app.sweepStreak(), 3, "this week's sweep counts");
+  st47.sweepLog = {}; st47.sweepLog[w0] = 110; st47.sweepLog[wMinus(2)] = 90;
+  assert.strictEqual(app.sweepStreak(), 1, "a skipped week breaks the chain");
+  // merge: newest timestamp wins per week (roomStats pattern)
+  app.mergeSweepLog({ [wMinus(1)]: 95, [w0]: 50 });
+  assert.strictEqual(st47.sweepLog[wMinus(1)], 95, "remote week merged in");
+  assert.strictEqual(st47.sweepLog[w0], 110, "older remote stamp doesn't clobber");
+  assert.strictEqual(app.sweepStreak(), 3, "merge heals the chain");
+  assert.ok(app.portableDoc(st47).sweepLog, "sweepLog rides backups (PORTABLE_OBJS)");
+  st47.sweepLog = {};
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");
