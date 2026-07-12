@@ -1013,6 +1013,20 @@
     doc.relay={url:(src.relay&&src.relay.url)||"",token:""};
     return doc;
   }
+  // Ingress id sanitizer (audit F4, suspenders half): entity ids arriving via
+  // backup import, a synced doc, or pre-existing storage must be plain tokens.
+  // uid() output always passes; anything else (hostile or corrupt) is
+  // re-minted so it can never break out of a rendered attribute or selector.
+  var SAFE_ID_RE=/^[a-z0-9-]{1,40}$/i;
+  function sanitizeIds(){
+    var i,k,arr,j,it,n=0;
+    for(i=0;i<CONTENT_ARRAYS.length;i++){
+      k=CONTENT_ARRAYS[i];arr=state[k];if(!isArr(arr))continue;
+      for(j=0;j<arr.length;j++){it=arr[j];if(!it||typeof it!=="object")continue;if(it.id==null||!SAFE_ID_RE.test(String(it.id))){it.id=uid();n++;}}
+    }
+    if(n){try{console.warn("KevinOS: re-minted "+n+" unsafe entity id(s) at ingress");}catch(e){}}
+    return n;
+  }
   function applyPortableDoc(doc,opts){
     if(!doc||typeof doc!=="object")return false;
     var arrays=CONTENT_ARRAYS,objs=PORTABLE_OBJS,i,k;
@@ -1024,6 +1038,7 @@
     if(!state.github||typeof state.github!=="object")state.github={token:"",session:"",login:"",pendingOAuth:false};
     delete state.github.cache;delete state.github.fetchedAt;
     state.v=SCHEMA_VERSION;
+    sanitizeIds();
     clearEditingState();
     if(state.sync&&state.sync.key){state.sync.dirty=true;state.sync.rev=0;_lastPushedDoc=null;}
     return true;
@@ -2041,6 +2056,7 @@
     mergeRoomStats(doc.roomStats);
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=doc.lastBackupAt;
     if(typeof doc.lastShutdown==="string")state.lastShutdown=doc.lastShutdown;
+    sanitizeIds();
     return true;
   }
   // Lossless union by id — a conflicting push (both devices changed things) must
@@ -2062,6 +2078,7 @@
     mergeRoomStats(doc.roomStats);
     if(typeof doc.lastBackupAt==="number")state.lastBackupAt=Math.max(state.lastBackupAt||0,doc.lastBackupAt);
     if(typeof doc.lastShutdown==="string"&&(!state.lastShutdown||doc.lastShutdown>state.lastShutdown))state.lastShutdown=doc.lastShutdown;
+    sanitizeIds();
     return true;
   }
   function syncRerender(){
@@ -4809,6 +4826,7 @@
     }
     if(!state.roomStats||typeof state.roomStats!=="object")state.roomStats={};
     state.v=SCHEMA_VERSION;
+    sanitizeIds(); // storage written before this version may hold pre-sanitizer ids
     var sharedMsg=ingestShared();
     go("today");
     vcDetect();

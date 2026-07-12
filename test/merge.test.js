@@ -99,5 +99,15 @@ const { loadApp } = require("./harness");
   assert.ok("fresh" in doc.deleted, "fresh tombstone kept");
   assert.ok(!("stale" in doc.deleted), "30-day tombstone GC");
 
+  // W2.12 — hostile ids in a synced doc are re-minted at ingress.
+  st.items = []; st.deleted = {};
+  app.mergeRemoteDoc({ items: [{ id: 'evil" onload="x', text: "hostile", u: 1 }, { id: "goodid", text: "ok", u: 1 }] });
+  assert.strictEqual(st.items.length, 2);
+  for (const it of st.items) assert.match(String(it.id), /^[a-z0-9-]{1,40}$/i);
+  assert.ok(st.items.some((i) => i.id === "goodid"), "safe id kept");
+  st.items = [];
+  app.applySyncDoc({ items: [{ id: "<img src=x>", text: "hostile2" }] });
+  assert.match(String(st.items[0].id), /^[a-z0-9-]{1,40}$/i, "applySyncDoc sanitizes too");
+
   console.log("merge convergence ok");
 })().catch((err) => { console.error(err); process.exit(1); });

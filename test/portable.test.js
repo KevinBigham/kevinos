@@ -94,6 +94,17 @@ const { loadApp } = require("./harness");
   assert.strictEqual(app.applyPortableDoc(null), false);
   assert.strictEqual(app.applyPortableDoc("string"), false);
 
+  // W2.12 — hostile ids in an imported doc are re-minted to safe tokens.
+  app.applyPortableDoc({ items: [
+    { id: 'x" onmouseover="alert(1)', text: "attr breakout" },
+    { id: "ok-id-123", text: "fine" },
+    { id: null, text: "no id" },
+    { id: "way-too-long-".repeat(5), text: "too long" },
+  ] }, { reason: "import" });
+  assert.strictEqual(st.items.length, 4, "no items dropped by sanitization");
+  for (const it of st.items) assert.match(String(it.id), /^[a-z0-9-]{1,40}$/i, "id sanitized: " + it.id);
+  assert.strictEqual(st.items.find((i) => i.text === "fine").id, "ok-id-123", "safe ids untouched");
+
   // ── full round-trip: export → apply reproduces content ────────────────
   st.items = [{ id: "rt1", text: "round trip", u: 3 }];
   st.habits = [{ id: "h1", name: "swim", done: {} }];
