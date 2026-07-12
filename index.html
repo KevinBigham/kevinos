@@ -1697,9 +1697,9 @@
     return null;
   }
   function parseCaptureText(t){
-    var raw=(t||"").trim(),text=raw,area="Inbox",due=null,pin=false,i,tagRe=/\s#([A-Za-z]+)\b/g,mt,dateRe=/\s@([A-Za-z]+|\d{1,2}\/\d{1,2})\b/g,dm;
+    var raw=(t||"").trim(),text=raw,area="Inbox",due=null,pin=false,i,tagRe=/\s#([A-Za-z]+)\b/g,dateRe=/\s@([A-Za-z]+|\d{1,2}\/\d{1,2})\b/g,dm;
     for(i=0;i<AREAS.length;i++){var re=new RegExp("(^|\\s)#"+AREAS[i].key+"\\b","i");if(re.test(text)){area=AREAS[i].key;text=text.replace(re," ");break;}}
-    while((mt=tagRe.exec(text))){/* strip unknown tags below */}text=text.replace(tagRe," ");
+    text=text.replace(tagRe," ");
     while((dm=dateRe.exec(text))){var dk=parseCaptureDate(dm[1]);if(dk)due=dk;}text=text.replace(dateRe," ");
     if(/(^|\s)!(\s|$)/.test(text)){pin=true;text=text.replace(/(^|\s)!(\s|$)/g," ");}
     text=text.replace(/\s+/g," ").trim();
