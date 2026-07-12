@@ -1,6 +1,6 @@
 # KevinOS — Handoff to the next Claude Code
 
-*Written 2026-06-22; covers through v0.38 (2026-07-02). Read this first. It's the complete state of the project so you can pick up cold. Everything (app + backend + docs) lives in one repo: `github.com/KevinBigham/kevinos`.*
+*Written 2026-06-22; body covers through v0.38 (2026-07-02), plus the **§0.5 v0.39 addendum** below. For the current release's ground truth, `MISSION.md` is the most up-to-date record — start there, then use this for history and architecture. Everything (app + backend + docs) lives in one repo: `github.com/KevinBigham/kevinos`.*
 
 ---
 
@@ -17,6 +17,25 @@ KevinOS is Kevin's **personal life operating system** — a calm daily cockpit (
 - **The single most important rule:** the app's JavaScript is **ES5-style on purpose** (see §2). Do not introduce arrow functions, template literals, `async/await`, `const`/`let`, or any dependency into the app. The Worker (`relay/`) is exempt — it's modern ES modules.
 
 If you only remember two things: **(1) keep the app ES5-style and dependency-free; (2) the AI key lives ONLY on the Worker as a secret — never in the browser, the repo, or his phone.** For setup or rebuild work, start with [`GETTING_STARTED.md`](GETTING_STARTED.md); this handoff is the deeper project-state record.
+
+---
+
+## 0.5 v0.39 addendum — the Evolution Marathon (2026-07-08)
+
+Everything below the TL;DR describes v0.38. **v0.39 shipped a ten-phase marathon (P1–P10, spec + ledger in `MISSION.md` — the authoritative record of the current release):**
+
+- **P1 Trust Guardrails** — the data-trust layer. Shaped store results (`makeStore().load/save` → `{ok,...}`), corrupt-load emergency UI that can never be overwritten (raw bytes preserved, saves blocked until recovery), loud save-failure banner + one-toast-per-episode, storage stats with 3.5/4.5 MB thresholds, allowlist-based `portableDoc()`/`applyPortableDoc()` (backups/snapshots strip `sync`/`push`/`github`/`email`/`calendar`, keep `relay.url`, blank `relay.token` — **connections never travel**), `SCHEMA_VERSION` as single version source with `prevV` migration gates, and 401 handling via `handleRelayUnauthorized()`.
+- **P2 Blob Diet** — regenerable caches (`ghMem`, `sheetsMem`, `swimMem`) are memory-only; `prevV<39` migration deletes them from the persisted blob. `SCHEMA_VERSION` → **39**.
+- **P3 Snapshot Ring** — IndexedDB `kevinos-snapshots/snaps`, 5-deep, reasons boot/autosave/pre-import/pre-restore; restore UI in the footer. All IDB failures best-effort.
+- **P4/P5 Today cockpit** — `today` is the boot room; `home`/`launch` alias to it via `normalizeRoom()`. Today composes greeting + relay health chip + AI review queue + plan/agenda/focus/habits + quick capture + collapsed Council + nudges. Room-visit heat in `state.roomStats` (sync-merged by max).
+- **P6 Global Capture + bottom nav** — deterministic capture parser (`#Area @date !` pin, `note:`/`event:` prefixes) before any relay call; `c` hotkey; mobile bottom nav (Today · + · Calendar · More).
+- **P7 Relay Health Chip** — `relayHealth` state polled from `GET /` (visible-tab only); green/amber/red chip on Today.
+- **P8 Federated Library** — one Library room searching briefs, prompts, notes, links, stash with copy/open/Council/AI actions.
+- **P9 Attic Collapse** — primary nav reduced to Today · Calendar · Tasks · Library · More; 14 cold rooms live under More with a room-heat card. No data deleted.
+- **P10 Evening Close + Universal AI** — wind-down sets tomorrow's top-3 focus (fed to `/launch`); "Draft with AI" / "Send to Council" on tasks, projects, people, and Library items, all landing in a review queue.
+- **Relay auth (opt-in)** — the `KEVINOS_TOKEN` Worker secret locks every non-public route behind the `X-KevinOS-Token` header; the app stores the token device-local (Next → Connect AI). Setup: `GETTING_STARTED.md` Part 3.5. Test: `relay/test/route-auth.test.js`.
+
+Footer `v0.39`, `SCHEMA_VERSION = 39`. Trust order when docs disagree: code → `MISSION.md` → `GETTING_STARTED.md` → this file.
 
 ---
 
