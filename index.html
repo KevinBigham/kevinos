@@ -2264,7 +2264,7 @@
   function syncNow(){if(!syncOn()){toast("Connect sync first.");return;}syncPush();setTimeout(syncPull,900);toast("Syncing…");}
   function connectSync(passphrase){
     passphrase=(passphrase||"").trim();
-    if(passphrase.length<4){toast("Use a longer sync passphrase (4+ characters).");return;}
+    if(passphrase.length<8){toast("Use a longer sync passphrase (8+ characters) — it protects everything you sync.");return;}
     if(!relayOn()){toast("Connect AI (the relay) first — sync runs through it.");return;}
     var s=syncCfg();
     // v2 first; if only a legacy v1 row exists, its data migrates under the
@@ -2304,6 +2304,25 @@
     }).catch(function(){toast("Couldn’t reach sync. Check the relay connection.");});
   }
   function disconnectSync(){var s=syncCfg();s.on=false;s.key="";s.err="";if(_syncPushT){clearTimeout(_syncPushT);_syncPushT=null;}syncOpen=false;persist();renderSync();toast("Sync off on this device. Your synced data is kept — reconnect any time.");}
+  // Passphrase strength (item 16): length carries most of the weight —
+  // this phrase is the only thing between the internet and the sync doc.
+  function passStrength(p){
+    p=p||"";
+    if(p.length<8)return {label:"too short — 8+ characters",color:"#A43131"};
+    var score=0,kinds=0;
+    if(p.length>=12)score++;if(p.length>=16)score++;if(p.length>=24)score++;
+    if(/[a-z]/.test(p))kinds++;if(/[A-Z]/.test(p))kinds++;if(/[0-9]/.test(p))kinds++;if(/[^A-Za-z0-9]/.test(p))kinds++;
+    if(kinds>=2)score++;if(kinds>=3)score++;
+    if(score<=1)return {label:"weak — longer is stronger",color:"#A43131"};
+    if(score<=3)return {label:"okay",color:"#A07000"};
+    return {label:"strong",color:"#3FA34D"};
+  }
+  function renderPassMeter(){
+    var i=$("syncPass"),m=$("syncMeter");if(!i||!m)return;
+    if(!i.value){m.textContent="";return;}
+    var s=passStrength(i.value);
+    m.textContent="Strength: "+s.label;m.style.color=s.color;
+  }
   function syncStatusLine(){
     var s=state.sync;if(!s||!s.on)return "";
     if(s.err==="upgrade")return "Sync moved to a stronger key on another device — tap Disconnect, then Connect and re-enter your passphrase here";
@@ -2320,7 +2339,7 @@
     if(!s.on){
       var h=head+dotOff+'<strong>Cross-device sync · Off</strong><button class="linklike" type="button" data-sync-toggle="1">'+(syncOpen?"Close":"Connect")+'</button></div>';
       if(syncOpen){
-        h+='<div class="edit-panel"><div class="field"><label for="syncPass">Sync passphrase</label><input class="inp" id="syncPass" type="password" placeholder="a secret phrase — same on every device" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></div><div class="edit-actions"><button class="add-btn" type="button" data-sync-connect="1">Start syncing</button><button class="btn-ghost" type="button" data-sync-gen="1">Generate</button></div><p class="hint">Type the <strong>exact same phrase</strong> on each device — lowercase, no spaces is easiest. The <strong>link code</strong> shown afterward is only a check: when it matches on both devices, the two are linked. (You type your <em>phrase</em>, not the code.) It never leaves this device — only its fingerprint is sent.</p></div>';
+        h+='<div class="edit-panel"><div class="field"><label for="syncPass">Sync passphrase</label><input class="inp" id="syncPass" type="password" placeholder="a secret phrase (8+ chars) — same on every device" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></div><div class="hint" id="syncMeter" style="min-height:16px;margin:-6px 0 8px"></div><div class="edit-actions"><button class="add-btn" type="button" data-sync-connect="1">Start syncing</button><button class="btn-ghost" type="button" data-sync-gen="1">Generate</button></div><p class="hint"><strong>This phrase protects everything you sync</strong> — anyone who knows it can read your whole dataset, so make it long. Type the <strong>exact same phrase</strong> on each device — lowercase, no spaces is easiest. The <strong>link code</strong> shown afterward is only a check: when it matches on both devices, the two are linked. (You type your <em>phrase</em>, not the code.) It never leaves this device — only its fingerprint is sent.</p></div>';
       }else{
         h+='<p class="hint">Keep tasks, notes, and everything else in lock-step across your Mac and phone. One passphrase links your devices.</p>';
       }
@@ -2331,7 +2350,7 @@
   }
   function handleSyncClick(e){
     if(e.target.closest("[data-sync-toggle]")){syncOpen=!syncOpen;renderSync();if(syncOpen){var i=$("syncPass");if(i)i.focus();}return;}
-    if(e.target.closest("[data-sync-gen]")){var g=$("syncPass");if(g){g.type="text";g.value=(uid()+uid()).replace(/[^a-z0-9]/g,"").slice(0,16);}return;}
+    if(e.target.closest("[data-sync-gen]")){var g=$("syncPass");if(g){g.type="text";g.value=(uid()+uid()).replace(/[^a-z0-9]/g,"").slice(0,16);renderPassMeter();}return;}
     if(e.target.closest("[data-sync-connect]")){var p=$("syncPass");connectSync(p?p.value:"");return;}
     if(e.target.closest("[data-sync-now]")){syncNow();return;}
     if(e.target.closest("[data-sync-off]")){disconnectSync();return;}
@@ -4936,6 +4955,7 @@
   });
   $("syncRow").addEventListener("click",handleSyncClick);
   $("syncRow").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="syncPass"){e.preventDefault();connectSync(e.target.value);}});
+  $("syncRow").addEventListener("input",function(e){if(e.target&&e.target.id==="syncPass")renderPassMeter();});
   window.addEventListener("focus",function(){if(syncOn())syncPull();});
   document.addEventListener("visibilitychange",function(){if(!document.hidden&&syncOn())syncPull();});
   window.addEventListener("online",function(){if(syncOn())syncPush();renderSync();});
