@@ -956,6 +956,18 @@
   var CONTENT_ARRAYS=["items","events","projects","builds","briefs","links","prompts","notes","stash","people","spend","goals","habits","council","pending","profile","sheets"];
   var PORTABLE_OBJS=["deleted","weatherLoc","roomStats","brief","launch","weekly","intake","peopleCfg","spendMeta"];
 
+  // Policy constants (audit item 86) — numbers that encode a promise, named
+  // so the promise is greppable. Change these deliberately, never in passing.
+  var SNAP_KEEP=5;                       // snapshot ring depth
+  var SNAP_WRITES=25;                    // successful saves between autosave snapshots
+  var SNAP_FLOOR_MS=600000;              // ...and at least 10 min apart
+  var SNAP_BOOT_MAX_AGE_MS=72000000;     // boot snapshot if newest is older than 20h
+  var SYNC_POLL_MS=60000;                // background pull cadence (visible + online)
+  var SYNC_PUSH_DEBOUNCE_MS=2000;        // edits settle before a push
+  var TOMBSTONE_TTL_MS=2592000000;       // deletion tombstones live 30 days
+  var STORAGE_WARN_BYTES=3500000;        // stats turn amber
+  var STORAGE_CRIT_BYTES=4500000;        // stats turn red (~5 MB ceiling)
+
   var store=makeStore();
   var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},deleted:{},lastBackupAt:0,lastShutdown:"",v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
@@ -1020,7 +1032,7 @@
   function renderStorageStats(){
     var el=$("storageStats");if(!el)return;
     var b=currentSaveBytes(),kb=Math.round(b/1024),mode=store.mode==="claude"?"Claude storage":(store.mode==="local"?"local":"memory");
-    el.className="storage-stats"+(b>4500000?" critical":(b>3500000?" warn":""));
+    el.className="storage-stats"+(b>STORAGE_CRIT_BYTES?" critical":(b>STORAGE_WARN_BYTES?" warn":""));
     el.textContent="Data size: "+kb+" KB of ~5 MB · Storage: "+mode;
   }
   function renderSaveBanner(){
@@ -1998,7 +2010,7 @@
   }
   function deriveSyncKey(passphrase){return sha256Hex("kevinos-sync\u0000"+passphrase);}
   function isEditing(){var el=document.activeElement;if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select";}
-  function buildSyncDoc(){var d={},k,cut=Date.now()-2592000000;if(!state.deleted||typeof state.deleted!=="object")state.deleted={};for(k in state.deleted){if(state.deleted.hasOwnProperty(k)&&state.deleted[k]<cut)delete state.deleted[k];}for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}d.deleted=state.deleted;return d;}
+  function buildSyncDoc(){var d={},k,cut=Date.now()-TOMBSTONE_TTL_MS;if(!state.deleted||typeof state.deleted!=="object")state.deleted={};for(k in state.deleted){if(state.deleted.hasOwnProperty(k)&&state.deleted[k]<cut)delete state.deleted[k];}for(k in state){if(!state.hasOwnProperty(k))continue;if(SYNC_SKIP[k])continue;d[k]=state[k];}d.deleted=state.deleted;return d;}
   // Tombstones (id -> deletedAt ms) keep a deletion from resurrecting via merge; kept 30 days.
   function unionDeleted(m){if(!m||typeof m!=="object")return;if(!state.deleted||typeof state.deleted!=="object")state.deleted={};var k;for(k in m){if(m.hasOwnProperty(k)&&(m[k]||0)>(state.deleted[k]||0))state.deleted[k]=m[k];}}
   var SYNC_ARRAYS=CONTENT_ARRAYS; // one list — content that syncs IS the portable content (F6)
@@ -2097,7 +2109,7 @@
   }
   // Ordering is the server's rev now (skew-proof), so a local edit just needs to
   // get pushed — no client-clock bumping. A stale push merges + retries.
-  function scheduleSyncPush(){if(!syncOn())return;var docStr=JSON.stringify(buildSyncDoc());if(docStr===_lastPushedDoc){if(_syncPushT){clearTimeout(_syncPushT);_syncPushT=null;}return;}syncCfg().dirty=true;if(_syncPushT)clearTimeout(_syncPushT);_syncPushT=setTimeout(function(){_syncPushT=null;syncPush();},2000);}
+  function scheduleSyncPush(){if(!syncOn())return;var docStr=JSON.stringify(buildSyncDoc());if(docStr===_lastPushedDoc){if(_syncPushT){clearTimeout(_syncPushT);_syncPushT=null;}return;}syncCfg().dirty=true;if(_syncPushT)clearTimeout(_syncPushT);_syncPushT=setTimeout(function(){_syncPushT=null;syncPush();},SYNC_PUSH_DEBOUNCE_MS);}
   function syncNow(){if(!syncOn()){toast("Connect sync first.");return;}syncPush();setTimeout(syncPull,900);toast("Syncing…");}
   function connectSync(passphrase){
     passphrase=(passphrase||"").trim();
@@ -4626,7 +4638,7 @@
   function snapPut(doc,reason){
     var rec={at:Date.now(),reason:reason||"autosave",bytes:0,doc:doc};
     try{rec.bytes=JSON.stringify(doc).length;}catch(e){rec.bytes=0;}
-    return snapTx("readwrite",function(st){st.put(rec);}).then(function(){return snapPruneKeep(5);}).then(function(){renderSnapshots();return true;}).catch(function(e){snapWarn(e);renderSnapshots();return false;});
+    return snapTx("readwrite",function(st){st.put(rec);}).then(function(){return snapPruneKeep(SNAP_KEEP);}).then(function(){renderSnapshots();return true;}).catch(function(e){snapWarn(e);renderSnapshots();return false;});
   }
   function snapList(){
     return snapTx("readonly",function(st){return new Promise(function(resolve,reject){var req=st.getAll();req.onsuccess=function(){resolve((req.result||[]).sort(function(a,b){return b.at-a.at;}));};req.onerror=function(){reject(req.error||new Error("snapshot list failed"));};});}).then(function(p){return p;});
@@ -4645,13 +4657,13 @@
   function snapAfterSave(){
     if(loadFailed)return;
     _writeOk++;
-    if(_writeOk>=25&&Date.now()-_lastSnapAt>=600000){
+    if(_writeOk>=SNAP_WRITES&&Date.now()-_lastSnapAt>=SNAP_FLOOR_MS){
       snapPut(portableDoc(state),"autosave").then(function(ok){if(ok){_writeOk=0;_lastSnapAt=Date.now();}});
     }
   }
   function snapBootMaybe(){
     if(loadFailed)return;
-    snapList().then(function(rows){if(!rows.length||Date.now()-(rows[0].at||0)>72000000){snapPut(portableDoc(state),"boot");}}).catch(function(e){snapWarn(e);renderSnapshots();});
+    snapList().then(function(rows){if(!rows.length||Date.now()-(rows[0].at||0)>SNAP_BOOT_MAX_AGE_MS){snapPut(portableDoc(state),"boot");}}).catch(function(e){snapWarn(e);renderSnapshots();});
   }
   function fmtSnapDate(ms){var d=new Date(ms);return d.toLocaleString?d.toLocaleString():String(ms);}
   function renderSnapshots(){
@@ -4718,7 +4730,7 @@
   document.addEventListener("visibilitychange",function(){if(!document.hidden&&syncOn())syncPull();});
   window.addEventListener("online",function(){if(syncOn())syncPush();renderSync();});
   window.addEventListener("offline",function(){renderSync();});
-  setInterval(function(){if(syncOn()&&!document.hidden&&navigator.onLine)syncPull();},60000);
+  setInterval(function(){if(syncOn()&&!document.hidden&&navigator.onLine)syncPull();},SYNC_POLL_MS);
   renderSync();
   if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});}
 
