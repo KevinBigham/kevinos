@@ -105,6 +105,7 @@ const EXPORT_NAMES = [
   "dayDigest", "invalidateDayCache",
   "armUndo", "runUndo", "findItem",
   "moveFocusTask", "windItems",
+  "libraryPaletteEntries", "libraryRecords", "PALETTE_LIB_MAX",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

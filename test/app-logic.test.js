@@ -131,6 +131,19 @@ const { loadApp } = require("./harness");
   st45.items = [];
   app.invalidateDayCache();
 
+  // W6 item 48 — library records surface in the ⌘K palette with 2+ chars.
+  const st48 = app.getState();
+  st48.notes.unshift({ id: "n48", title: "Zebra migration notes", para: "Resource", area: "Work", tags: "", body: "stripes", createdAt: 1 });
+  const libHits = app.libraryPaletteEntries("zebra");
+  assert.strictEqual(libHits.length, 1, "note found by title");
+  assert.strictEqual(libHits[0].label, "Zebra migration notes");
+  assert.strictEqual(libHits[0].badge, "Note", "badge shows the record kind");
+  assert.strictEqual(typeof libHits[0].run, "function", "palette entries are runnable");
+  assert.strictEqual(app.libraryPaletteEntries("stripes").length, 1, "body text matches too");
+  assert.deepStrictEqual(app.libraryPaletteEntries("z"), [], "under 2 chars stays commands-only");
+  assert.deepStrictEqual(app.libraryPaletteEntries("nomatchxyz"), [], "no false hits");
+  st48.notes = st48.notes.filter((n) => n.id !== "n48");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

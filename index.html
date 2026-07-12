@@ -4547,6 +4547,21 @@
     }
     return 20;
   }
+  // W6 item 48 — the Library's federated search folded into ⌘K: with 2+
+  // typed characters, matching records (briefs, prompts, notes, links,
+  // stash) list below command hits and open via the Library's own opener.
+  var PALETTE_LIB_MAX=12;
+  function libraryPaletteEntries(q){
+    q=(q||"").toLowerCase();
+    if(q.length<2)return [];
+    var out=[],rows=libraryRecords(),i,r;
+    for(i=0;i<rows.length&&out.length<PALETTE_LIB_MAX;i++){
+      r=rows[i];
+      if((r.title+" "+r.body+" "+r.url+" "+r.kind).toLowerCase().indexOf(q)<0)continue;
+      out.push({id:"lib-"+r.id,label:r.title,kind:"lib",badge:r.kind,icon:"☰",keywords:"",run:(function(rid){return function(){openLibraryOriginal(rid);};})(r.id)});
+    }
+    return out;
+  }
   function paletteFilter(q){
     var sorted=[],i,e,score;
     for(i=0;i<COMMANDS.length;i++){
@@ -4556,6 +4571,8 @@
     sorted.sort(function(a,b){if(b.score!==a.score)return b.score-a.score;return a.idx-b.idx;});
     paletteResults=[];
     for(i=0;i<sorted.length;i++)paletteResults.push(sorted[i].entry);
+    var libs=libraryPaletteEntries(q);
+    for(i=0;i<libs.length;i++)paletteResults.push(libs[i]);
   }
   function renderPalette(){
     var box=$("cmdkList");if(!box)return;
@@ -4566,7 +4583,7 @@
       var row=document.createElement("div");row.className="cmdk-row"+(i===paletteSel?" active":"");row.dataset.cmdkIdx=String(i);
       var ic=document.createElement("span");ic.className="cmdk-ic";ic.textContent=entry.icon||"";
       var lab=document.createElement("span");lab.className="cmdk-label";lab.innerHTML=escapeHtml(entry.label||"");
-      var kind=document.createElement("span");kind.className="cmdk-kind";kind.textContent=entry.kind==="room"?"Room":"Action";
+      var kind=document.createElement("span");kind.className="cmdk-kind";kind.textContent=entry.badge||(entry.kind==="room"?"Room":"Action");
       row.appendChild(ic);row.appendChild(lab);row.appendChild(kind);box.appendChild(row);
     }
   }
