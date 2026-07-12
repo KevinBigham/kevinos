@@ -2046,25 +2046,9 @@
   }
   function syncRerender(){
     var _pt0=perfProbe?perfNow():0;
-    if(room==="today")renderToday();
-    else if(room==="home")renderHome();
-    else if(room==="next")renderNext();
-    else if(room==="launch")renderLaunch();
-    else if(room==="tasks")renderTasks();
-    else if(room==="calendar")renderCalendar();
-    else if(room==="projects")renderProjects();
-    else if(room==="studio")renderBuilds();
-    else if(room==="briefs")renderBriefs();
-    else if(room==="launchpad")renderLinks();
-    else if(room==="prompts")renderPrompts();
-    else if(room==="notes")renderNotes();
-    else if(room==="stash")renderStash();
-    else if(room==="people")renderPeople();
-    else if(room==="habits")renderHabits();
-    else if(room==="goals")renderGoals();
-    else if(room==="github")renderGithub();
-    else if(room==="library")renderLibrary();
-    else if(room==="attic")renderAttic();
+    // email is deliberately NOT re-rendered on sync (it isn't synced content,
+    // and a mid-triage repaint would yank drafts/scroll) — same as the old chain.
+    if(room!=="email"){var f=RENDERERS[room];if(f)f();}
     renderSync();
     perfLog("syncRerender:"+room,_pt0);
   }
@@ -4081,28 +4065,13 @@
     bury(id);state.pending=state.pending.filter(function(x){return x.id!==id;});save();renderCurrentRoom();toast("Saved to Notes");
   }
   function dismissAiPending(id){bury(id);state.pending=state.pending.filter(function(x){return x.id!==id;});save();renderCurrentRoom();}
+  // One room -> renderer map (audit item 32). Used by renderCurrentRoom,
+  // syncRerender, and go()'s dispatch. Rooms with entry side-effects
+  // (github fetch, email enter, calendar gcal load) keep those in go().
+  var RENDERERS={today:renderToday,home:renderHome,next:renderNext,launch:renderLaunch,tasks:renderTasks,calendar:renderCalendar,habits:renderHabits,goals:renderGoals,projects:renderProjects,studio:renderBuilds,briefs:renderBriefs,launchpad:renderLinks,prompts:renderPrompts,notes:renderNotes,stash:renderStash,people:renderPeople,github:renderGithub,email:renderEmail,library:renderLibrary,attic:renderAttic};
   function renderCurrentRoom(){
     var _pt0=perfProbe?perfNow():0;
-    if(room==="today")renderToday();
-    else if(room==="home")renderHome();
-    else if(room==="next")renderNext();
-    else if(room==="launch")renderLaunch();
-    else if(room==="tasks")renderTasks();
-    else if(room==="calendar")renderCalendar();
-    else if(room==="habits")renderHabits();
-    else if(room==="goals")renderGoals();
-    else if(room==="projects")renderProjects();
-    else if(room==="studio")renderBuilds();
-    else if(room==="briefs")renderBriefs();
-    else if(room==="launchpad")renderLinks();
-    else if(room==="prompts")renderPrompts();
-    else if(room==="notes")renderNotes();
-    else if(room==="stash")renderStash();
-    else if(room==="people")renderPeople();
-    else if(room==="github")renderGithub();
-    else if(room==="email")renderEmail();
-    else if(room==="library")renderLibrary();
-    else if(room==="attic")renderAttic();
+    var f=RENDERERS[room];if(f)f();
     perfLog("render:"+room,_pt0);
   }
 
@@ -4115,26 +4084,13 @@
     for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle("active",tabs[i].dataset.room===r);
     var btm=document.querySelectorAll("#bottomNav [data-bottom-room]");for(i=0;i<btm.length;i++)btm[i].classList.toggle("active",btm[i].dataset.bottomRoom===r);
     ["today","home","next","launch","tasks","calendar","habits","goals","projects","studio","briefs","prompts","launchpad","notes","stash","people","github","email","library","attic"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
-    if(r==="today")renderToday();
-    else if(r==="home")renderHome();
-    else if(r==="next")renderNext();
-    else if(r==="launch")renderLaunch();
-    else if(r==="tasks")renderTasks();
-    else if(r==="calendar"){renderCalendar();if(calOn())loadGcal(false);}
-    else if(r==="habits")renderHabits();
-    else if(r==="goals")renderGoals();
-    else if(r==="projects")renderProjects();
-    else if(r==="studio")renderBuilds();
-    else if(r==="briefs")renderBriefs();
-    else if(r==="launchpad")renderLinks();
-    else if(r==="prompts")renderPrompts();
-    else if(r==="notes")renderNotes();
-    else if(r==="stash")renderStash();
-    else if(r==="people")renderPeople();
-    else if(r==="github")ghSync(false);
+    // Entry side-effects stay explicit; everything else renders via the map.
+    if(r==="github")ghSync(false);
     else if(r==="email")emailEnter();
-    else if(r==="library")renderLibrary();
-    else if(r==="attic")renderAttic();
+    else{
+      var f=RENDERERS[r];if(f)f();
+      if(r==="calendar"&&calOn())loadGcal(false);
+    }
     perfLog("go:"+r,_pt0);
     try{window.scrollTo(0,0);}catch(e){}
   }
