@@ -112,6 +112,25 @@ const { loadApp } = require("./harness");
   st43.items = [];
   app.invalidateDayCache();
 
+  // W6 item 45 — focus reorder: windItems lists today's plate in ARRAY
+  // order; moveFocusTask swaps adjacent displayed rows in state.items.
+  const st45 = app.getState();
+  st45.items = [
+    { id: "f1", text: "pinned A", area: "Work", done: false, today: true },
+    { id: "skip", text: "not on the plate", area: "Work", done: false },
+    { id: "f2", text: "due today", area: "Work", done: false, due: tk },
+    { id: "f3", text: "pinned B", area: "Work", done: false, today: true },
+  ];
+  assert.deepStrictEqual(app.windItems().map((i) => i.id), ["f1", "f2", "f3"], "plate = pinned + due-today, array order");
+  assert.strictEqual(app.moveFocusTask("f2", "up"), true);
+  assert.deepStrictEqual(app.windItems().map((i) => i.id), ["f2", "f1", "f3"], "f2 moved above f1");
+  assert.deepStrictEqual(st45.items.map((i) => i.id), ["f2", "skip", "f1", "f3"], "swap happened in state.items; bystander untouched");
+  assert.strictEqual(app.moveFocusTask("f2", "up"), false, "top row can't move up");
+  assert.strictEqual(app.moveFocusTask("f3", "down"), false, "bottom row can't move down");
+  assert.strictEqual(app.moveFocusTask("skip", "up"), false, "off-plate tasks don't move");
+  st45.items = [];
+  app.invalidateDayCache();
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

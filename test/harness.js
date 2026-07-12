@@ -104,6 +104,7 @@ const EXPORT_NAMES = [
   "checkDayChange", "DAY_CHECK_MS",
   "dayDigest", "invalidateDayCache",
   "armUndo", "runUndo", "findItem",
+  "moveFocusTask", "windItems",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

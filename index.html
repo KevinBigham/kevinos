@@ -1639,10 +1639,24 @@
     else h+='<p class="empty">Nothing needs a reply right now.</p>';
     return '<div class="launch-card">'+launchHeadHTML("Inbox","email","")+h+'</div>';
   }
+  // W6 item 45 — the focus card lists today's plate (windItems: pinned, due
+  // today, overdue) in state.items ARRAY order, not due-sorted: the ↑↓
+  // buttons swap array positions, so what you see is exactly what you
+  // reorder. dayDigest keeps its due-sorted order for briefs and AI context.
+  function moveFocusTask(id,dir){
+    var list=windItems(),pos=-1,i;
+    for(i=0;i<list.length;i++){if(list[i].id===id){pos=i;break;}}
+    var j=pos+(dir==="up"?-1:1);
+    if(pos<0||j<0||j>=list.length)return false;
+    var a=state.items.indexOf(list[pos]),b=state.items.indexOf(list[j]);
+    if(a<0||b<0)return false;
+    state.items[a]=list[j];state.items[b]=list[pos];
+    return true;
+  }
   function launchFocusCardHTML(){
-    var tasks=dayDigest(todayKey()).tasks,h="",i,t;
+    var tasks=windItems(),h="",i,t,n=Math.min(tasks.length,3);
     if(!tasks.length)h='<p class="empty">No focus tasks set for today.</p>';
-    else{for(i=0;i<tasks.length&&i<3;i++){t=tasks[i];h+='<div class="lc-row"><span class="dot" style="background:'+areaColor(t.area)+'"></span><span>'+escapeHtml(t.text)+'</span></div>';}}
+    else{for(i=0;i<n;i++){t=tasks[i];h+='<div class="lc-row" data-id="'+escapeHtml(t.id)+'"><span class="dot" style="background:'+areaColor(t.area)+'"></span><span style="flex:1">'+escapeHtml(t.text)+'</span>'+(i>0?'<button class="linklike" type="button" data-focus-move="up" data-id="'+escapeHtml(t.id)+'" aria-label="Move up">↑</button>':"")+(i<tasks.length-1?'<button class="linklike" type="button" data-focus-move="down" data-id="'+escapeHtml(t.id)+'" aria-label="Move down">↓</button>':"")+'</div>';}}
     return '<div class="launch-card">'+launchHeadHTML("Top focus","next","")+h+'</div>';
   }
   function launchHabitsCardHTML(){
@@ -4370,6 +4384,8 @@
     if(e.target.closest("[data-start-sweep]")){startSweep();return;}
     if(e.target.closest("[data-start-intake]")){startIntake();return;}
     if(e.target.closest("[data-openwind]")){openWind();return;}
+    var fm=e.target.closest("[data-focus-move]");
+    if(fm){if(moveFocusTask(fm.getAttribute("data-id"),fm.getAttribute("data-focus-move"))){save();renderToday();}return;}
     var g=e.target.closest("[data-go]");if(g){go(g.getAttribute("data-go"));return;}
     var hp=e.target.closest("[data-launch-habit]");
     if(hp){var h=findHabit(hp.getAttribute("data-launch-habit"));if(h){toggleHabitToday(h);touch(h);save();renderToday();renderHabits();}return;}
