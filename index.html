@@ -4621,7 +4621,7 @@
     if(loadFailed)return;
     _writeOk++;
     if(_writeOk>=25&&Date.now()-_lastSnapAt>=600000){
-      snapPut(portableDoc(state),"autosave").then(function(){_writeOk=0;_lastSnapAt=Date.now();});
+      snapPut(portableDoc(state),"autosave").then(function(ok){if(ok){_writeOk=0;_lastSnapAt=Date.now();}});
     }
   }
   function snapBootMaybe(){
