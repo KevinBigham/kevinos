@@ -40,8 +40,8 @@ Trust source code over older prose if there is drift. If docs and code disagree,
 - Repo root on Kevin's Mac: `/Users/kevin/KevinOS/app`
 - Live app: `https://kevinbigham.github.io/kevinos/`
 - Live relay: `https://kevinos-relay.kevinbigham.workers.dev`
-- App version in footer: `KevinOS v0.43` *(freeze-frame — always trust `index.html`'s footer and `MISSION.md` over this line)*
-- Service worker cache: `kevinos-v0_43`
+- App version in footer: `KevinOS v0.44` *(freeze-frame — always trust `index.html`'s footer and `MISSION.md` over this line)*
+- Service worker cache: `kevinos-v0_44`
 - Persisted schema stamp: `state.v = 39`
 - Relay Worker name: `kevinos-relay`
 - Relay entrypoint: `relay/worker.js`
