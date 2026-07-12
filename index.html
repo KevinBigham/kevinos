@@ -1308,11 +1308,12 @@
     text.className="row-text";text.textContent=item.text;
     if(opts.editable){text.type="button";text.dataset.action="edit";text.dataset.id=item.id;text.setAttribute("aria-label","Edit task");}
     row.appendChild(text);
-    if(item.due&&!item.done){var dc=document.createElement("span");var tk=todayKey();dc.className="due-chip"+(item.due===tk?" today":(item.due<tk?" earlier":""));dc.textContent=dueLabel(item.due);row.appendChild(dc);}
+    if(item.due&&!item.done){var dc=document.createElement("span");var tk=todayKey();dc.className="due-chip"+(item.due===tk?" today":(item.due<tk?" earlier":""));dc.textContent=dueLabel(item.due)+(item.dueTime?" "+fmtTime(item.dueTime):"");row.appendChild(dc);}
     if(item.repeat&&!item.done){var rt=document.createElement("span");rt.className="rep-tag";rt.textContent="↻";rt.title="Repeats "+repeatLabel(item.repeat);row.appendChild(rt);}
     var dot=document.createElement("span");dot.className="dot";dot.style.background=areaColor(item.area);row.appendChild(dot);
     if(opts.areaTag){var tag=document.createElement("span");tag.className="area-tag";tag.textContent=item.area;row.appendChild(tag);}
     if(item.projectId){var pr=findProject(item.projectId);if(pr){var pt=document.createElement("span");pt.className="proj-tag";pt.innerHTML='<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';var sp=document.createElement("span");sp.textContent=pr.title;pt.appendChild(sp);row.appendChild(pt);}}
+    if(item.personId){var pe=findPerson(item.personId);if(pe){var pp=document.createElement("span");pp.className="proj-tag";pp.innerHTML='<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>';var ps=document.createElement("span");ps.textContent=pe.name;pp.appendChild(ps);row.appendChild(pp);}}
     if(opts.pin){var pin=document.createElement("button");pin.className="icon-btn"+(item.today?" pinned":"");pin.type="button";pin.dataset.action=item.today?"unpin":"pin";pin.dataset.id=item.id;pin.setAttribute("aria-label",item.today?"Unpin from today":"Pin to today");pin.innerHTML=pinSvg(item.today);row.appendChild(pin);}
     var ai=document.createElement("button");ai.className="icon-btn show";ai.type="button";ai.setAttribute("aria-label","Draft with AI");ai.title="Draft with AI";ai.setAttribute("data-ai-kind","task");ai.setAttribute("data-ai-id",item.id);ai.textContent="AI";row.appendChild(ai);
     var council=document.createElement("button");council.className="icon-btn show";council.type="button";council.setAttribute("aria-label","Send to Council");council.title="Send to Council";council.setAttribute("data-ai-kind","task");council.setAttribute("data-ai-id",item.id);council.setAttribute("data-ai-mode","council");council.textContent="Council";row.appendChild(council);
@@ -1878,16 +1879,42 @@
     if(md){var n=new Date(),y=n.getFullYear(),d=new Date(y,parseInt(md[1],10)-1,parseInt(md[2],10));if(d.getTime()<new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime())d=new Date(y+1,parseInt(md[1],10)-1,parseInt(md[2],10));return dateKey(d);}
     return null;
   }
+  // W6 item 44 — deterministic capture tokens beyond #Area / @date / !:
+  //   @3pm @9:30am @15:30   -> dueTime (a time with no date means today)
+  //   +ana                  -> personId (prefix match on People names)
+  //   //mrfootball          -> projectId (prefix match on project titles)
+  // One +person and one //project per capture; unmatched tokens stay in the
+  // text (they might be content). All tokens match at start-or-space (W6.0a).
+  function parseCaptureTime(tok){
+    var m=(tok||"").toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?(am|pm)?$/);
+    if(!m||(!m[2]&&!m[3]))return null; // bare @3 is ambiguous — need a colon or am/pm
+    var h=parseInt(m[1],10),mi=m[2]?parseInt(m[2],10):0,ap=m[3];
+    if(mi>59)return null;
+    if(ap){if(h<1||h>12)return null;h=(h%12)+(ap==="pm"?12:0);}
+    else if(h>23)return null;
+    return pad(h)+":"+pad(mi);
+  }
+  function tokenEntityId(tok,arr,field){
+    tok=(tok||"").toLowerCase();var i,s;
+    for(i=0;i<(arr||[]).length;i++){s=((arr[i]&&arr[i][field])||"").toLowerCase().replace(/\s+/g,"");if(s&&s.indexOf(tok)===0)return arr[i].id;}
+    return null;
+  }
   function parseCaptureText(t){
-    var raw=(t||"").trim(),text=raw,area="Inbox",due=null,pin=false,i,tagRe=/\s#([A-Za-z]+)\b/g,dateRe=/(^|\s)@([A-Za-z]+|\d{1,2}\/\d{1,2})\b/g,dm;
+    var raw=(t||"").trim(),text=raw,area="Inbox",due=null,pin=false,i,tagRe=/\s#([A-Za-z]+)\b/g,dateRe=/(^|\s)@([A-Za-z]+|\d{1,2}\/\d{1,2})\b/g,timeRe=/(^|\s)@(\d{1,2}:\d{2}(?:am|pm)?|\d{1,2}(?:am|pm))\b/gi,dm,dueTime=null,personId=null,projectId=null;
     for(i=0;i<AREAS.length;i++){var re=new RegExp("(^|\\s)#"+AREAS[i].key+"\\b","i");if(re.test(text)){area=AREAS[i].key;text=text.replace(re," ");break;}}
     text=text.replace(tagRe," ");
+    while((dm=timeRe.exec(text))){var tv=parseCaptureTime(dm[2]);if(tv)dueTime=tv;}text=text.replace(timeRe," ");
     while((dm=dateRe.exec(text))){var dk=parseCaptureDate(dm[2]);if(dk)due=dk;}text=text.replace(dateRe," ");
+    var pRe=/(^|\s)\+([A-Za-z][A-Za-z0-9]*)\b/g;
+    while((dm=pRe.exec(text))){var pid=tokenEntityId(dm[2],state.people,"name");if(pid){personId=pid;text=text.replace(dm[0],dm[1]);break;}}
+    var prRe=/(^|\s)\/\/([A-Za-z0-9][A-Za-z0-9-]*)\b/g;
+    while((dm=prRe.exec(text))){var prid=tokenEntityId(dm[2],state.projects,"title");if(prid){projectId=prid;text=text.replace(dm[0],dm[1]);break;}}
     if(/(^|\s)!(\s|$)/.test(text)){pin=true;text=text.replace(/(^|\s)!(\s|$)/g," ");}
     text=text.replace(/\s+/g," ").trim();
+    if(dueTime&&!due)due=todayKey();
     if(/^note:\s*/i.test(text)){text=text.replace(/^note:\s*/i,"").trim();return {ok:true,type:"note",note:{text:text||raw,area:area},fallback:false};}
-    if(/^event:\s*/i.test(text)){text=text.replace(/^event:\s*/i,"").trim();return {ok:true,type:"event",event:{title:text||raw,date:due||todayKey(),time:null,area:area},fallback:false};}
-    return {ok:true,type:"task",task:{text:text||raw,area:area,due:due,today:pin},fallback:false};
+    if(/^event:\s*/i.test(text)){text=text.replace(/^event:\s*/i,"").trim();return {ok:true,type:"event",event:{title:text||raw,date:due||todayKey(),time:dueTime,area:area},fallback:false};}
+    return {ok:true,type:"task",task:{text:text||raw,area:area,due:due,dueTime:dueTime,today:pin,personId:personId,projectId:projectId},fallback:false};
   }
   function vcSend(){
     var tx=$("vcText"),t=tx?(tx.value||""):vcTranscript;
@@ -1906,7 +1933,7 @@
     var id=uid(),coll,label;
     if(j.type==="task"){
       var k=j.task||{};
-      state.items.unshift({id:id,text:(k.text||"Captured thought").toString(),area:vcArea(k.area||"Inbox"),today:!!k.today,done:false,due:(k.due||null),dueTime:"",projectId:null,repeat:"",createdAt:Date.now()});
+      state.items.unshift({id:id,text:(k.text||"Captured thought").toString(),area:vcArea(k.area||"Inbox"),today:!!k.today,done:false,due:(k.due||null),dueTime:k.dueTime||"",projectId:k.projectId||null,personId:k.personId||null,repeat:"",createdAt:Date.now()});
       coll="items";label="Task";
     } else if(j.type==="event"){
       var ev=j.event||{},tm=ev.time||"";
@@ -1943,7 +1970,7 @@
     if(vcState==="listening")h+='<div class="vc-row"><span class="vc-dot"></span>🎙️ Listening…</div><div class="vc-live">'+escapeHtml(vcInterim||vcTranscript)+'</div><button class="btn-soft" type="button" data-vc="stop">Stop</button>';
     else if(vcState==="sending")h+='<div class="vc-row">Filing…</div>';
     else if(vcState==="review")h+='<div class="vc-live">'+escapeHtml(vcTranscript)+'</div><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Send</button><button class="btn-soft" type="button" data-vc="cancel">Cancel</button></div>';
-    else h+='<textarea id="vcText" class="vc-text" placeholder="Type a quick thought…"></textarea><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Send</button><button class="btn-soft" type="button" data-vc="cancel">Cancel</button></div>';
+    else h+='<textarea id="vcText" class="vc-text" placeholder="Type a quick thought…"></textarea><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Send</button><button class="btn-soft" type="button" data-vc="cancel">Cancel</button></div><p class="hint" style="margin-top:6px">#Area · @tomorrow · @3pm · +person · //project · ! pins · note: / event:</p>';
     h+='</div>';box.innerHTML=h;
   }
   function handleVoiceClick(ev){
@@ -4275,7 +4302,7 @@
     refreshRelayHealth(false);maybeLaunchIntake();
     box.innerHTML='<div class="launch-greet">'+escapeHtml(launchGreeting())+'</div>'+relayHealthChipHTML()+renderAiReviewHTML()+
       launchPlanCardHTML()+launchAgendaCardHTML()+launchFocusCardHTML()+
-      '<div class="launch-card"><div class="lc-head"><p class="section-label">Quick capture</p></div><div class="capture-row"><input id="todayCaptureInput" class="capture-input" type="text" placeholder="Capture to Inbox..." autocomplete="off" aria-label="Today quick capture"><button class="add-btn" type="button" data-today-capture="1">Add</button></div></div>'+
+      '<div class="launch-card"><div class="lc-head"><p class="section-label">Quick capture</p></div><div class="capture-row"><input id="todayCaptureInput" class="capture-input" type="text" placeholder="Capture to Inbox..." autocomplete="off" aria-label="Today quick capture"><button class="add-btn" type="button" data-today-capture="1">Add</button></div><p class="hint" style="margin-top:6px">#Area · @tomorrow · @3pm · +person · //project · ! pins · note: / event:</p></div>'+
       launchHabitsCardHTML()+
       ((typeof emailOn==="function"&&emailOn())?launchInboxCardHTML():"")+
       weeklyCardHTML()+
@@ -4290,7 +4317,7 @@
     var inp=$("todayCaptureInput"),t=(inp?(inp.value||""):"").trim();if(!t)return;
     var parsed=parseCaptureText(t);
     if(parsed&&parsed.type==="task"){
-      var k=parsed.task||{};state.items.unshift({id:uid(),text:k.text||t,area:vcArea(k.area||"Inbox"),today:!!k.today,done:false,due:k.due||null,dueTime:"",projectId:null,repeat:"",createdAt:Date.now()});
+      var k=parsed.task||{};state.items.unshift({id:uid(),text:k.text||t,area:vcArea(k.area||"Inbox"),today:!!k.today,done:false,due:k.due||null,dueTime:k.dueTime||"",projectId:k.projectId||null,personId:k.personId||null,repeat:"",createdAt:Date.now()});
     }else if(parsed&&parsed.type==="event"){
       var ev=parsed.event||{};state.events.push({id:uid(),title:ev.title||t,date:ev.date||todayKey(),time:ev.time||null,allDay:!ev.time,area:vcArea(ev.area||"Inbox"),source:"app"});
     }else if(parsed&&parsed.type==="note"){

@@ -92,7 +92,7 @@ const EXPORT_NAMES = [
   "uid", "touch", "bury", "cloneJSON", "escapeHtml",
   "pad", "dateKey", "keyToParts", "todayKey", "addDaysKey", "prettyDate",
   "nextRepeatKey", "rollRecurring",
-  "parseCaptureDate", "parseCaptureText",
+  "parseCaptureDate", "parseCaptureText", "parseCaptureTime", "tokenEntityId",
   "portableDoc", "applyPortableDoc",
   "buildSyncDoc", "applySyncDoc", "mergeById", "mergeRemoteDoc", "unionDeleted", "mergeRoomStats",
   "unfold", "icsUnescape", "parseDT", "parseRRule", "expandRecurrence", "parseICS", "icsEscape", "buildICS",
