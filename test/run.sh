@@ -30,6 +30,7 @@ node test/portable.test.js
 node test/ics.test.js
 node test/recurrence.test.js
 node test/streaks.test.js
+node test/convergence.test.js
 
 echo "── relay suites ───────────────────────────────"
 node relay/test/route-auth.test.js
