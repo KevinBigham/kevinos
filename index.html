@@ -1167,9 +1167,25 @@
     var blob=new Blob([raw],{type:"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
     a.href=url;a.download="KevinOS-raw-storage-recovery.json.txt";document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url);},1500);
   }
+  // lastGoodBoot (item 9) lives in a SIDECAR localStorage key, not the main
+  // blob — the emergency screen is shown exactly when the main blob is
+  // unreadable, so recording it in state would be useless there.
+  var LAST_GOOD_BOOT_KEY="kevinos:lastGoodBoot";
+  function recordLastGoodBoot(){
+    try{
+      window.localStorage.setItem(LAST_GOOD_BOOT_KEY,JSON.stringify({at:Date.now(),v:APP_VERSION,tasks:(state.items||[]).length,notes:(state.notes||[]).length,events:(state.events||[]).length,people:(state.people||[]).length}));
+    }catch(e){}
+  }
+  function lastGoodBootLine(){
+    var rec=null;
+    try{rec=JSON.parse(window.localStorage.getItem(LAST_GOOD_BOOT_KEY)||"null");}catch(e){}
+    if(!rec||!rec.at)return "";
+    var d=new Date(rec.at),when=d.toLocaleString?d.toLocaleString():String(d);
+    return '<p class="hint"><strong>Last good boot:</strong> '+escapeHtml(when)+' on v'+escapeHtml(rec.v||"?")+' — about '+(rec.tasks||0)+' tasks, '+(rec.notes||0)+' notes, '+(rec.events||0)+' events, '+(rec.people||0)+' people at stake.</p>';
+  }
   function renderLoadEmergency(){
     var el=$("loadEmergency");if(!el){el=document.createElement("div");el.id="loadEmergency";el.className="load-emergency";document.body.appendChild(el);}
-    el.innerHTML='<div class="load-emergency-inner"><h1>Saved data couldn\'t be read.</h1><p>Nothing has been overwritten. Download the raw stored data, then import a known-good KevinOS backup.</p><p class="hint">'+escapeHtml((loadFailedRaw||"").slice(0,240))+'</p><div class="actions"><button class="add-btn" type="button" data-raw-storage="1">Download raw storage</button><button class="btn-soft" type="button" data-emergency-import="1">Import backup</button></div></div>';
+    el.innerHTML='<div class="load-emergency-inner"><h1>Saved data couldn\'t be read.</h1><p>Nothing has been overwritten. Download the raw stored data, then import a known-good KevinOS backup.</p>'+lastGoodBootLine()+'<p class="hint">'+escapeHtml((loadFailedRaw||"").slice(0,240))+'</p><div class="actions"><button class="add-btn" type="button" data-raw-storage="1">Download raw storage</button><button class="btn-soft" type="button" data-emergency-import="1">Import backup</button></div></div>';
   }
   function completeRecovery(){
     loadFailed=false;loadFailedRaw=null;
@@ -4989,6 +5005,7 @@
     state.v=SCHEMA_VERSION;
     sanitizeIds(); // storage written before this version may hold pre-sanitizer ids
     var sharedMsg=ingestShared();
+    recordLastGoodBoot();
     go("today");
     vcDetect();
     save();
