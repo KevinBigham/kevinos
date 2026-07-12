@@ -228,6 +228,15 @@ const { loadApp } = require("./harness");
   assert.strictEqual(deep.app.seatDotHTML("mistral"), "", "unseen seat -> no dot");
   assert.strictEqual(deep.app.buildSyncDoc().seatStats, undefined, "seatStats is device-local (SYNC_SKIP)");
 
+  // W8 item 63 — Council presets: four framings, empty for unknown keys.
+  assert.deepStrictEqual(deep.app.COUNCIL_PRESETS.map((p) => p[0]), ["decision", "plan", "devil", "coach"]);
+  for (const [key] of deep.app.COUNCIL_PRESETS) {
+    assert.ok(deep.app.councilPresetSystem(key).length > 40, key + " has a real framing");
+    assert.ok(deep.app.councilPresetLabel(key), key + " has a label");
+  }
+  assert.match(deep.app.councilPresetSystem("devil"), /Do not balance it with upside/, "devil framing is one-sided by design");
+  assert.strictEqual(deep.app.councilPresetSystem("nope"), "", "unknown preset adds nothing");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");
