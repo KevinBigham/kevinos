@@ -63,6 +63,7 @@
   .nav-sub .tab{font-size:13.5px}
 
   .room{display:none}
+  .room:focus{outline:none}
   /* item 38 — offscreen portions of long lists skip render work; the
      intrinsic-size hint keeps scrollbars from jumping. Free phone perf. */
   .rows,.library-row,.wind-item,.brief-card,.person-card{content-visibility:auto;contain-intrinsic-size:auto 60px}
@@ -858,7 +859,7 @@
       <div id="profileList"></div>
     </div>
 
-    <div class="cmdk-overlay" id="cmdkOverlay">
+    <div class="cmdk-overlay" id="cmdkOverlay" role="dialog" aria-modal="true" aria-label="Command palette">
       <div class="cmdk-box">
         <input class="cmdk-input" id="cmdkInput" type="text" placeholder="Search rooms and actions…" autocomplete="off">
         <div class="cmdk-list" id="cmdkList"></div>
@@ -883,15 +884,15 @@
     </footer>
   </main>
 
-  <div class="sweep-overlay" id="sweepOverlay" role="dialog" aria-label="Life Sweep">
+  <div class="sweep-overlay" id="sweepOverlay" role="dialog" aria-modal="true" aria-label="Life Sweep">
     <div class="sweep-inner" id="sweepInner"></div>
   </div>
 
-  <div class="sweep-overlay" id="windOverlay" role="dialog" aria-label="Wind down">
+  <div class="sweep-overlay" id="windOverlay" role="dialog" aria-modal="true" aria-label="Wind down">
     <div class="sweep-inner" id="windInner"></div>
   </div>
 
-  <div class="sweep-overlay" id="intakeOverlay" role="dialog" aria-label="Get to know me">
+  <div class="sweep-overlay" id="intakeOverlay" role="dialog" aria-modal="true" aria-label="Get to know me">
     <div class="sweep-inner" id="intakeInner"></div>
   </div>
 
@@ -1428,7 +1429,7 @@
   var undoInfo=null,undoT=null;
   function armUndo(info,msg){
     undoInfo=info;
-    var el=document.createElement("div");el.className="toast";
+    var el=document.createElement("div");el.className="toast";el.setAttribute("role","status");el.setAttribute("aria-live","polite");
     el.innerHTML=escapeHtml(msg)+' <button class="toast-undo linklike" type="button" data-undo-task="1">Undo</button>';
     document.body.appendChild(el);
     setTimeout(function(){el.classList.add("show");},20);
@@ -2039,7 +2040,7 @@
     vcToast(j.fallback?"Saved as task":(label+" added"),label);
   }
   function vcToast(msg,label){
-    var el=document.createElement("div");el.className="toast";
+    var el=document.createElement("div");el.className="toast";el.setAttribute("role","status");el.setAttribute("aria-live","polite");
     el.innerHTML=escapeHtml(msg)+' ✓ <button class="toast-undo linklike" type="button" data-vc="undo">Undo</button>';
     document.body.appendChild(el);
     setTimeout(function(){el.classList.add("show");},20);
@@ -2625,7 +2626,7 @@
     for(i=0;i<seats.length;i++){if(seats[i].ok)aCount++;if(seats[i].pending)allIn=false;}
     var nCount=(typeof q.asked==="number")?q.asked:seats.length;
     var syn=q.synthesis&&q.synthesis.ok&&q.synthesis.text;
-    var h='<div class="cq-seats cq-live"><div class="as-status"><span class="cq-livedot"></span>'+aCount+' of '+nCount+' answered'+(allIn?(syn?'':' · synthesizing…'):' · live')+'</div>';
+    var h='<div class="cq-seats cq-live" aria-live="polite"><div class="as-status"><span class="cq-livedot"></span>'+aCount+' of '+nCount+' answered'+(allIn?(syn?'':' · synthesizing…'):' · live')+'</div>';
     if(syn){h+='<div class="cq-synth"><div class="cq-synth-head">Council synthesis</div><div class="cq-answer">'+escapeHtml(q.synthesis.text)+'</div></div>';}
     h+='<div class="cq-seatlist">';
     seats.forEach(function(s,i){h+=councilSeatHTML(q,s,i);});
@@ -2911,7 +2912,7 @@
   }
   function renderThemeToggle(){var b=$("themeToggle");if(!b)return;var t=themeVal();b.textContent="Theme: "+(t==="auto"?"Auto":(t==="dark"?"Dark":"Light"));}
   function cycleTheme(){var t=themeVal();state.theme=(t==="auto"?"dark":(t==="dark"?"light":"auto"));persist();applyTheme();renderThemeToggle();}
-  function openWind(){windActive=true;$("windOverlay").classList.add("active");document.body.style.overflow="hidden";renderWind();}
+  function openWind(){windActive=true;$("windOverlay").classList.add("active");document.body.style.overflow="hidden";renderWind();var wi=$("windInner");if(wi){wi.setAttribute("tabindex","-1");try{wi.focus();}catch(e){}}}
   function closeWind(){windActive=false;$("windOverlay").classList.remove("active");document.body.style.overflow="";state.lastShutdown=todayKey();save();renderHome();if(room==="next")renderNext();}
   function updateTomorrowFocus(){
     var tm=addDaysKey(todayKey(),1),arr=state.items.filter(function(i){return !i.done&&i.due===tm&&(i.focusTomorrow||i.today);}).slice(0,3);
@@ -2919,8 +2920,17 @@
     state.launch.nextFocusDate=tm;state.launch.nextFocus=arr.map(function(i){return i.text;});
   }
   function windCheck(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>';}
+  // W7 item 97 — minimal focus trap: Tab wraps inside an open overlay.
+  function trapTab(e,container){
+    if(e.key!=="Tab"||!container)return;
+    var f=container.querySelectorAll('button,[href],input,select,textarea,[tabindex="0"]');
+    if(!f.length)return;
+    var first=f[0],last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  }
   function closeHourOpts(){var h=closeHourVal(),o="",i;for(i=15;i<=21;i++){o+='<option value="'+i+'"'+(i===h?" selected":"")+'>'+(i%12===0?12:i%12)+' PM</option>';}return o;}
-  function closeHourRowHTML(){return '<p class="hint" style="margin-top:14px">Nudge me to close the day after <select id="windHourSel" class="inp" style="width:auto;display:inline-block;padding:2px 8px;font-size:13px">'+closeHourOpts()+'</select></p>';}
+  function closeHourRowHTML(){return '<p class="hint" style="margin-top:14px">Nudge me to close the day after <select id="windHourSel" class="inp" aria-label="Close ritual hour" style="width:auto;display:inline-block;padding:2px 8px;font-size:13px">'+closeHourOpts()+'</select></p>';}
   function renderWind(){
     var inner=$("windInner");if(!inner)return;
     var left=windItems();
@@ -3429,7 +3439,7 @@
     }
   }
 
-  function startSweep(){sweep={active:true,step:0,data:{}};AREAS.forEach(function(a){sweep.data[a.key]=[];});$("sweepOverlay").classList.add("active");document.body.style.overflow="hidden";renderSweep();}
+  function startSweep(){sweep={active:true,step:0,data:{}};AREAS.forEach(function(a){sweep.data[a.key]=[];});$("sweepOverlay").classList.add("active");document.body.style.overflow="hidden";renderSweep();var si=$("sweepInner");if(si){si.setAttribute("tabindex","-1");try{si.focus();}catch(e){}}}
   function exitSweep(){sweep.active=false;$("sweepOverlay").classList.remove("active");document.body.style.overflow="";}
   function sweepDots(){var total=SWEEP_STEPS.length;var html='<div class="sweep-progress">';for(var i=0;i<total;i++){html+='<span class="pdot'+(i<sweep.step?" done":(i===sweep.step?" cur":""))+'"></span>';}return html+'</div>';}
   function renderSweep(){
@@ -4618,6 +4628,7 @@
       if(r==="calendar"&&calOn())loadGcal(false);
     }
     perfLog("go:"+r,_pt0);
+    var sec=$("room-"+r);if(sec){sec.setAttribute("tabindex","-1");try{sec.focus({preventScroll:true});}catch(eF){try{sec.focus();}catch(eG){}}}
     try{window.scrollTo(0,0);}catch(e){}
   }
   function seedDefaults(){
@@ -4807,6 +4818,13 @@
   $("windInner").addEventListener("click",handleWind);
   $("windInner").addEventListener("change",function(e){if(e.target&&e.target.id==="windHourSel"){state.closeHour=parseInt(e.target.value,10)||17;persist();toast("Close ritual set for "+fmtTime(pad(closeHourVal())+":00"));}});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(sweep.active)exitSweep();else if(windActive)closeWind();else if(intakeActive)exitIntake();}});
+  document.addEventListener("keydown",function(e){
+    if(e.key!=="Tab")return;
+    if(sweep.active)trapTab(e,$("sweepInner"));
+    else if(windActive)trapTab(e,$("windInner"));
+    else if(intakeActive)trapTab(e,$("intakeInner"));
+    else if(paletteOpen)trapTab(e,$("cmdkOverlay"));
+  });
 
   $("projAddBtn").addEventListener("click",addProject);
   $("projInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addProject();}});
@@ -5335,7 +5353,7 @@
   if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});}
 
   function toast(msg){
-    var el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);
+    var el=document.createElement("div");el.className="toast";el.setAttribute("role","status");el.setAttribute("aria-live","polite");el.textContent=msg;document.body.appendChild(el);
     setTimeout(function(){el.classList.add("show");},20);
     setTimeout(function(){el.classList.remove("show");setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},320);},2800);
   }
