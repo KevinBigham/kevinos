@@ -1237,9 +1237,11 @@
     return null;
   }
   function rollRecurring(it){
-    if(!it||!it.repeat)return;
-    var base=it.due||todayKey();var nd=nextRepeatKey(base,it.repeat);if(!nd)return;
-    state.items.unshift({id:uid(),text:it.text,area:it.area,today:false,done:false,due:nd,dueTime:it.dueTime||"",projectId:it.projectId||null,repeat:it.repeat,createdAt:Date.now()});
+    if(!it||!it.repeat)return null;
+    var base=it.due||todayKey();var nd=nextRepeatKey(base,it.repeat);if(!nd)return null;
+    var nid=uid();
+    state.items.unshift({id:nid,text:it.text,area:it.area,today:false,done:false,due:nd,dueTime:it.dueTime||"",projectId:it.projectId||null,repeat:it.repeat,createdAt:Date.now()});
+    return nid; // W6.43's undo removes the rolled clone by this id
   }
   function prettyDate(k){var p=keyToParts(k);var d=new Date(p.y,p.m,p.d);return DAYS[d.getDay()]+", "+MONTHS[p.m]+" "+p.d;}
   function fmtTime(t){var p=t.split(":");var h=+p[0],m=p[1];var ap=h<12?"AM":"PM";var h12=h%12;if(h12===0)h12=12;return h12+":"+m+" "+ap;}
@@ -1378,13 +1380,40 @@
     input.value="";if(dueId)$(dueId).value="";if(repeatId)$(repeatId).value="";if(dueTimeId)$(dueTimeId).value="";
     renderTasks();renderHome();save();
   }
+  // W6 item 43 — anxiety-free tapping: complete and delete arm a 6-second
+  // undo toast (the voice-capture Undo pattern, generalized). Undoing a
+  // delete restores the task under a FRESH id: the old id's tombstone may
+  // already have synced, and a re-minted id survives every merge path.
+  var undoInfo=null,undoT=null;
+  function armUndo(info,msg){
+    undoInfo=info;
+    var el=document.createElement("div");el.className="toast";
+    el.innerHTML=escapeHtml(msg)+' <button class="toast-undo linklike" type="button" data-undo-task="1">Undo</button>';
+    document.body.appendChild(el);
+    setTimeout(function(){el.classList.add("show");},20);
+    setTimeout(function(){el.classList.remove("show");setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},320);},6000);
+    if(undoT)clearTimeout(undoT);undoT=setTimeout(function(){undoInfo=null;},6000);
+  }
+  function runUndo(){
+    if(!undoInfo)return;
+    var u=undoInfo;undoInfo=null;if(undoT){clearTimeout(undoT);undoT=null;}
+    if(u.kind==="complete"){
+      var it=findItem(u.id);
+      if(it){it.done=false;it.today=!!u.today;touch(it);}
+      if(u.rolledId){bury(u.rolledId);state.items=state.items.filter(function(x){return x.id!==u.rolledId;});}
+    }else if(u.kind==="delete"){
+      var ni=cloneJSON(u.item);ni.id=uid();touch(ni);
+      state.items.splice(Math.min(u.index,state.items.length),0,ni);
+    }
+    save();renderTasks();renderHome();if(room!=="tasks"&&room!=="today"&&room!=="home")renderCurrentRoom();
+  }
   function handleTaskAction(e){
     var btn=e.target.closest("[data-action]");if(!btn)return;
     var id=btn.dataset.id,act=btn.dataset.action,it=findItem(id);if(!it)return;
-    if(act==="done"){it.done=!it.done;touch(it);if(it.done){it.today=false;rollRecurring(it);if(editingId===id)editingId=null;}}
+    if(act==="done"){it.done=!it.done;touch(it);if(it.done){var wasToday=it.today;it.today=false;var rolled=rollRecurring(it);if(editingId===id)editingId=null;armUndo({kind:"complete",id:id,today:wasToday,rolledId:rolled},"Done ✓");}}
     else if(act==="pin"){it.today=true;touch(it);}
     else if(act==="unpin"){it.today=false;touch(it);}
-    else if(act==="delete"){bury(id);state.items=state.items.filter(function(x){return x.id!==id;});if(editingId===id)editingId=null;}
+    else if(act==="delete"){var idx=state.items.indexOf(it);bury(id);state.items=state.items.filter(function(x){return x.id!==id;});if(editingId===id)editingId=null;armUndo({kind:"delete",item:cloneJSON(it),index:idx},"Task deleted");}
     else if(act==="edit"){editingId=(editingId===id)?null:id;renderTasks();return;}
     renderTasks();renderHome();save();
   }
@@ -1392,7 +1421,7 @@
     var sv=e.target.closest("[data-edit-save]");
     if(sv){var it=findItem(sv.dataset.editSave);if(it){var t=(pf(sv,"editText").value||"").trim();if(t)it.text=t;it.area=pf(sv,"editArea").value;it.projectId=pf(sv,"editProject").value||null;it.due=pf(sv,"editDue").value||null;it.dueTime=pf(sv,"editDueTime").value||"";it.repeat=pf(sv,"editRepeat").value||"";touch(it);}editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
     var cn=e.target.closest("[data-edit-cancel]");if(cn){editingId=null;renderTasks();return;}
-    var dl=e.target.closest("[data-edit-delete]");if(dl){bury(dl.dataset.editDelete);state.items=state.items.filter(function(x){return x.id!==dl.dataset.editDelete;});editingId=null;renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
+    var dl=e.target.closest("[data-edit-delete]");if(dl){var dit=findItem(dl.dataset.editDelete);var didx=dit?state.items.indexOf(dit):-1;bury(dl.dataset.editDelete);state.items=state.items.filter(function(x){return x.id!==dl.dataset.editDelete;});editingId=null;if(dit)armUndo({kind:"delete",item:cloneJSON(dit),index:didx},"Task deleted");renderTasks();renderHome();if(room==="projects")renderProjects();save();return;}
     handleTaskAction(e);
   }
 
@@ -4591,6 +4620,7 @@
   $("vcMic").addEventListener("click",vcOpenPanel);
   $("vcPanel").addEventListener("click",handleVoiceClick);
   document.addEventListener("click",function(e){var u=e.target.closest('[data-vc="undo"]');if(u)vcUndoLast();});
+  document.addEventListener("click",function(e){var u=e.target.closest("[data-undo-task]");if(u)runUndo();});
   var goBtns=document.querySelectorAll("[data-goto]");for(var gi=0;gi<goBtns.length;gi++){goBtns[gi].addEventListener("click",function(){go(this.dataset.goto);});}
   $("sweepCardHome").addEventListener("click",startSweep);
   $("sweepCardTasks").addEventListener("click",startSweep);
@@ -4628,7 +4658,7 @@
   $("evAddBtn").addEventListener("click",addEvent);
   $("evTitle").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addEvent();}});
   $("agendaList").addEventListener("click",function(e){
-    var td=e.target.closest("[data-taskdone]");if(td){var it=findItem(td.dataset.taskdone);if(it){it.done=true;it.today=false;rollRecurring(it);touch(it);}renderCalendar();renderHome();save();return;}
+    var td=e.target.closest("[data-taskdone]");if(td){var it=findItem(td.dataset.taskdone);if(it){var wasTd=it.today;it.done=true;it.today=false;var rl=rollRecurring(it);touch(it);armUndo({kind:"complete",id:it.id,today:wasTd,rolledId:rl},"Done ✓");}renderCalendar();renderHome();save();return;}
     var btn=e.target.closest("[data-del]");if(btn){bury(btn.dataset.del);state.events=state.events.filter(function(x){return x.id!==btn.dataset.del;});renderCalendar();renderHome();save();}
   });
   $("sweepInner").addEventListener("click",handleSweep);

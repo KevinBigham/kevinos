@@ -78,6 +78,40 @@ const { loadApp } = require("./harness");
   st33.items = st33.items.filter((i) => i.id !== "m33");
   app.invalidateDayCache();
 
+  // W6 item 43 — generalized undo. Undo-delete restores under a FRESH id
+  // (the old id's tombstone may have synced; a re-minted id survives every
+  // merge path). Undo-complete reopens and removes the rolled recurring clone.
+  const st43 = app.getState();
+  st43.items = [
+    { id: "u1", text: "first", area: "Work", done: false },
+    { id: "u2", text: "victim", area: "Work", done: false, today: true },
+    { id: "u3", text: "third", area: "Work", done: false },
+  ];
+  // delete + undo
+  const victim = st43.items[1];
+  app.bury("u2"); st43.items = st43.items.filter((i) => i.id !== "u2");
+  app.armUndo({ kind: "delete", item: JSON.parse(JSON.stringify(victim)), index: 1 }, "Task deleted");
+  app.runUndo();
+  assert.strictEqual(st43.items.length, 3, "deleted task restored");
+  assert.strictEqual(st43.items[1].text, "victim", "restored at its old position");
+  assert.notStrictEqual(st43.items[1].id, "u2", "restored under a FRESH id");
+  assert.ok(st43.deleted["u2"], "the old id's tombstone stays (the delete really happened)");
+  // complete + undo (with a rolled recurring clone)
+  const rec = { id: "u4", text: "swim", area: "Coaching", done: false, today: true, due: tk, repeat: "daily" };
+  st43.items.push(rec);
+  rec.done = true; rec.today = false;
+  const rolledId = app.rollRecurring(rec);
+  assert.ok(rolledId, "rollRecurring returns the clone id now");
+  app.armUndo({ kind: "complete", id: "u4", today: true, rolledId: rolledId }, "Done");
+  app.runUndo();
+  assert.strictEqual(app.findItem("u4").done, false, "undo reopened the task");
+  assert.strictEqual(app.findItem("u4").today, true, "pin state restored");
+  assert.strictEqual(app.findItem(rolledId), null, "rolled clone removed");
+  assert.ok(st43.deleted[rolledId], "rolled clone buried so sync can't resurrect it");
+  app.runUndo(); // no-op when nothing armed
+  st43.items = [];
+  app.invalidateDayCache();
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");

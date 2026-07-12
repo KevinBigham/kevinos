@@ -103,6 +103,7 @@ const EXPORT_NAMES = [
   "go", "normalizeRoom",
   "checkDayChange", "DAY_CHECK_MS",
   "dayDigest", "invalidateDayCache",
+  "armUndo", "runUndo", "findItem",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.
