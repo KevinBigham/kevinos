@@ -5608,6 +5608,8 @@
       // This block is a WHITELIST — every state field added after v0.39 must be
       // restored here or it silently resets on every boot. These six were missed
       // when they shipped (W4 devices, W6 closeHour/sweepLog, W7 theme, W8 pins/stats).
+      // The V2-F1 auto-discovery round-trip test (test/app-logic.test.js) now
+      // fails by name on any persisted field this block drops — keep it green.
       if(saved.devices&&typeof saved.devices==="object")state.devices=saved.devices;
       if(saved.sweepLog&&typeof saved.sweepLog==="object")state.sweepLog=saved.sweepLog;
       if(typeof saved.closeHour==="number")state.closeHour=saved.closeHour;

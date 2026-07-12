@@ -34,6 +34,7 @@ Docs-only changes bump nothing.
 - **`persist()`** = the quiet write: local persistence only, no sync/reminder scheduling. Use for device-local cache/meta updates.
 - **`bury(id)`** before removing any synced item — the tombstone in `state.deleted` is what stops it resurrecting via merge.
 - **`portableDoc()`/`applyPortableDoc()`** are allowlist-based. Backups/snapshots never carry `sync`, `push`, `github`, `email`, `calendar`; `relay.token` is blanked. **Connections never travel.** Don't add a key to state without deciding its portability + sync class (`SYNC_SKIP`).
+- **New persisted field ⇒ same-commit round-trip coverage.** The boot loader restores state through a whitelist; an unlisted field silently resets every reload (this bit six fields once). The auto-discovery walker in `test/app-logic.test.js` plants a sentinel in every persisted key and fails by name on any field boot drops — if you add a state field, that test must pass (restore the field in the boot whitelist, and teach the walker a sentinel rule if the field's type needs one) in the same commit.
 - Never reintroduce regenerable caches into persisted state — `ghMem`, `sheetsMem`, `swimMem` are memory-only by design (P2 Blob Diet).
 
 ## Verification ritual (before and after every change set)

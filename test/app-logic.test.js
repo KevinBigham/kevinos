@@ -304,6 +304,66 @@ const { loadApp } = require("./harness");
   assert.deepStrictEqual(rtState.lanePins, { groq: "devil" }, "lanePins survive boot");
   assert.deepStrictEqual(rtState.seatStats, { groq: { ok: 9, fail: 1 } }, "seatStats survive boot");
 
+  // V2-F1 — auto-discovery round-trip. The six-field pin above catches the
+  // fields that were already lost once; this walker catches the seventh.
+  // It boots a fresh app, takes the app's OWN persisted doc as the source of
+  // truth for "what is a persisted field", plants a sentinel in every
+  // top-level key, and asserts each survives a second boot. A new state
+  // field the boot whitelist doesn't restore fails here loudly, by name.
+  // Rule (CONTRIBUTING-AI): new persisted field ⇒ same-commit round-trip coverage.
+  const fresh = await loadApp({});
+  const freshSaved = JSON.parse(fresh.localStorage._dump()["kevinos:v1"]);
+  const RT_SKIP = { v: true }; // stamped to SCHEMA_VERSION at boot by design
+  // Bespoke sentinels for fields the loader rebuilds by shape or value-guards;
+  // everything else gets a generic sentinel by type. A new field of a type the
+  // walker doesn't understand fails below until it gets a rule — deliberately.
+  const sentinels = {};
+  for (const k of Object.keys(freshSaved)) {
+    if (RT_SKIP[k]) continue;
+    const v = freshSaved[k];
+    if (k === "github") {
+      sentinels[k] = {
+        plant(d) { d.github = { token: "", session: "", login: "rt-login", pendingOAuth: false }; },
+        check(s) { return !!(s.github && s.github.login === "rt-login"); },
+      };
+    } else if (k === "relay") {
+      sentinels[k] = {
+        plant(d) { d.relay = { url: "https://rt.example", token: "" }; },
+        check(s) { return !!(s.relay && s.relay.url === "https://rt.example"); },
+      };
+    } else if (k === "theme") {
+      sentinels[k] = { plant(d) { d.theme = "dark"; }, check(s) { return s.theme === "dark"; } };
+    } else if (k === "weatherLoc") {
+      sentinels[k] = {
+        plant(d) { d.weatherLoc = { lat: 1, lon: 2, __rt: "rt-w" }; },
+        check(s) { return !!(s.weatherLoc && s.weatherLoc.__rt === "rt-w"); },
+      };
+    } else if (Array.isArray(v)) {
+      const sid = "rt" + k.toLowerCase();
+      sentinels[k] = {
+        plant(d) { d[k].unshift({ id: sid, text: "rt sentinel", u: 1 }); },
+        check(s) { return Array.isArray(s[k]) && s[k].some((it) => it && it.id === sid); },
+      };
+    } else if (typeof v === "number") {
+      const want = (v || 0) + 7;
+      sentinels[k] = { plant(d) { d[k] = want; }, check(s) { return s[k] === want; } };
+    } else if (typeof v === "string") {
+      const want = "rt-" + k;
+      sentinels[k] = { plant(d) { d[k] = want; }, check(s) { return s[k] === want; } };
+    } else if (v && typeof v === "object") {
+      const want = "rt-" + k;
+      sentinels[k] = { plant(d) { d[k].__rt = want; }, check(s) { return !!(s[k] && s[k].__rt === want); } };
+    } else {
+      assert.fail("persisted field '" + k + "' has no round-trip sentinel rule — teach the V2-F1 walker to plant one (new persisted field => same-commit round-trip coverage)");
+    }
+  }
+  const rtDoc = JSON.parse(JSON.stringify(freshSaved));
+  for (const k of Object.keys(sentinels)) sentinels[k].plant(rtDoc);
+  const rt2 = await loadApp({ storedState: rtDoc });
+  const rtSt2 = rt2.app.getState();
+  const lost = Object.keys(sentinels).filter((k) => !sentinels[k].check(rtSt2));
+  assert.deepStrictEqual(lost, [], "boot dropped persisted field(s): [" + lost.join(", ") + "] — restore them in index.html's boot whitelist in the SAME commit that adds them");
+
   // W4.15 — v2 sync-key derivation: deterministic, prefixed, and exactly
   // PBKDF2-SHA256(passphrase, "kevinos-sync-v2", SYNC_KDF_ITERS, 32 bytes).
   const k2a = await app.deriveSyncKeyV2("correct horse battery");
