@@ -968,6 +968,13 @@
   var calCur, calSel, gcalEvents=[], gcalLoading=false, gcalError="", calDraft=null, calDrafting=false, calSlots=[], calSlotBusy=false, calParseErr="", calDur=60, calConnecting=false;
   var calListOpen=false, calList=[], calListLoading=false, calListErr="", gcalTriedAt=0;
 
+  // Render-time probe (dev flag): open the app with ?perf=1 to log ms per
+  // room render. Measurement, not vibes — no output unless the flag is set.
+  var perfProbe=false;
+  try{perfProbe=(location.search&&location.search.indexOf("perf=1")>=0);}catch(e){}
+  function perfNow(){try{if(window.performance&&window.performance.now)return window.performance.now();}catch(e){}return Date.now();}
+  function perfLog(label,t0){if(!perfProbe)return;try{console.log("[perf] "+label+" "+(Math.round((perfNow()-t0)*10)/10)+"ms");}catch(e){}}
+
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
   function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
@@ -2017,6 +2024,7 @@
     return true;
   }
   function syncRerender(){
+    var _pt0=perfProbe?perfNow():0;
     if(room==="today")renderToday();
     else if(room==="home")renderHome();
     else if(room==="next")renderNext();
@@ -2037,6 +2045,7 @@
     else if(room==="library")renderLibrary();
     else if(room==="attic")renderAttic();
     renderSync();
+    perfLog("syncRerender:"+room,_pt0);
   }
   function syncPull(){
     if(!syncOn()||_syncBusy)return;
@@ -4052,6 +4061,7 @@
   }
   function dismissAiPending(id){bury(id);state.pending=state.pending.filter(function(x){return x.id!==id;});save();renderCurrentRoom();}
   function renderCurrentRoom(){
+    var _pt0=perfProbe?perfNow():0;
     if(room==="today")renderToday();
     else if(room==="home")renderHome();
     else if(room==="next")renderNext();
@@ -4072,10 +4082,12 @@
     else if(room==="email")renderEmail();
     else if(room==="library")renderLibrary();
     else if(room==="attic")renderAttic();
+    perfLog("render:"+room,_pt0);
   }
 
   function go(r){
     r=normalizeRoom(r);room=r;
+    var _pt0=perfProbe?perfNow():0;
     clearEditingState();
     trackRoomVisit(r);
     var tabs=document.querySelectorAll("#nav .tab");
@@ -4102,6 +4114,7 @@
     else if(r==="email")emailEnter();
     else if(r==="library")renderLibrary();
     else if(r==="attic")renderAttic();
+    perfLog("go:"+r,_pt0);
     try{window.scrollTo(0,0);}catch(e){}
   }
   function seedDefaults(){
