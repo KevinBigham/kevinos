@@ -172,7 +172,7 @@ Local CORS caveat:
 Checkpoint:
 
 - The page opens.
-- The footer shows the current version from the repo (`KevinOS v0.39` at the time of writing — match it to `index.html`'s footer).
+- The footer shows the current version from the repo (`KevinOS v0.49` at the time of writing — match it to `index.html`'s footer).
 - Local edits save in the browser.
 - No relay-dependent feature is expected to work until a relay URL is connected.
 

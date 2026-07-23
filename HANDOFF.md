@@ -1,6 +1,6 @@
 # KevinOS — Handoff to the next Claude Code
 
-*Written 2026-06-22; body covers through v0.38 (2026-07-02), plus the **§0.5 v0.39 addendum** below. For the current release's ground truth, `MISSION.md` is the most up-to-date record — start there, then use this for history and architecture. Everything (app + backend + docs) lives in one repo: `github.com/KevinBigham/kevinos`.*
+*Written 2026-06-22; body covers through v0.38 (2026-07-02), plus the **§0.5 v0.39 addendum** and the **§0.6 v0.40→v0.49 GOAT-campaign addendum** below. Trust order when docs disagree: **code → the Wave Log (bottom of `KEVINOS_EXECUTION_ORDER.md`) → `MISSION.md` → `GETTING_STARTED.md` → this file.** Everything (app + backend + docs) lives in one repo: `github.com/KevinBigham/kevinos`.*
 
 ---
 
@@ -36,6 +36,29 @@ Everything below the TL;DR describes v0.38. **v0.39 shipped a ten-phase marathon
 - **Relay auth (opt-in)** — the `KEVINOS_TOKEN` Worker secret locks every non-public route behind the `X-KevinOS-Token` header; the app stores the token device-local (Next → Connect AI). Setup: `GETTING_STARTED.md` Part 3.5. Test: `relay/test/route-auth.test.js`.
 
 Footer `v0.39`, `SCHEMA_VERSION = 39`. Trust order when docs disagree: code → `MISSION.md` → `GETTING_STARTED.md` → this file.
+
+---
+
+## 0.6 v0.40 → v0.49 addendum — the GOAT campaign (2026-07-08 → 2026-07-23)
+
+After v0.39, a director-run audit graded the whole system (`KEVINOS_AUDIT.md` — 100 roadmap items to v1.0.0) and `KEVINOS_EXECUTION_ORDER.md` sequenced them into 11 conflict-minimized waves (W0–W10). **Waves W0–W8 shipped — 88/100 items — as v0.40→v0.47, and production runs them today:**
+
+- **W0 Truth & Hotfixes (v0.40)** — doc drift closed, `KEVINOS_TOKEN` relay auth landed.
+- **W1 Test Harness (no bump)** — a real Node test suite: characterization tests for `parseCaptureText` (26 cases), `mergeById`/convergence, `portableDoc` round-trip, `parseICS`, `rollRecurring`, habit streaks, `/sync/push` vs a fake D1 — one runner (`sh test/run.sh`) + **GitHub Actions CI on every push**.
+- **W2 Safety Refactors (v0.41)** — CONTENT_ARRAYS/PORTABLE_OBJS consolidation, one `RENDERERS` map, every relay fetch through `relayCall()`, escapeHtml + id-sanitization at every ingress/render (53 sites), function TOC.
+- **W3 Data Trust Completion (v0.42)** — in-card confirms replace `window.confirm`, import dry-run report, restore diff preview, manual snapshot, auto-download backup after 5 min of failing saves, `lastGoodBoot` stakes line, the **Data Trust Contract** in README.
+- **W4 Relay Hardening + Key v2 (v0.43)** — health `auth` flag + "relay unlocked" warning, KV rate limit on AI routes, 24h identical-question Council cache, **PBKDF2 v2 sync keys** with forkproof migration, passphrase strength meter.
+- **W5 Sync Observability (v0.44)** — activity log, device presence, labels, merge toast, sync doctor, weekly cloud snapshot row, **three-device convergence proof**; **GATE-76 decided: Option A split-doc encryption, implementation deferred** until drills pass (full decision note in `MISSION.md`).
+- **W6 Daily-Driver UX (v0.45)** — 4 intentional contract fixes (capture `@date`, month-end recurrence clamp, EXDATE/COUNT, multi-day DTEND), day-change invalidation, `dayDigest` memoization, capture tokens `@3pm`/`+person`/`//project`, undo toasts, focus reordering, Library-in-⌘K, schedulable evening Close, Life Sweep streak.
+- **W7 Theme/Mobile/PWA (v0.46)** — dark mode, safe-area insets, 44px targets, manifest shortcuts, maskable icons, pull-to-refresh, offline chip, `?room=` deep links, a11y pass.
+- **W8 AI Leverage (v0.47)** — Council 2.0: lane pinning, seat reliability dots, presets (Decision/Plan review/Devil's advocate/Coach-speak), Brief/Standard/Deep length, stream repaint batching, synthesis "why" trace, weekly Council retro, profile-fact hygiene; plus the boot-whitelist restore fix.
+- **Deploy Day (2026-07-12)** — everything above merged, deployed, and live: relay `auth:true`, first-ever CI run green, Pages serving v0.47. **REGIME CHANGE:** all work now happens in a real clone — **`~/Downloads/kevinos-live`** (home dir on the current machine is `/Users/tkevinbigham`, "Uncle T's Mac mini"). Any `kevinos-main` folder is a `.git`-less archive — reference only, never a workspace. The patch/batch era is retired.
+- **Audit V2 + Session 6 Phase 0 (2026-07-12)** — `KEVINOS_AUDIT_V2.md` certified the live state (88/100, suite ALL GREEN, ES5 constitution intact) and mapped the remaining fourteen items. Session 6 shipped the boot round-trip **auto-discovery** test (any dropped persisted field fails by name) + CI `lts/*`, inventoried the stray `codex/owner-secret-relay-gate` branch (recommend delete, needs GO), and wrote the **MASTER DRILL CHECKLIST** (D0–D5, in the Wave Log) — still the campaign's gating unknown.
+- **v0.48/v0.49 Inbox Intelligence (2026-07-23, out-of-band with Codex)** — free-form whole-inbox AI research in the Email room: `/google/inbox-scan` (prompt → Gmail query → analyze ≤40 matches → select ≤10 response-needed) + `/google/inbox-research` (per-sender relationship history by email + name → exactly 3 editable reply choices each), never able to send — choices enter the existing approve-gate draft flow. v0.49 hardened the model contract (strict `responseSchema`, thinking disabled, 4096-token budget) after the first live scan returned truncated JSON. Health adds `emailIntelligence`. Same session: repaired a drifted `KEVINOS_TOKEN` (server secret restored to the Mac's stored credential) and live-verified the whole flow on the real BSPC inbox. Full detail: the 2026-07-23 Wave Log entry + `MISSION.md`'s v0.49 log.
+
+**Current production: footer `v0.49` · `SCHEMA_VERSION = 39` · sw cache `kevinos-v0_49`.** The standing rules every session must read now live in **`CONTRIBUTING-AI.md`** (ES5 law, three-bump rule, touch/save/persist/bury data contract, verification ritual). The **Wave Log** at the bottom of `KEVINOS_EXECUTION_ORDER.md` is the project's memory — read its last entry first.
+
+**Remaining to v1.0.0 (12 items + drills):** master drill checklist burn-down (Kevin device-in-hand) → GATE-76 Option A split-doc encryption + item 64 (**ships as v0.50** — v0.48/49 were consumed by Inbox Intelligence) → W9 generalization & release assets (92 configurable areas w/ schema 39→40 · 91 · 50 · 93 · 95 license · 94 video · 39 · 40 · 96 Lighthouse — **ships as v0.51**) → W10 release gate (98 hold-the-gate · 99 tag v1.0.0 · 100 thirty-day soak). The hand-to-Codex brief for all of it: **`CODEX_FINAL_ASCENT_PROMPT.md`**.
 
 ---
 
@@ -100,7 +123,7 @@ When you edit the app, **match the surrounding code exactly.** If you write ``co
 
 ## 4. Repo & file map
 
-Everything is in ONE public repo (`github.com/KevinBigham/kevinos`). A fresh `git clone` gives you the whole project. On Kevin's Mac the working copy happens to be nested at `/Users/kevin/KevinOS/app/` (that folder == the repo root).
+Everything is in ONE public repo (`github.com/KevinBigham/kevinos`). A fresh `git clone` gives you the whole project. **Current workspace (post-Deploy-Day regime, §0.6): `~/Downloads/kevinos-live`** — a real clone with `origin` wired; home dir on the current machine is `/Users/tkevinbigham`. The `/Users/kevin/KevinOS/app/` nesting below is the historical layout from the original Mac; resolve paths by folder name under the real `$HOME`. A folder named `kevinos-main` is a `.git`-less GitHub-archive extraction — reference only, never a workspace.
 
 ```
 /Users/kevin/KevinOS/                ← local parent folder (NOT in git)
@@ -269,8 +292,7 @@ curl -X POST https://kevinos-relay.kevinbigham.workers.dev/council \
   ```
   Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
   ```
-- **Persistent memory** about Kevin + this project lives at:
-  `/Users/kevin/.claude/projects/-Users-kevin-KevinOS/memory/` (index is `MEMORY.md`; project detail in `kevinos-project.md`). Read it at the start; update it when you learn something durable.
+- **Persistent memory** about Kevin + this project lives under `~/.claude/projects/` in a folder keyed to the working directory (original Mac: `-Users-kevin-KevinOS`; current machine: a `-Users-tkevinbigham-Downloads-kevinos-*` variant). Index is `MEMORY.md`. Read it at the start; update it when you learn something durable.
 
 ---
 

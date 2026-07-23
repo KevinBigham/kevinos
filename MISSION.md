@@ -168,7 +168,11 @@ sh test/run.sh
 node --check relay/worker.js
 ```
 
-The automated suite uses stubbed Gmail and Gemini responses, confirms sender-name/email history searches, validates the three-choice contract, checks that mailbox bodies are not returned by the scan, and proves neither stage calls Gmail's send endpoint. Authenticated live-Gmail browser validation and deployment remain pending until Kevin gives the explicit GO.
+The automated suite uses stubbed Gmail and Gemini responses, confirms sender-name/email history searches, validates the three-choice contract, checks that mailbox bodies are not returned by the scan, and proves neither stage calls Gmail's send endpoint.
+
+**Deployed & live-verified 2026-07-23 (Kevin's explicit GO):** commits `9751d90` (v0.48) + `9bb955e` (v0.49 hotfix) on `main`; relay deploys `931ee82d` → `4fb64ad8`; CI green; Pages serving footer `v0.49` / sw cache `kevinos-v0_49`; health `emailIntelligence:true`. Authenticated run against the real BSPC inbox: 9 qualifying conversations, relationship context + exactly 3 choices each, "Use this reply" opened the editable draft with the approve-and-send gate intact; the verification draft was discarded — nothing was sent.
+
+**Same-day ops note:** the earlier Email "unauthorized" failure was configuration drift, not code — Cloudflare's canonical `KEVINOS_TOKEN` no longer matched the token stored on the Mac. The Worker secret was restored to the device's existing credential (no OAuth records or synced data touched); relay, Gmail, and cross-device sync all verified live afterward. Details in the 2026-07-23 Wave Log entry (`KEVINOS_EXECUTION_ORDER.md`).
 
 ## Implementation log — 2026-07-08
 
