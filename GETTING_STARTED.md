@@ -567,6 +567,8 @@ The Worker implements:
 - `GET /google/callback`
 - `GET /google/status`
 - `POST /google/threads`
+- `POST /google/inbox-scan`
+- `POST /google/inbox-research`
 - `POST /google/draft`
 - `POST /google/send`
 - `POST /google/overnight`
@@ -602,8 +604,10 @@ App steps:
 2. Open the **Email** room.
 3. Choose **Connect Gmail**.
 4. Approve the Google consent screen.
-5. Open the **Calendar** room.
-6. Choose **Connect Google Calendar** if Calendar is not already connected.
+5. In **Inbox Intelligence**, keep the suggested whole-inbox prompt or write your own, then choose **Analyze inbox**.
+6. Review the resulting relationship context and three reply choices. Choosing one opens the normal editable draft; it still requires explicit approval before KevinOS sends anything.
+7. Open the **Calendar** room.
+8. Choose **Connect Google Calendar** if Calendar is not already connected.
 
 Calendar/Sheets reconnect note:
 
@@ -612,8 +616,9 @@ Calendar/Sheets reconnect note:
 
 Checkpoint:
 
-- Relay health has `email:true`, `calendar:true`, and `peopleEnrich:true`.
+- Relay health has `email:true`, `emailIntelligence:true`, `calendar:true`, and `peopleEnrich:true`.
 - Email room loads inbox groups.
+- Inbox Intelligence can scan, research prior correspondence by sender name/email, and prepare three editable reply choices without sending.
 - Calendar room loads live agenda items.
 - Calendar can parse a typed event and create it after review.
 

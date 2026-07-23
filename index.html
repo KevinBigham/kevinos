@@ -93,6 +93,13 @@
   .draft-tones{display:flex;gap:6px;margin:0 0 8px 0;flex-wrap:wrap}
   .draft-tones .chip.active{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
   .draft-confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .intel-results{display:grid;gap:10px;margin-top:12px}
+  .intel-card{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:12px}
+  .intel-card summary{cursor:pointer;list-style:none}
+  .intel-card summary::-webkit-details-marker{display:none}
+  .intel-options{display:grid;gap:8px;margin-top:10px}
+  .intel-option{border-left:3px solid var(--accent);background:var(--surface);border-radius:8px;padding:10px}
+  .intel-option p{white-space:pre-wrap;margin:6px 0 8px;line-height:1.45}
 
   .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 14px}
   .section-label{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin:0}
@@ -882,7 +889,7 @@
       </div>
       <div id="importConfirm"></div>
       <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px"><span id="appVersion">KevinOS v0.47</span> · Life intake & whole-life Launch · Morning Launch Sequence · Goals & Weekly Check-In · Spend Pulse · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <div style="margin-top:10px"><span id="appVersion">KevinOS v0.48</span> · Life intake & whole-life Launch · Morning Launch Sequence · Goals & Weekly Check-In · Spend Pulse · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · Inbox Intelligence (free-form inbox research + relationship-aware 3-way reply drafts) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
     </footer>
   </main>
 
@@ -955,7 +962,7 @@
   var STORE_KEY="kevinos:v1";
   // Release checklist (three-bump rule, see README): APP_VERSION here + the
   // footer it stamps, CACHE in sw.js, and SCHEMA_VERSION only on shape change.
-  var APP_VERSION="0.47";
+  var APP_VERSION="0.48";
   var SCHEMA_VERSION=39;
   function makeStore(){
     if(typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function"){
@@ -2174,20 +2181,29 @@
   }
   function relayBase(){var u=((state.relay&&state.relay.url)||"").trim();return u.replace(/\/+$/,"");}
   function relayOn(){return !!relayBase();}
+  function relay401IsAccount(j){return !!(j&&(j.reconnect||j.error==="not connected"));}
   // THE relay fetch idiom (audit item 87): token header + 401 handling in
   // exactly one place. body null -> GET (unless opts.method). Returns parsed
-  // JSON with .status stamped; 401 -> {ok:false,error:"unauthorized"} after
-  // handleRelayUnauthorized (silent when opts.silent401). opts.raw returns
-  // the Response itself (councils stream; 401 is still handled first).
+  // JSON with .status stamped. A Gmail/GitHub reconnect 401 is preserved for
+  // the room to explain; only a true relay-auth 401 marks the relay rejected.
+  // opts.raw returns the Response itself (Council streaming).
   function relayCall(path,body,opts){
     opts=opts||{};
     var init={method:opts.method||(body!=null?"POST":"GET"),headers:relayHeaders()};
     if(body!=null)init.body=JSON.stringify(body);
     return fetch(relayBase()+path,init).then(function(r){
-      if(r.status===401)handleRelayUnauthorized(opts.silent401?{silent:true}:null);
-      if(opts.raw)return r;
-      if(r.status===401)return {ok:false,error:"unauthorized",status:401};
-      return r.json().then(function(j){if(j&&typeof j==="object"&&j.status==null)j.status=r.status;return j;},function(){return {ok:false,error:"bad-json",status:r.status};});
+      if(opts.raw){if(r.status===401)handleRelayUnauthorized(opts.silent401?{silent:true}:null);return r;}
+      return r.json().then(function(j){
+        if(r.status===401&&!relay401IsAccount(j)){
+          handleRelayUnauthorized(opts.silent401?{silent:true}:null);
+          return {ok:false,error:"unauthorized",status:401};
+        }
+        if(j&&typeof j==="object"&&j.status==null)j.status=r.status;
+        return j;
+      },function(){
+        if(r.status===401)handleRelayUnauthorized(opts.silent401?{silent:true}:null);
+        return {ok:false,error:r.status===401?"unauthorized":"bad-json",status:r.status};
+      });
     });
   }
   function relayPost(path,body){return relayCall(path,body);}
@@ -4975,7 +4991,8 @@
   $("smartCap").addEventListener("click",handleSmartClick);
   $("smartFile").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)smartPickFile(f);e.target.value="";});
   $("emailView").addEventListener("click",handleEmailClick);
-  $("emailView").addEventListener("change",function(e){if(e.target&&e.target.hasAttribute("data-em-acct")){state.email.active=e.target.value;save();emailThreads=[];emailLoaded=false;loadThreads(true);}});
+  $("emailView").addEventListener("change",function(e){if(e.target&&e.target.hasAttribute("data-em-acct")){state.email.active=e.target.value;emailIntelReset();save();emailThreads=[];emailLoaded=false;loadThreads(true);}});
+  $("emailView").addEventListener("input",function(e){if(e.target&&e.target.id==="emailIntelPrompt")emailIntelPrompt=e.target.value;});
   $("exportBtn").addEventListener("click",exportICS);
   $("claudeBtn").addEventListener("click",copyForClaude);
   $("addEvToggle").addEventListener("click",function(){var p=$("addEvPanel");p.classList.toggle("open");if(p.classList.contains("open")){$("evDate").value=calSel;$("evTitle").focus();}});
@@ -5038,6 +5055,8 @@
   /* ---------- Email Command Center (v0.18) ---------- */
   var emailThreads=[], emailDrafts={}, emailLoading=false, emailLoaded=false, emailError="", emailSending={}, emailOvernight=[], emailDrafting=false, emailGroupsOpen={fyi:false,noise:false,snoozed:false}, emailSnoozeOpen="";
   var emailTone={}, emailConfirm={}, emailRewriting={};
+  var emailIntelPrompt="Look through my inbox and find the 10 most recent emails where I need to respond. For each, search my history with that person's email address and name to understand the relationship, then draft 3 possible responses.";
+  var emailIntelBusy=false, emailIntelStage="", emailIntelError="", emailIntelResults=[], emailIntelScanned=0, emailIntelDone=false;
   var UNIFIED="__all__";
   function emailCfg(){if(!state.email)state.email={session:"",accounts:[],active:""};return state.email;}
   function emailOn(){var e=state.email;return !!(e&&e.accounts&&e.accounts.length);}
@@ -5147,9 +5166,89 @@
     var bd=isUnified()?{session:state.email.session,all:true}:{session:state.email.session,account:emailActive()};
     relayPost("/google/threads",bd).then(function(j){
       emailLoading=false;emailLoaded=true;
-      if(!j||!j.ok){emailError=(j&&j.error)||"Couldn’t load mail.";renderEmail();if(room==="launch")renderLaunch();return;}
+      if(!j||!j.ok){emailError=emailConnectionError(j,"Couldn’t load mail.");renderEmail();if(room==="launch")renderLaunch();return;}
       emailThreads=j.messages||[];pruneSnoozed();renderEmail();if(room==="launch")renderLaunch();
     }).catch(function(){emailLoading=false;emailLoaded=true;emailError="Couldn’t reach the relay.";renderEmail();if(room==="launch")renderLaunch();});
+  }
+  function emailIntelAccount(){
+    var a=emailActive();
+    return a===UNIFIED?(((state.email&&state.email.accounts)||[])[0]||""):a;
+  }
+  function emailIntelReset(){
+    emailIntelBusy=false;emailIntelStage="";emailIntelError="";emailIntelResults=[];emailIntelScanned=0;emailIntelDone=false;
+  }
+  function emailConnectionError(j,fallback){
+    if(j&&j.reconnect)return j.error||"This Google account needs to be reconnected.";
+    if(j&&j.status===401&&j.error==="not connected")return "Gmail connection expired — disconnect this account, then connect Gmail again.";
+    if(j&&j.status===401&&j.error==="unauthorized")return "Relay token rejected — open Next → Connect AI and re-enter the relay token.";
+    return (j&&(j.error||j.message))||fallback||"Couldn’t load mail.";
+  }
+  function emailIntelDraftFrom(result,response,account){
+    return {
+      to:(result&&result.to)||"",
+      subject:(result&&result.subject)||"",
+      body:(response&&response.body)||"",
+      threadId:(result&&result.threadId)||"",
+      messageId:(result&&result.messageId)||"",
+      account:(result&&result.account)||account||"",
+      intelligence:true
+    };
+  }
+  function emailIntelAnalyze(){
+    if(emailIntelBusy||!emailOn()||!relayOn())return;
+    var inp=$("emailIntelPrompt"),prompt=((inp&&inp.value)||emailIntelPrompt||"").trim(),account=emailIntelAccount();
+    if(!prompt){toast("Tell Inbox Intelligence what to look for.");return;}
+    if(!account){toast("Choose one Gmail account first.");return;}
+    emailIntelPrompt=prompt;emailIntelBusy=true;emailIntelStage="Searching Gmail and analyzing up to 40 matches…";emailIntelError="";emailIntelResults=[];emailIntelScanned=0;emailIntelDone=false;renderEmail();
+    relayPost("/google/inbox-scan",{session:state.email.session,account:account,prompt:prompt,limit:10}).then(function(scan){
+      if(!scan||!scan.ok)throw new Error(emailConnectionError(scan,"Inbox scan failed."));
+      emailIntelScanned=scan.scanned||0;
+      if(!scan.candidates||!scan.candidates.length){emailIntelBusy=false;emailIntelStage="";emailIntelDone=true;renderEmail();return null;}
+      emailIntelStage="Researching each relationship and drafting 3 replies…";renderEmail();
+      return relayPost("/google/inbox-research",{session:state.email.session,account:account,prompt:prompt,candidates:scan.candidates});
+    }).then(function(research){
+      if(research===null)return;
+      if(!research||!research.ok)throw new Error(emailConnectionError(research,"Inbox research failed."));
+      emailIntelBusy=false;emailIntelStage="";emailIntelResults=research.results||[];emailIntelDone=true;renderEmail();
+    }).catch(function(e){emailIntelBusy=false;emailIntelStage="";emailIntelError=emailConnectionError(e,"Couldn’t analyze the inbox.");renderEmail();});
+  }
+  function emailIntelUse(id,idx){
+    var i,r=null;for(i=0;i<emailIntelResults.length;i++)if(emailIntelResults[i].id===id){r=emailIntelResults[i];break;}
+    if(!r||!r.responses||!r.responses[idx])return;
+    emailDrafts[id]=emailIntelDraftFrom(r,r.responses[idx],emailIntelAccount());
+    var found=false;for(i=0;i<emailThreads.length;i++)if(emailThreads[i].id===id){found=true;break;}
+    if(!found)emailThreads.unshift({id:id,threadId:r.threadId,account:r.account||emailIntelAccount(),from:r.from,subject:(r.subject||"").replace(/^Re:\s*/i,""),date:r.date,ts:Date.parse(r.date)||Date.now(),snippet:r.reason||"",unread:true,category:"primary"});
+    renderEmail();toast("Reply ready below — edit it, then approve to send.");
+    setTimeout(function(){var card=document.querySelector('[data-dcard="'+id+'"]');if(card&&card.scrollIntoView)card.scrollIntoView({behavior:"smooth",block:"center"});},0);
+  }
+  function emailIntelResultsHTML(){
+    var h="",i,j,r,resp;
+    if(!emailIntelResults.length)return "";
+    h='<div class="intel-results">';
+    for(i=0;i<emailIntelResults.length;i++){
+      r=emailIntelResults[i];
+      h+='<details class="intel-card"'+(i===0?" open":"")+'><summary><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span><strong>'+escapeHtml(emailFromName(r.from||""))+'</strong><br><span>'+escapeHtml((r.subject||"(no subject)").replace(/^Re:\s*/i,""))+'</span></span><span class="cq-pill">'+(i+1)+'</span></div></summary>'+
+        '<p class="hint" style="margin:10px 0 4px"><strong>Why reply:</strong> '+escapeHtml(r.reason||"Needs a response")+'</p>'+
+        '<p class="hint" style="margin:4px 0 8px"><strong>Relationship context:</strong> '+escapeHtml(r.relationship||"No prior context found.")+'</p><div class="intel-options">';
+      for(j=0;j<(r.responses||[]).length;j++){
+        resp=r.responses[j];
+        h+='<div class="intel-option"><strong>'+escapeHtml(resp.label||("Option "+(j+1)))+'</strong><p>'+escapeHtml(resp.body||"")+'</p><button class="btn-soft" type="button" data-em="intel-use" data-id="'+escapeHtml(r.id)+'" data-idx="'+j+'">Use this reply</button></div>';
+      }
+      h+='</div></details>';
+    }
+    return h+'</div>';
+  }
+  function emailIntelHTML(){
+    var account=emailIntelAccount(),note="";
+    if(isUnified()&&account)note='<p class="hint" style="margin-top:6px">Analyzing <strong>'+escapeHtml(account)+'</strong>. Choose another account above to research that inbox.</p>';
+    var status=emailIntelBusy?'<p class="cq-prov" style="margin-top:10px">'+escapeHtml(emailIntelStage||"Working…")+'</p>':"";
+    var err=emailIntelError?'<p class="gh-err" style="margin-top:10px">'+escapeHtml(emailIntelError)+' <button class="linklike" type="button" data-em="intel">Try again</button></p>':"";
+    var empty=(emailIntelDone&&!emailIntelResults.length&&!emailIntelError)?'<p class="empty">No matching emails that need action were found in the '+emailIntelScanned+' messages scanned.</p>':"";
+    var clear=emailIntelResults.length?'<button class="btn-ghost" type="button" data-em="intel-clear">Clear results</button>':"";
+    return '<div class="launch-card plan"><div class="lc-head"><div><p class="section-label">Inbox Intelligence</p><strong>Ask across your inbox</strong></div><span class="cq-pill">AI research</span></div>'+
+      '<textarea class="inp" id="emailIntelPrompt" rows="4" maxlength="1200" style="width:100%;resize:vertical" aria-label="Inbox Intelligence prompt"'+(emailIntelBusy?" disabled":"")+'>'+escapeHtml(emailIntelPrompt)+'</textarea>'+
+      '<div class="edit-actions" style="margin-top:8px"><button class="add-btn" type="button" data-em="intel"'+(emailIntelBusy?" disabled":"")+'>'+(emailIntelBusy?"Analyzing…":"Analyze inbox")+'</button>'+clear+'</div>'+
+      '<p class="hint" style="margin-top:8px">Searches your full Gmail inbox from this prompt, deeply analyzes up to 40 matching messages, researches up to 10 correspondents by email and name, and drafts exactly 3 choices each. Email content stays in the relay request. <strong>Nothing sends without your review and approval.</strong></p>'+note+status+err+empty+emailIntelResultsHTML()+'</div>';
   }
   function draftReply(id){
     var base=relayBase();if(!base)return;var ac=acctForId(id);
@@ -5201,7 +5300,7 @@
     if(e.session&&base)relayCall("/google/logout",{session:e.session,account:account||undefined},{silent401:true}).catch(function(){});
     if(account){e.accounts=(e.accounts||[]).filter(function(a){return a!==account;});if(e.active===account)e.active=e.accounts[0]||"";if(!e.accounts.length){e.session="";e.pendingOAuth=false;}}
     else{state.email={session:"",accounts:[],active:""};}
-    emailThreads=[];emailLoaded=false;emailDrafts={};emailOvernight=[];emailTone={};emailConfirm={};emailRewriting={};save();renderEmail();
+    emailThreads=[];emailLoaded=false;emailDrafts={};emailOvernight=[];emailTone={};emailConfirm={};emailRewriting={};emailIntelReset();save();renderEmail();
   }
   function emailFromName(from){var m=(from||"").match(/^\s*"?([^"<]*?)"?\s*</);var nm=m?m[1].trim():(from||"");return nm||from||"(unknown)";}
   function emailConnectHTML(){
@@ -5286,7 +5385,7 @@
           emailGroupHTML("🔕 Noise",groups.noise,"noise",false)+snz;
       }
     }
-    box.innerHTML=head+body+sheetsManagerHTML();
+    box.innerHTML=head+emailIntelHTML()+body+sheetsManagerHTML();
   }
   function handleEmailClick(ev){
     var a=ev.target.closest("[data-em]");if(!a)return;
@@ -5297,6 +5396,9 @@
     else if(act==="cancel")emailDisconnect(null);
     else if(act==="refresh")loadThreads(true);
     else if(act==="draftall")fetchOvernight(true);
+    else if(act==="intel")emailIntelAnalyze();
+    else if(act==="intel-clear"){emailIntelReset();renderEmail();}
+    else if(act==="intel-use")emailIntelUse(id,parseInt(a.getAttribute("data-idx"),10)||0);
     else if(act==="grp"){emailGroupsOpen[id]=!emailGroupsOpen[id];renderEmail();}
     else if(act==="draft")draftReply(id);
     else if(act==="tone")rewriteDraft(id,a.getAttribute("data-tone"));

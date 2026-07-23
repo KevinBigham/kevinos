@@ -37,6 +37,7 @@ node relay/test/route-auth.test.js
 node relay/test/sync-push.test.js
 node relay/test/lane-pins.test.js
 node relay/test/length-control.test.js
+node relay/test/inbox-intelligence.test.js
 
 echo "───────────────────────────────────────────────"
 echo "ALL GREEN ✓"

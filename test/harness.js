@@ -112,6 +112,7 @@ const EXPORT_NAMES = [
   "recordSeatResult", "seatReliability", "seatDotHTML",
   "COUNCIL_PRESETS", "councilPresetSystem", "councilPresetLabel",
   "councilLengthOk", "aiContext",
+  "relay401IsAccount", "emailConnectionError", "emailIntelDraftFrom", "emailIntelHTML",
   "weeklyContextText", "councilRetroAsk",
   "factNorm", "profileDupeIds", "dedupeProfileFacts", "staleFact", "FACT_STALE_DAYS",
 ];

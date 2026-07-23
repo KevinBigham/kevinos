@@ -376,5 +376,46 @@ const { loadApp } = require("./harness");
   assert.match(k1, /^[a-f0-9]{64}$/);
   assert.notStrictEqual("v2:" + k1, k2a, "v1 and v2 keys differ");
 
+  // Inbox Intelligence — selecting one AI option prepares the existing human
+  // review draft contract; it never skips straight to /google/send.
+  const intelDraft = app.emailIntelDraftFrom(
+    { to: "coach@example.com", subject: "Re: Meet plan", threadId: "thread-1", messageId: "msg-header-1", account: "kevin@example.com" },
+    { label: "Warm", body: "Thanks — this plan works for me." },
+    "fallback@example.com"
+  );
+  assert.deepStrictEqual(intelDraft, {
+    to: "coach@example.com",
+    subject: "Re: Meet plan",
+    body: "Thanks — this plan works for me.",
+    threadId: "thread-1",
+    messageId: "msg-header-1",
+    account: "kevin@example.com",
+    intelligence: true,
+  }, "Inbox Intelligence reply enters the normal editable draft gate");
+
+  const intelState = app.getState();
+  intelState.relay.url = "https://relay.example";
+  intelState.email.session = "session-1";
+  intelState.email.accounts = ["kevin@example.com"];
+  intelState.email.active = "kevin@example.com";
+  const intelHTML = app.emailIntelHTML();
+  assert.match(intelHTML, /Inbox Intelligence/, "connected Email room renders the intelligence card");
+  assert.match(intelHTML, /find the 10 most recent emails/i, "card starts with the relationship-aware default prompt");
+  assert.match(intelHTML, /Nothing sends without your review and approval/, "card states the human send gate");
+
+  assert.strictEqual(app.relay401IsAccount({ error: "not connected", status: 401 }), true, "Google session 401 is not mistaken for relay auth");
+  assert.strictEqual(app.relay401IsAccount({ error: "reconnect", reconnect: true, status: 401 }), true, "Google reconnect 401 is preserved");
+  assert.strictEqual(app.relay401IsAccount({ error: "unauthorized", status: 401 }), false, "real relay rejection still trips the auth guard");
+  assert.match(
+    app.emailConnectionError({ error: "not connected", status: 401 }),
+    /disconnect this account, then connect Gmail again/,
+    "stale Gmail sessions get an actionable reconnect message"
+  );
+  assert.match(
+    app.emailConnectionError({ error: "unauthorized", status: 401 }),
+    /re-enter the relay token/,
+    "relay-token failures get the correct repair instruction"
+  );
+
   console.log("app-logic harness ok");
 })().catch((err) => { console.error(err); process.exit(1); });
