@@ -34,7 +34,7 @@ KevinOS is a **calm daily cockpit** that unifies tasks, calendar, notes, project
 | ✅ | **4 — Calendar / File AI** (photo/PDF/text → reviewed events) | **LIVE** v0.17 → Gemini multimodal + .ics hardening, $0/mo |
 | ✅ | **5 — Email Command Center** (multi-account Gmail) | **LIVE** v0.18 → Google OAuth client registered, relay holds the token, $0/mo |
 | ✅ | **5+ — Email power-ups** (proactive brief · overnight drafts · smart inbox · **unified inbox · triage · weekly review**) | **LIVE** v0.20→v0.26 → $0/mo |
-| 🧪 | **Inbox Intelligence** (whole-inbox prompt · response-needed scan · relationship history · three reply choices) | **Code-complete** v0.48 → tested locally; awaiting Kevin GO to push/deploy |
+| ✅ | **Inbox Intelligence** (whole-inbox prompt · response-needed scan · relationship history · three reply choices) | **LIVE** v0.49 → strict Gemini JSON schema, bounded two-stage Gmail research, explicit send approval |
 | ✅ | **Mission wave #1 — ⌘K Command Palette** | **Shipped** v0.27 → pure app, keyboard-first navigation/actions |
 | ✅ | **Mission wave #2 — Voice Quick-Capture** | **Shipped** v0.28 → mic/textarea capture, relay `/capture`, Undo |
 | ✅ | **Mission wave #3 — Google Calendar Room** | **Shipped** v0.29 → live Google agenda, free slots, typed event creation |

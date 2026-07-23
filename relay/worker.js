@@ -1155,20 +1155,26 @@ function geminiJsonText(data) {
   }
 }
 
-async function callGeminiJson(env, system, prompt, maxOutputTokens) {
+async function callGeminiJson(env, system, prompt, maxOutputTokens, responseSchema) {
   const model = env.GEMINI_MODEL || DEFAULTS.geminiModel;
   const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + env.GEMINI_API_KEY;
+  const generationConfig = {
+    responseMimeType: "application/json",
+    temperature: 0.2,
+    maxOutputTokens: maxOutputTokens || 2048,
+    // Gemini 2.5 Flash otherwise spends part of maxOutputTokens on hidden
+    // thinking. These jobs are bounded extraction, so reserve every token for
+    // complete JSON and eliminate the truncation seen in the first live run.
+    thinkingConfig: { thinkingBudget: 0 },
+  };
+  if (responseSchema) generationConfig.responseSchema = responseSchema;
   const r = await fetch(apiUrl, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       systemInstruction: { parts: [{ text: system }] },
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.2,
-        maxOutputTokens: maxOutputTokens || 2048,
-      },
+      generationConfig,
     }),
   });
   const data = await r.json();
@@ -2359,7 +2365,12 @@ async function handleRequest(request, env, origin) {
           "Do not add a date window unless Kevin asks for one. Do not pretend Gmail can search semantic ideas such as 'needs a reply'; leave that judgment to the next step. " +
           "Return only JSON: {\"query\":\"the Gmail query\"}.",
           "KEVIN'S REQUEST:\n" + prompt,
-          512
+          512,
+          {
+            type: "OBJECT",
+            properties: { query: { type: "STRING" } },
+            required: ["query"],
+          }
         ),
         DEFAULTS.seatTimeoutMs,
         "inbox search plan"
@@ -2396,7 +2407,24 @@ async function handleRequest(request, env, origin) {
           env,
           system,
           "KEVIN'S REQUEST:\n" + prompt + "\n\nMAX RESULTS: " + limit + "\n\nINBOX RECORDS JSON:\n" + JSON.stringify(records),
-          2048
+          4096,
+          {
+            type: "OBJECT",
+            properties: {
+              candidates: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    id: { type: "STRING" },
+                    reason: { type: "STRING" },
+                  },
+                  required: ["id", "reason"],
+                },
+              },
+            },
+            required: ["candidates"],
+          }
         ),
         DEFAULTS.seatTimeoutMs,
         "inbox scan"
@@ -2470,7 +2498,36 @@ async function handleRequest(request, env, origin) {
           env,
           system,
           "KEVIN'S REQUEST:\n" + prompt + "\n\nSELECTED EMAILS AND RELATIONSHIP HISTORY JSON:\n" + JSON.stringify(records),
-          8192
+          8192,
+          {
+            type: "OBJECT",
+            properties: {
+              results: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    id: { type: "STRING" },
+                    why: { type: "STRING" },
+                    relationship: { type: "STRING" },
+                    responses: {
+                      type: "ARRAY",
+                      items: {
+                        type: "OBJECT",
+                        properties: {
+                          label: { type: "STRING" },
+                          body: { type: "STRING" },
+                        },
+                        required: ["label", "body"],
+                      },
+                    },
+                  },
+                  required: ["id", "why", "relationship", "responses"],
+                },
+              },
+            },
+            required: ["results"],
+          }
         ),
         DEFAULTS.seatTimeoutMs,
         "inbox research"

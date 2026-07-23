@@ -143,13 +143,13 @@ Update this ledger after each phase.
 | P8 Federated Library | DONE | 39 | Library searches briefs, prompts, notes, links, and stash with copy/open/Council/AI actions |
 | P9 Attic Collapse | DONE | 39 | Primary nav reduced; cold rooms live under More with heat card; no data deleted |
 | P10 Evening Close + Universal AI | DONE | 39 | Wind-down supports tomorrow focus and universal AI actions feed a review queue |
-| Email Inbox Intelligence v0.48 | CODE-COMPLETE | 39 | Free-form scan of 40 recent messages, up to 10 relationship-history dossiers, 3 editable reply choices each; local commit only, awaiting Kevin GO to push/deploy |
+| Email Inbox Intelligence v0.49 | LIVE | 39 | Free-form scan of 40 Gmail-query matches, up to 10 relationship-history dossiers, 3 editable reply choices each; strict Gemini schemas added after the first live v0.48 scan exposed truncated JSON |
 
 Use schema bumps only when persistent data shape changes. Do not bump casually.
 
-## Inbox Intelligence implementation log — 2026-07-23
+## Inbox Intelligence v0.49 implementation log — 2026-07-23
 
-KevinOS v0.48 adds a two-stage, bounded Gmail workflow to the Email room:
+KevinOS v0.49 adds a two-stage, bounded Gmail workflow to the Email room:
 
 - `POST /google/inbox-scan` translates the free-form request into a Gmail query over the full inbox, deeply analyzes up to 40 matching messages, and identifies at most 10 that need Kevin's response.
 - `POST /google/inbox-research` re-fetches only those selected messages, searches Gmail by each sender's email address and display name, reads the active conversation plus a bounded slice of prior relationship history, and generates exactly three response choices.
@@ -157,6 +157,7 @@ KevinOS v0.48 adds a two-stage, bounded Gmail workflow to the Email room:
 - Choosing a response creates the existing editable Email draft card. It cannot bypass KevinOS's explicit approve-and-send confirmation.
 - Inbox content and model instructions are treated as untrusted data; the relay tells Gemini to ignore instructions embedded inside messages.
 - Both stages stay below the Workers Free-plan external-subrequest ceiling. Gmail reads are batched at six concurrent requests.
+- Gemini calls use response schemas and disable Gemini 2.5 Flash thinking for these extraction-only jobs, reserving the bounded output budget for complete JSON. This fixes the malformed/truncated response exposed by the first live v0.48 scan.
 - The shared relay client now preserves Google `not connected`/`reconnect` 401 responses instead of mislabeling them as a rejected relay token. The Email room gives a specific Gmail-reconnect or relay-token repair message.
 - No persisted state shape changed, so schema stays at 39. Results are intentionally memory-only.
 
