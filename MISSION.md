@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This is the v0.39-v0.49 marathon ledger, not the current implementation plan. Read `AGENTS.md` and `docs/CURRENT_STATE.md` first. Its GATE-76 decision remains retained in `docs/DECISIONS.md`.
+
 # MISSION.md — KevinOS Evolution Marathon
 
 ## Mission

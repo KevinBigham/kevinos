@@ -9,3 +9,4 @@ relay/.wrangler/
 node_modules/
 .claude/
 .playwright-cli/
+output/

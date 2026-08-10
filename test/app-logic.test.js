@@ -24,19 +24,29 @@ const { loadApp } = require("./harness");
   assert.ok(stored && typeof stored === "object", "boot persisted state");
   assert.strictEqual(stored.v, app.SCHEMA_VERSION, "persisted v === SCHEMA_VERSION");
 
-  // Fresh boot seeds (prevV<4 / <5 gates fire on empty storage).
-  assert.ok(stored.builds.length >= 1, "seedDefaults ran");
-  assert.ok(stored.prompts.length >= 1, "seedPrompts ran");
+  // Fresh normal mode is real blank state, never silent demo content.
+  assert.deepStrictEqual(stored.builds, [], "fresh boot does not seed sample builds");
+  assert.deepStrictEqual(stored.briefs, [], "fresh boot does not seed sample briefs");
+  assert.deepStrictEqual(stored.links, [], "fresh boot does not seed sample links");
+  assert.deepStrictEqual(stored.prompts, [], "fresh boot does not seed sample prompts");
 
   // Boot room is Today.
   assert.strictEqual(app.getRoom(), "today", "boot room is today");
   assert.strictEqual(app.normalizeRoom("home"), "today");
   assert.strictEqual(app.normalizeRoom("launch"), "today");
   assert.strictEqual(app.normalizeRoom("next"), "next", "next is NOT aliased");
+  assert.strictEqual(app.normalizeRoom("nonsense"), "today", "unknown routes converge on Today");
+  assert.strictEqual(app.roomDef("next").label, "Plan & Review", "compat route has canonical label");
+  assert.strictEqual(new Set(app.ROOM_DEFS.map((d) => d.id)).size, app.ROOM_DEFS.length, "room ids are unique");
+  for (const d of app.ROOM_DEFS) assert.strictEqual(typeof d.renderer, "function", d.id + " has a renderer");
 
   // escapeHtml — contract since W2 item 14: escapes & < > " AND ' (the
   // apostrophe is defense-in-depth; the app's attributes stay double-quoted).
   assert.strictEqual(app.escapeHtml('<a b="c">&\''), "&lt;a b=&quot;c&quot;&gt;&amp;&#39;");
+  assert.strictEqual(app.normalizeUrl("example.com/path"), "https://example.com/path");
+  assert.strictEqual(app.normalizeUrl("javascript://alert(1)"), "", "active URL schemes are rejected");
+  assert.strictEqual(app.safeHttpUrl("data:text/html,bad"), "", "non-web provider URLs are inert");
+  assert.strictEqual(app.safeHttpUrl("https://user:pass@example.com/"), "", "credential-bearing URLs are rejected");
 
   // Date helpers round-trip.
   const tk = app.todayKey();
@@ -130,6 +140,26 @@ const { loadApp } = require("./harness");
   assert.strictEqual(app.moveFocusTask("skip", "up"), false, "off-plate tasks don't move");
   st45.items = [];
   app.invalidateDayCache();
+
+  // Convergence NOW: deterministic focus, physical action, hard stop, and
+  // overdue risk come only from local authoritative state.
+  const stNow = app.getState();
+  stNow.projects = [{ id: "np1", title: "Release", outcome: "Ship safely", nextAction: "Run the focused gate", status: "Active" }];
+  stNow.items = [
+    { id: "n1", text: "Ship KevinOS", area: "Work", projectId: "np1", today: true, done: false, due: app.addDaysKey(tk, -1) },
+    { id: "n2", text: "Review notes", area: "Inbox", today: true, done: false },
+    { id: "n3", text: "Close loop", area: "Personal", today: true, done: false },
+    { id: "n4", text: "Hidden fourth", area: "Work", today: true, done: false },
+  ];
+  stNow.events = [{ id: "hs1", title: "Practice", date: tk, time: "18:00" }];
+  app.invalidateDayCache();
+  const now = app.nowModel(tk, "12:00");
+  assert.strictEqual(now.outcome, "Ship KevinOS");
+  assert.strictEqual(now.nextAction, "Run the focused gate", "linked project supplies the physical action");
+  assert.deepStrictEqual(now.commitments.map((x) => x.id), ["n1", "n2", "n3"], "NOW shows at most three commitments in chosen order");
+  assert.strictEqual(now.overdue, 1, "overdue risk is deterministic");
+  assert.deepStrictEqual(now.hardStop, { time: "18:00", title: "Practice" });
+  stNow.items = []; stNow.projects = []; stNow.events = []; app.invalidateDayCache();
 
   // W6 item 48 — library records surface in the ⌘K palette with 2+ chars.
   const st48 = app.getState();
@@ -246,8 +276,10 @@ const { loadApp } = require("./harness");
   // W8 item 66 — universal AI context now covers events and stash items.
   st62.events.push({ id: "ev-66", title: "Dentist", date: "2026-07-20", time: "09:30", end: null, area: "Inbox", source: "app", location: "Main St" });
   st62.stash.push({ id: "st-66", title: "ES5 tricks", url: "https://example.com/es5", tags: "js,notes", summary: "Old-school patterns.", status: "done", ts: 0 });
-  const evCtx = deep.app.aiContext("event", "ev-66");
-  assert.ok(evCtx && /Dentist/.test(evCtx.text) && /2026-07-20 at 09:30/.test(evCtx.text) && /Main St/.test(evCtx.text), "event context carries when/where");
+  const evCtx = deep.app.aiContext("event", "ev-66", {});
+  assert.ok(evCtx && /Dentist/.test(evCtx.text) && /2026-07-20 at 09:30/.test(evCtx.text), "event context carries title and time");
+  assert.doesNotMatch(evCtx.text, /Main St/, "event location stays local unless explicitly shared");
+  assert.match(deep.app.aiContext("event", "ev-66", { calendarDetails: true }).text, /Main St/, "event location can be explicitly shared");
   const stCtx = deep.app.aiContext("stash", "st-66");
   assert.ok(stCtx && /example\.com\/es5/.test(stCtx.text) && /Old-school patterns/.test(stCtx.text), "stash context carries url+summary");
   assert.strictEqual(deep.app.aiContext("event", "nope"), null, "unknown event -> null");
@@ -416,6 +448,90 @@ const { loadApp } = require("./harness");
     /re-enter the relay token/,
     "relay-token failures get the correct repair instruction"
   );
+
+  // Convergence AI proposals: bounded roles, opt-in sensitive context,
+  // provenance, deterministic application, and an exact undo receipt.
+  assert.deepStrictEqual(Object.keys(app.AI_PROMPTS), ["Decide", "Plan", "Review", "Draft", "Challenge"]);
+  assert.strictEqual(app.AI_PROMPTS.Draft.version, 2, "prompt versions are explicit");
+  const aiState = app.getState();
+  aiState.people = [{ id: "aiperson", name: "Avery", email: "secret@example.com", notes: "private note", lastContact: "2026-08-01" }];
+  const safePerson = app.aiContext("person", "aiperson", {});
+  assert.doesNotMatch(safePerson.text, /secret@example|private note/, "person email and notes are not silently shared");
+  const sharedPerson = app.aiContext("person", "aiperson", { personEmail: true, personNotes: true });
+  assert.match(sharedPerson.text, /secret@example.com/);
+  assert.match(sharedPerson.text, /private note/);
+  assert.strictEqual(app.aiFingerprint("same"), app.aiFingerprint("same"), "context receipt is deterministic");
+  aiState.pending.unshift({
+    id: "aip1", kind: "ai", mode: "Plan", status: "review", title: '<img src=x onerror="bad">',
+    body: '<script>alert("bad")</script> Run the gate', sourceKind: "task", sourceId: "none",
+    provider: "test", model: "fixture", seat: "Planner", promptId: "plan", promptVersion: 1,
+    contextCategories: ["source item"], createdAt: Date.now(),
+  });
+  aiState.pending.push({ id: "legacy-event-proposal", title: "Legacy extracted event", date: app.todayKey(), time: "15:00", area: "Inbox" });
+  aiState.pending.push({ id: "typed-event-proposal", kind: "event", title: "Typed extracted event", date: app.todayKey(), time: null, area: "Inbox" });
+  assert.deepStrictEqual(app.calendarPendings().map((p) => p.id), ["legacy-event-proposal", "typed-event-proposal"], "Calendar sees legacy and typed event proposals, never AI text proposals");
+  app.dismissAllPending();
+  assert.ok(aiState.pending.some((p) => p.id === "aip1"), "Calendar bulk dismiss preserves AI proposals");
+  assert.ok(!aiState.pending.some((p) => p.id === "legacy-event-proposal" || p.id === "typed-event-proposal"), "Calendar bulk dismiss removes only event proposals");
+  const proposalHTML = app.renderAiReviewHTML();
+  assert.doesNotMatch(proposalHTML, /<script>|<img src=/, "proposal inbox escapes hostile provider output");
+  assert.match(proposalHTML, /&lt;script&gt;/, "escaped output remains reviewable");
+  app.applyAIProposal("aip1", "note");
+  const applied = aiState.pending.find((p) => p.id === "aip1");
+  assert.strictEqual(applied.status, "applied");
+  assert.ok(aiState.notes.some((n) => n.id === applied.undo.id), "approved proposal uses canonical note state");
+  app.undoAIProposal("aip1");
+  assert.strictEqual(applied.status, "review");
+  assert.ok(!aiState.notes.some((n) => n.id === applied.undo?.id), "undo removes the created record");
+  app.rejectAIProposal("aip1");
+  assert.strictEqual(applied.feedback, "rejected", "local workflow feedback is retained");
+  aiState.pending.unshift({
+    id: "aip-event", kind: "ai", mode: "Plan", status: "review", title: "Protect the hard stop",
+    body: "Call the dentist\nConfirm the new appointment", sourceKind: "event", sourceId: "ev-66",
+    provider: "test", model: "fixture", seat: "Planner", promptId: "plan", promptVersion: 1,
+    contextCategories: ["source item"], createdAt: Date.now(),
+  });
+  app.applyAIProposal("aip-event", "event");
+  const eventProposal = aiState.pending.find((p) => p.id === "aip-event");
+  assert.strictEqual(eventProposal.targetKind, "event");
+  assert.ok(aiState.events.some((event) => event.id === eventProposal.targetId && event.source === "ai-approved"), "approved proposal creates a canonical event");
+  app.undoAIProposal("aip-event");
+  assert.ok(!aiState.events.some((event) => event.id === eventProposal.targetId), "event application has an exact undo receipt");
+  const feedback = app.aiFeedbackSummary([
+    { feedback: "accepted", status: "applied", createdAt: 1000, resolvedAt: 61000 },
+    { feedback: "edited-accepted", status: "applied", createdAt: 1000, resolvedAt: 121000 },
+    { feedback: "rejected", status: "rejected", createdAt: 1000, resolvedAt: 181000 },
+    { status: "error" },
+  ]);
+  assert.deepStrictEqual({ accepted: feedback.accepted, edited: feedback.edited, rejected: feedback.rejected, errors: feedback.errors, medianMinutes: feedback.medianMinutes }, { accepted: 2, edited: 1, rejected: 1, errors: 1, medianMinutes: 2 }, "local outcomes and median resolution time are deterministic");
+  aiState.pending = aiState.pending.filter((p) => p.id !== "aip1");
+  aiState.people = [];
+
+  // Studio mission packets are complete enough to hand to another AI cold,
+  // while the shipped state remains evidence-gated.
+  const mission = {
+    name: "Converge navigation", outcome: "One canonical room path", currentState: "Registry exists",
+    next: "Run the route tests", assignedAI: "Codex", aiRole: "Verifier", repo: "/repo", branch: "mission/nav", worktree: "/repo-wt",
+    allowedScope: "index.html and route tests", forbiddenFiles: ".env and unrelated rooms", acceptance: "Aliases resolve and navigation agrees",
+    tests: "node test/app-logic.test.js", verificationStatus: "machine", evidence: "All route assertions passed",
+    commitRef: "checkpoint-42", blockers: "", lastHandoff: "Registry and renderers now share one source",
+  };
+  assert.strictEqual(app.missionVerified(mission), true);
+  const workPacket = app.missionPacket(mission, "work");
+  for (const requiredText of ["One canonical room path", "Verifier", "/repo", "mission/nav", "/repo-wt", "Allowed scope", "Forbidden files", "Canonical constraints", "Acceptance criteria", "Verification commands", "Evidence", "checkpoint-42"]) {
+    assert.match(workPacket, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "packet includes " + requiredText);
+  }
+  assert.match(app.missionPacket(mission, "handoff"), /Last handoff/);
+  assert.strictEqual(app.missionVerified({ verificationStatus: "machine", evidence: "" }), false, "status without receipt is not proof");
+
+  const checkpoint = app.getState();
+  checkpoint.pending = [{ id: "checkpoint-ai", kind: "ai", mode: "Review", status: "review", provider: "relay", model: "model", seat: "Reviewer", promptId: "review", promptVersion: 1, contextCategories: ["source item"], contextFingerprint: "abc", applicationState: "not-applied", title: "Check", body: "Evidence" }];
+  checkpoint.builds = [Object.assign({ id: "checkpoint-mission", stage: "Testing" }, mission)];
+  const checkpointDoc = app.portableDoc(checkpoint);
+  const checkpointLoad = await loadApp({ storedState: checkpointDoc });
+  assert.strictEqual(checkpointLoad.app.getState().pending[0].contextFingerprint, "abc", "AI provenance survives backup/boot round trip");
+  assert.strictEqual(checkpointLoad.app.getState().builds[0].acceptance, mission.acceptance, "mission contract survives backup/boot round trip");
+  assert.strictEqual(checkpointLoad.app.getState().v, app.SCHEMA_VERSION, "compatible nested extensions do not churn the schema");
 
   console.log("app-logic harness ok");
 })().catch((err) => { console.error(err); process.exit(1); });

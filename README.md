@@ -4,7 +4,7 @@ A calm personal dashboard — one self-contained HTML file, zero dependencies, w
 
 ## Start here
 
-New setup, fresh device, or rebuilding the relay? Start with **[KevinOS Getting Started](GETTING_STARTED.md)**. It walks through the live app, local preview, GitHub Pages, Cloudflare Worker relay, AI, Web Push, sync, GitHub OAuth, Google OAuth, and verification.
+New setup or fresh device? Start with **[KevinOS Getting Started](GETTING_STARTED.md)**. It begins with one useful day; optional relay, sync, OAuth, and deployment setup follow afterward.
 
 Quick local preview:
 
@@ -16,7 +16,8 @@ python3 -m http.server 8128
 Then open `http://localhost:8128/`.
 
 **Primary nav:** Today · Calendar · Tasks · Library · More
-**Under More (the Attic):** Council & Briefs · Projects · Habits · People · Email · GitHub · Goals · Studio · Briefs · Prompts · Launchpad · Notes · Stash
+**Mobile nav:** Today · Tasks · Capture · Calendar · More
+**Under More:** Plan & Review · Projects · Goals · Habits · Studio · People · Email · GitHub · Briefs · Prompts · Launchpad · Notes · Stash
 
 Open `index.html` directly, or use the hosted version. All data is stored locally on your device — export or import a JSON backup any time from the footer. No accounts, no tracking, no secrets in the source.
 
@@ -52,5 +53,8 @@ grep -n 'APP_VERSION=' index.html; grep -n 'KevinOS v0' index.html | head -1; gr
 - `index.html` — the whole app (one file, ES5-style vanilla JS, zero deps). `manifest.json` + `sw.js` make it an offline PWA.
 - `GETTING_STARTED.md` — full end-to-end setup tutorial and verification checklist.
 - `relay/` — optional Cloudflare Worker backend that powers AI, OAuth, sync, reminders, and live integrations. Holds provider keys and OAuth secrets server-side; the browser never sees them. Lock it with the `KEVINOS_TOKEN` secret (`GETTING_STARTED.md` Part 3.5) — an unlocked relay is open to anyone with the URL. The relay-only deep reference is `relay/RELAY_SETUP.md`.
-- `ROADMAP.md` — the phased build plan.
-- **`MISSION.md` — the current release's ground truth (marathon spec + ledger). Read this first if you're picking up the project**, then `HANDOFF.md` (deep history + architecture, with a v0.39 addendum).
+- `AGENTS.md` — the concise AI operating contract.
+- `docs/CURRENT_STATE.md` — the canonical live ledger and cold-resume point.
+- `docs/ARCHITECTURE.md`, `docs/STATE_CONTRACT.md`, and `docs/ROOM_MAP.md` — current structural contracts.
+- `docs/ADOPTION_SOAK.md` — the 30-day local daily-driver scorecard and prune-first review.
+- `MISSION.md`, `HANDOFF.md`, and `ROADMAP.md` — retained historical evidence; their banners point to the canonical current docs.

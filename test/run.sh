@@ -4,6 +4,9 @@
 set -e
 cd "$(dirname "$0")/.."
 
+echo "── repository doctor ──────────────────────────"
+node tools/doctor.js
+
 echo "── static checks ──────────────────────────────"
 awk '/<script>/{flag=1;next}/<\/script>/{flag=0}flag' index.html > /tmp/kevinos-index-script.js
 node --check /tmp/kevinos-index-script.js
@@ -24,6 +27,8 @@ echo "es5 clean"
 
 echo "── app suites ─────────────────────────────────"
 node test/app-logic.test.js
+node test/ui-contract.test.js
+node test/xss-corpus.test.js
 node test/capture.test.js
 node test/merge.test.js
 node test/portable.test.js
@@ -38,6 +43,7 @@ node relay/test/sync-push.test.js
 node relay/test/lane-pins.test.js
 node relay/test/length-control.test.js
 node relay/test/inbox-intelligence.test.js
+node relay/test/security-boundaries.test.js
 
 echo "───────────────────────────────────────────────"
 echo "ALL GREEN ✓"

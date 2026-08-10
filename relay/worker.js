@@ -46,8 +46,54 @@ function cors(origin) {
 function json(data, status, origin) {
   return new Response(JSON.stringify(data), {
     status: status || 200,
-    headers: { "Content-Type": "application/json", ...cors(origin) },
+    headers: { "Content-Type": "application/json", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store", ...cors(origin) },
   });
+}
+function oauthHtmlHeaders() {
+  return { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store" };
+}
+
+// Enforce route-class body limits before any provider, KV, or D1 work. The
+// original request body is a one-shot stream, so successful reads are rebuilt
+// into an equivalent request for the existing route handlers.
+const BODY_LIMITS = { small: 64 * 1024, ai: 256 * 1024, mail: 512 * 1024, sync: 4.5 * 1024 * 1024, extract: 8 * 1024 * 1024 };
+function bodyClass(path) {
+  if (path === "/sync/push") return "sync";
+  if (path === "/extract") return "extract";
+  if (path.startsWith("/google/") || path.startsWith("/calendar/") || path === "/people/enrich" || path === "/spend/scan" || path === "/sheets/digest" || path === "/swim/scan" || path === "/push/sync") return "mail";
+  if (AI_ROUTES[path]) return "ai";
+  return "small";
+}
+function bodyLimit(path) { return BODY_LIMITS[bodyClass(path)] || BODY_LIMITS.small; }
+async function boundedRequest(request, path, origin) {
+  if (request.method !== "POST" && request.method !== "PUT" && request.method !== "PATCH") return { request };
+  const limit = bodyLimit(path), declared = Number(request.headers.get("content-length") || 0);
+  if (declared > limit) return { response: json({ ok: false, error: "Request body too large", code: "body_too_large", limit }, 413, origin) };
+  const text = await request.text();
+  if (new TextEncoder().encode(text).byteLength > limit) return { response: json({ ok: false, error: "Request body too large", code: "body_too_large", limit }, 413, origin) };
+  return { request: new Request(request.url, { method: request.method, headers: request.headers, body: text, redirect: request.redirect }) };
+}
+function requestId() {
+  try { return crypto.randomUUID().replace(/-/g, "").slice(0, 12); }
+  catch (e) { return Math.random().toString(36).slice(2, 14); }
+}
+function randomNonce() {
+  const bytes = new Uint8Array(24);crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function createOauthFlow(env, provider, session, redirectUri) {
+  if (!env.PUSH || !/^[a-z0-9_-]{6,80}$/i.test(session)) return null;
+  const nonce = randomNonce();
+  await env.PUSH.put("oauth:" + provider + ":" + nonce, JSON.stringify({ session, redirectUri, createdAt: Date.now() }), { expirationTtl: 600 });
+  return nonce;
+}
+async function takeOauthFlow(env, provider, nonce) {
+  if (!env.PUSH || !/^[a-f0-9]{48}$/.test(nonce || "")) return null;
+  const key = "oauth:" + provider + ":" + nonce, raw = await env.PUSH.get(key);
+  await env.PUSH.delete(key); // single-use even when parsing or exchange fails
+  let flow = null;try { flow = raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  if (!flow || !flow.session || !flow.createdAt || Date.now() - flow.createdAt > 600000) return null;
+  return flow;
 }
 
 // Response-length control (item 67): a per-ask "length" of brief/deep swaps
@@ -61,6 +107,13 @@ function lengthEnv(env, length) {
 
 function maxTokens(env) {
   return Number(env.MAX_TOKENS) || DEFAULTS.maxTokens;
+}
+function providerModel(env, provider) {
+  return provider === "gemini" ? (env.GEMINI_MODEL || DEFAULTS.geminiModel) : (env.CLAUDE_MODEL || DEFAULTS.claudeModel);
+}
+function safeFailure(e, fallback) {
+  const m = String((e && e.message) || "").toLowerCase();
+  return m.includes("timed out") ? "Provider timed out. Try again." : fallback;
 }
 
 function relayToken(env) {
@@ -362,7 +415,7 @@ async function synthesize(env, prompt, answered) {
     const text = await withTimeout(ch.run(system, body), DEFAULTS.seatTimeoutMs, "synthesis");
     return { ok: true, provider: ch.provider, text };
   } catch (e) {
-    return { ok: false, provider: ch.provider, error: (e && e.message) || "synthesis failed" };
+    return { ok: false, provider: ch.provider, error: safeFailure(e, "Synthesis failed.") };
   }
 }
 
@@ -375,7 +428,7 @@ async function runSeat(seat, system, prompt) {
     const text = await withTimeout(seat.run(seatSystem, prompt), DEFAULTS.seatTimeoutMs, seat.label);
     return { ...base, ok: !!text, text: text || "", ms: Date.now() - t0, error: text ? "" : "Empty response" };
   } catch (err) {
-    return { ...base, ok: false, text: "", ms: Date.now() - t0, error: (err && err.message) || "failed" };
+    return { ...base, ok: false, text: "", ms: Date.now() - t0, error: safeFailure(err, "Provider request failed.") };
   }
 }
 
@@ -412,7 +465,7 @@ function streamCouncil(env, seats, system, prompt, wantSynth, origin, cacheKey) 
           try { await env.PUSH.put(cacheKey, transcript, { expirationTtl: 86400 }); } catch (e2) { /* cache is best-effort */ }
         }
       } catch (e) {
-        send({ type: "error", error: (e && e.message) || "stream failed" });
+        send({ type: "error", error: safeFailure(e, "Council stream failed.") });
       } finally {
         controller.close();
       }
@@ -540,10 +593,37 @@ function titleFromUrl(u) {
   }
 }
 
+function publicHttpUrl(raw) {
+  let u;try { u = new URL((raw || "").toString()); } catch (e) { return null; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+  if (u.username || u.password) return null;
+  if (u.port && u.port !== "80" && u.port !== "443") return null;
+  const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!h || h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return null;
+  if (h === "::1" || h === "::" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe8") || h.startsWith("fe9") || h.startsWith("fea") || h.startsWith("feb")) return null;
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const a = m.slice(1).map(Number);if (a.some((n) => n > 255)) return null;
+    if (a[0] === 0 || a[0] === 10 || a[0] === 127 || a[0] >= 224 || (a[0] === 169 && a[1] === 254) || (a[0] === 172 && a[1] >= 16 && a[1] <= 31) || (a[0] === 192 && a[1] === 168) || (a[0] === 100 && a[1] >= 64 && a[1] <= 127)) return null;
+  }
+  return u;
+}
+
+async function fetchPublicPage(target) {
+  let current = publicHttpUrl(target);if (!current) throw new Error("unsafe-url");
+  for (let i = 0; i < 5; i++) {
+    const res = await fetch(current.href, { headers: { "User-Agent": "Mozilla/5.0 (KevinOS Link Stash)" }, redirect: "manual", signal: AbortSignal.timeout(10000) });
+    if (res.status < 300 || res.status >= 400) return res;
+    const loc = res.headers.get("location");if (!loc) return res;
+    const next = publicHttpUrl(new URL(loc, current).href);if (!next) throw new Error("unsafe-redirect");current = next;
+  }
+  throw new Error("too-many-redirects");
+}
+
 async function summarizePage(env, target) {
   let res;
   try {
-    res = await fetch(target, { headers: { "User-Agent": "Mozilla/5.0 (KevinOS Link Stash)" }, redirect: "follow", signal: AbortSignal.timeout(10000) });
+    res = await fetchPublicPage(target);
   } catch (e) {
     return { ok: false, error: "Couldn't reach that page", title: titleFromUrl(target) };
   }
@@ -884,7 +964,7 @@ function ghHtmlPage(msg) {
     "<div style='max-width:340px'><div style='font-size:42px;margin-bottom:12px'>🔗</div>" +
     "<h2 style='margin:0 0 8px;font-weight:600'>" + ghEsc(msg) + "</h2>" +
     "<p style='color:#6b6477;line-height:1.5'>You can close this tab and return to KevinOS — it’ll pick up automatically.</p></div></body>",
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+    { status: 200, headers: oauthHtmlHeaders() }
   );
 }
 
@@ -917,7 +997,7 @@ function gPage(msg) {
     "<div style='max-width:340px'><div style='font-size:42px;margin-bottom:12px'>✉️</div>" +
     "<h2 style='margin:0 0 8px;font-weight:600'>" + ghEsc(msg) + "</h2>" +
     "<p style='color:#6b6477;line-height:1.5'>You can close this tab and return to KevinOS — it’ll pick up automatically.</p></div></body>",
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+    { status: 200, headers: oauthHtmlHeaders() }
   );
 }
 async function gmailGetRec(env, session) {
@@ -1796,9 +1876,9 @@ async function handleRequest(request, env, origin) {
         if (!env.ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY not set on the relay" }, 500, origin);
         text = await withTimeout(callClaude(env, system, prompt), DEFAULTS.seatTimeoutMs, "Claude");
       }
-      return json({ text, provider }, 200, origin);
+      return json({ text, provider, model: providerModel(env, provider) }, 200, origin);
     } catch (err) {
-      return json({ error: (err && err.message) || "AI request failed" }, 502, origin);
+      return json({ error: safeFailure(err, "AI request failed.") }, 502, origin);
     }
   }
 
@@ -1812,7 +1892,7 @@ async function handleRequest(request, env, origin) {
       const events = await extractEvents(env, payload);
       return json({ ok: true, events }, 200, origin);
     } catch (e) {
-      return json({ error: (e && e.message) || "extract failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Event extraction failed.") }, 502, origin);
     }
   }
 
@@ -1825,7 +1905,7 @@ async function handleRequest(request, env, origin) {
       const tasks = await extractActions(env, payload);
       return json({ ok: true, tasks }, 200, origin);
     } catch (e) {
-      return json({ error: (e && e.message) || "actions failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Action proposal failed.") }, 502, origin);
     }
   }
 
@@ -1834,7 +1914,7 @@ async function handleRequest(request, env, origin) {
     let payload;
     try { payload = await request.json(); } catch (e) { return json({ error: "Invalid JSON body" }, 400, origin); }
     const target = (payload && payload.url || "").toString().trim();
-    if (!/^https?:\/\//i.test(target)) return json({ ok: false, error: "Not a valid URL", title: "" }, 200, origin);
+    if (!publicHttpUrl(target)) return json({ ok: false, error: "Use a public http:// or https:// URL", title: "" }, 200, origin);
     if (!env.GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set on the relay" }, 500, origin);
     try {
       const out = await summarizePage(env, target);
@@ -1863,7 +1943,7 @@ async function handleRequest(request, env, origin) {
       const out = await withTimeout(intakeStep(env, payload || {}), DEFAULTS.seatTimeoutMs, "intake");
       return json({ ok: true, q: out.q, facts: out.facts }, 200, origin);
     } catch (e) {
-      return json({ ok: false, error: (e && e.message) || "intake failed" }, 200, origin);
+      return json({ ok: false, error: safeFailure(e, "Profile proposal failed.") }, 200, origin);
     }
   }
 
@@ -1914,7 +1994,7 @@ async function handleRequest(request, env, origin) {
       }, env, 60);
       return json({ ok: res.status >= 200 && res.status < 300, status: res.status }, 200, origin);
     } catch (e) {
-      return json({ error: (e && e.message) || "push failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Push delivery failed.") }, 502, origin);
     }
   }
 
@@ -1923,11 +2003,14 @@ async function handleRequest(request, env, origin) {
     if (!env.GITHUB_CLIENT_ID) return ghHtmlPage("GitHub isn’t configured on the relay yet.");
     const session = url.searchParams.get("session") || "";
     if (!session) return ghHtmlPage("Missing session — start from KevinOS.");
+    const redirectUri = url.origin + "/github/callback";
+    const oauthState = await createOauthFlow(env, "github", session, redirectUri);
+    if (!oauthState) return ghHtmlPage("GitHub sign-in could not start safely. Check relay storage and try again.");
     const params = new URLSearchParams({
       client_id: env.GITHUB_CLIENT_ID,
-      redirect_uri: url.origin + "/github/callback",
+      redirect_uri: redirectUri,
       scope: "read:user repo",
-      state: session,
+      state: oauthState,
       allow_signup: "false",
     });
     return Response.redirect("https://github.com/login/oauth/authorize?" + params.toString(), 302);
@@ -1935,14 +2018,17 @@ async function handleRequest(request, env, origin) {
 
   // GitHub OAuth — callback: exchange the code for a token, store it under the session.
   if (request.method === "GET" && url.pathname === "/github/callback") {
-    const code = url.searchParams.get("code"), session = url.searchParams.get("state");
-    if (!code || !session) return ghHtmlPage("Authorization was cancelled or incomplete.");
+    const code = url.searchParams.get("code"), oauthState = url.searchParams.get("state");
+    if (!code || !oauthState) return ghHtmlPage("Authorization was cancelled or incomplete.");
     if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET || !env.PUSH) return ghHtmlPage("GitHub isn’t fully configured on the relay.");
+    const flow = await takeOauthFlow(env, "github", oauthState);
+    if (!flow) return ghHtmlPage("This GitHub sign-in attempt expired or was already used. Start again from KevinOS.");
+    const session = flow.session;
     try {
       const tr = await fetch("https://github.com/login/oauth/access_token", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": "kevinos-relay" },
-        body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: url.origin + "/github/callback" }),
+        body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: flow.redirectUri }),
       });
       const tok = await tr.json();
       if (!tok.access_token) return ghHtmlPage("GitHub didn’t return a token (" + ((tok.error_description || tok.error || "unknown") + "") + ").");
@@ -2208,7 +2294,7 @@ async function handleRequest(request, env, origin) {
     let messages;
     try { messages = await gmailInboxFull(env, acct, 10, "from:commitswimming.com newer_than:14d"); } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "swim scan failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Swim scan failed.") }, 502, origin);
     }
     await gmailPutRec(env, payload.session, rec);
     messages = messages.slice(0, 10);
@@ -2217,7 +2303,7 @@ async function handleRequest(request, env, origin) {
       const items = await withTimeout(swimDigest(env, messages), DEFAULTS.seatTimeoutMs, "swim digest");
       return json({ ok: true, items, scanned: messages.length }, 200, origin);
     } catch (e) {
-      return json({ ok: false, error: (e && e.message) || "swim digest failed" }, 200, origin);
+      return json({ ok: false, error: safeFailure(e, "Swim digest failed.") }, 200, origin);
     }
   }
 
@@ -2253,7 +2339,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, text }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ ok: false, error: (e && e.message) || "sheets digest failed" }, 200, origin);
+      return json({ ok: false, error: safeFailure(e, "Sheets digest failed.") }, 200, origin);
     }
   }
 
@@ -2264,28 +2350,34 @@ async function handleRequest(request, env, origin) {
     if (!env.GOOGLE_CLIENT_ID) return gPage("Email isn’t configured on the relay yet.");
     const session = url.searchParams.get("session") || "";
     if (!session) return gPage("Missing session — start from KevinOS.");
+    const redirectUri = url.origin + "/google/callback";
+    const oauthState = await createOauthFlow(env, "google", session, redirectUri);
+    if (!oauthState) return gPage("Google sign-in could not start safely. Check relay storage and try again.");
     const params = new URLSearchParams({
       client_id: env.GOOGLE_CLIENT_ID,
-      redirect_uri: url.origin + "/google/callback",
+      redirect_uri: redirectUri,
       response_type: "code",
       scope: GOOGLE_SCOPE,
       access_type: "offline",
       include_granted_scopes: "true",
       prompt: "consent select_account",
-      state: session,
+      state: oauthState,
     });
     return Response.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString(), 302);
   }
 
   // Email — OAuth callback: exchange the code, fetch the email, upsert the account.
   if (request.method === "GET" && url.pathname === "/google/callback") {
-    const code = url.searchParams.get("code"), session = url.searchParams.get("state");
-    if (!code || !session) return gPage("Authorization was cancelled or incomplete.");
+    const code = url.searchParams.get("code"), oauthState = url.searchParams.get("state");
+    if (!code || !oauthState) return gPage("Authorization was cancelled or incomplete.");
     if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.PUSH) return gPage("Email isn’t fully configured on the relay.");
+    const flow = await takeOauthFlow(env, "google", oauthState);
+    if (!flow) return gPage("This Google sign-in attempt expired or was already used. Start again from KevinOS.");
+    const session = flow.session;
     try {
       const tr = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: url.origin + "/google/callback", grant_type: "authorization_code" }),
+        body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: flow.redirectUri, grant_type: "authorization_code" }),
       });
       const tok = await tr.json();
       if (!tok.access_token) return gPage("Google didn’t return a token (" + ((tok.error_description || tok.error || "unknown") + "") + ").");
@@ -2336,7 +2428,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, unified: !!(payload && payload.all), accounts: rec.accounts.map((a) => a.email), messages }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "threads failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Inbox refresh failed.") }, 502, origin);
     }
   }
 
@@ -2433,7 +2525,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, account: acct.email, query, scanned: messages.length, candidates }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "Inbox scan failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Inbox scan failed.") }, 502, origin);
     }
   }
 
@@ -2536,7 +2628,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, account: acct.email, researched: messages.length, results }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "Inbox research failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Inbox research failed.") }, 502, origin);
     }
   }
 
@@ -2562,7 +2654,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, id: payload.id, labelIds: mj.labelIds || [] }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "modify failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Inbox change failed.") }, 502, origin);
     }
   }
 
@@ -2594,7 +2686,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, to: from, subject: /^re:/i.test(subject) ? subject : ("Re: " + subject), body: draft, threadId: mj.threadId, messageId: msgId }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "draft failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Draft generation failed.") }, 502, origin);
     }
   }
 
@@ -2643,7 +2735,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, id: sj.id }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "send failed" }, 502, origin);
+      return json({ error: safeFailure(e, "Email send failed.") }, 502, origin);
     }
   }
 
@@ -2724,7 +2816,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, calendars }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "Couldn't list your calendars." }, 502, origin);
+      return json({ error: safeFailure(e, "Couldn't list your calendars.") }, 502, origin);
     }
   }
 
@@ -2774,7 +2866,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, events, account: acct.email }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "Couldn't read your calendar." }, 502, origin);
+      return json({ error: safeFailure(e, "Couldn't read your calendar.") }, 502, origin);
     }
   }
 
@@ -2796,7 +2888,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, busy, slots }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "Couldn't read your calendar." }, 502, origin);
+      return json({ error: safeFailure(e, "Couldn't read your calendar.") }, 502, origin);
     }
   }
 
@@ -2864,7 +2956,7 @@ async function handleRequest(request, env, origin) {
       return json({ ok: true, id: data.id, htmlLink: data.htmlLink || "" }, 200, origin);
     } catch (e) {
       if (isReconnectError(e)) { try { await gmailPutRec(env, payload.session, rec); } catch (e2) { /* best-effort */ } return reconnectJson(e, origin); }
-      return json({ error: (e && e.message) || "Couldn't create the event." }, 502, origin);
+      return json({ error: safeFailure(e, "Couldn't create the event.") }, 502, origin);
     }
   }
 
@@ -2877,12 +2969,18 @@ export default {
     const origin = env.ALLOW_ORIGIN || "*";
     if (request.method === "OPTIONS") return new Response(null, { headers: cors(origin) });
     if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401, origin);
-    if (await aiRateLimited(request, env, new URL(request.url).pathname))
+    const path = new URL(request.url).pathname;
+    if (await aiRateLimited(request, env, path))
       return json({ ok: false, error: "Rate limit reached — this relay caps AI calls per hour. Try again soon." }, 429, origin);
     try {
+      const bounded = await boundedRequest(request, path, origin);
+      if (bounded.response) return bounded.response;
+      request = bounded.request;
       return await handleRequest(request, env, origin);
     } catch (e) {
-      return json({ ok: false, error: String((e && e.message) || e) }, 500, origin);
+      const id = requestId();
+      console.error("relay request " + id + " failed: " + String((e && e.message) || e).replace(/[\r\n]+/g, " ").slice(0, 500));
+      return json({ ok: false, error: "Relay request failed.", requestId: id }, 500, origin);
     }
   },
 

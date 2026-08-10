@@ -1,10 +1,22 @@
 # KevinOS Getting Started
 
-This is the end-to-end setup path for KevinOS: the static personal dashboard, the Cloudflare Worker relay, sync, reminders, OAuth, and AI features.
+Start with a useful day. Infrastructure is optional and comes after KevinOS has already helped.
 
-KevinOS is Kevin's personal life operating system. It is a local-first, installable PWA for tasks, calendar, notes, projects, GitHub, Gmail, Calendar, habits, goals, people, spend tracking, link stash, and a morning Launch sequence. The app works offline without an account. The relay adds AI, OAuth, push reminders, cross-device sync, and server-held tokens.
+KevinOS is Kevin's local-first personal operating system. It answers: **what deserves attention now, and what is the next physical action?** The app works offline without an account. The relay adds AI, OAuth, push reminders, cross-device sync, and server-held tokens.
 
-## What This Guide Sets Up
+## Your First Useful Day
+
+1. Open KevinOS. Choose **Restore my KevinOS**, **Start clean**, or the isolated **Explore demo** path.
+2. Name one real outcome and its first physical action.
+3. Add the next hard stop if one exists.
+4. Capture one loose thought to prove the Inbox path and its Undo.
+5. Export a backup, connect sync, or explicitly defer recovery. A visible reminder remains if you defer.
+
+The deterministic **NOW** card is immediately authoritative. AI may explain or challenge it, but cannot silently choose or change it. Demo content is clearly marked, isolated from normal state, and removable in one action.
+
+You can stop here. Everything below is operator setup for optional connected capabilities.
+
+## Optional Connected Setup
 
 By the end, you can:
 
@@ -21,8 +33,8 @@ What is already live for Kevin:
 
 - Static app: https://kevinbigham.github.io/kevinos/
 - Relay: https://kevinos-relay.kevinbigham.workers.dev
-- App version shown in the footer: `KevinOS v0.49`
-- Service worker cache: `kevinos-v0_47`
+- App version shown in the footer: `KevinOS v0.50`
+- Service worker cache: `kevinos-v0_50`
 - Persisted schema stamp: `state.v = 39`
 - Relay name: `kevinos-relay`
 - Relay entrypoint: `relay/worker.js`
@@ -172,7 +184,7 @@ Local CORS caveat:
 Checkpoint:
 
 - The page opens.
-- The footer shows the current version from the repo (`KevinOS v0.49` at the time of writing — match it to `index.html`'s footer).
+- The footer shows the current version from the repo (`KevinOS v0.50` at the time of writing — match it to `index.html`'s footer).
 - Local edits save in the browser.
 - No relay-dependent feature is expected to work until a relay URL is connected.
 

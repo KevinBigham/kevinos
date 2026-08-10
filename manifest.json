@@ -2,6 +2,7 @@
   "name": "KevinOS",
   "short_name": "KevinOS",
   "description": "Kevin's personal life operating system — tasks, calendar, notes, projects, all in one calm cockpit.",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

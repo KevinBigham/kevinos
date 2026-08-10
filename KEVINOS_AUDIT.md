@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This audit is retained as evidence, not as the current implementation plan. Read `AGENTS.md` and `docs/CURRENT_STATE.md` first.
+
 # KevinOS — The GOAT-Level Audit
 *Prepared 2026-07-10 · Audits repo snapshot at app v0.39 / SCHEMA_VERSION 39 / relay worker current*
 *Audience: every future AI collaborator (Claude, Codex, Gemini, ChatGPT, whoever's next). Read this before touching anything.*

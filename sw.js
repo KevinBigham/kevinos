@@ -1,5 +1,5 @@
 /* KevinOS service worker — offline shell, network-first so deploys stay fresh */
-var CACHE = "kevinos-v0_49";
+var CACHE = "kevinos-v0_50";
 var ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./icon-maskable-192.png", "./icon-maskable-512.png"];
 
 self.addEventListener("install", function (e) {
@@ -54,7 +54,10 @@ self.addEventListener("notificationclick", function (e) {
   var url = (e.notification.data && e.notification.data.url) || "./";
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (cs) {
-      var dest = new URL(url, self.registration.scope).href;
+      var scope = new URL(self.registration.scope);
+      var parsed;
+      try { parsed = new URL(url, self.registration.scope); } catch (err) { parsed = scope; }
+      var dest = parsed.origin === scope.origin ? parsed.href : scope.href;
       var home = new URL("./", self.registration.scope).href;
       for (var i = 0; i < cs.length; i++) {
         var c = cs[i];
@@ -63,7 +66,7 @@ self.addEventListener("notificationclick", function (e) {
         }
         if ("focus" in c) { c.focus(); return; }
       }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
+      if (self.clients.openWindow) return self.clients.openWindow(dest);
     })
   );
 });

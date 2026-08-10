@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This roadmap records shipped phases and older priorities. Read `AGENTS.md` and `docs/CURRENT_STATE.md` for the active mission.
+
 # KevinOS — Implementation Roadmap
 *The build plan for the soon-to-be-legendary life OS. Set 2026-06-22. Check boxes as we ship.*
 

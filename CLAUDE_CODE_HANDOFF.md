@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This model-specific handoff is not current. Read `AGENTS.md` and `docs/CURRENT_STATE.md` first.
+
 # KevinOS Claude Code Handoff Bible
 
 Use this as the first message to Claude Code / Fable5 when asking it to audit KevinOS, find inefficiencies, and safely improve the project.

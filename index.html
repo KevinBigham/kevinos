@@ -14,7 +14,7 @@
 <style>
   :root{
     --bg:#F6F2EA; --bg-deep:#ECE3D2; --surface:#FFFFFF; --surface-2:#F3EEF6;
-    --ink:#1E1A24; --ink-soft:#5A5266; --ink-faint:#8E869C; --line:#DED7E2;
+    --ink:#1E1A24; --ink-soft:#5A5266; --ink-faint:#6F687A; --line:#DED7E2;
     --accent:#4A2E78; --accent-soft:#E9E1F4; --gold:#C09A2B; --gold-soft:#F3E8C6; --clay:#9A7B1E; --clay-soft:#F2E7C6;
     --radius:14px; --shadow:0 1px 2px rgba(40,26,60,.05), 0 10px 30px rgba(40,26,60,.07);
     --on-accent:#fff; --gold-ink:#97781B; --warn-ink:#A07000; --crit-ink:#A43131;
@@ -29,7 +29,7 @@
   @media (prefers-color-scheme:dark){
     :root:not([data-theme=light]){
       --bg:#171420; --bg-deep:#100E17; --surface:#221D2E; --surface-2:#2A2439;
-      --ink:#EDE8F4; --ink-soft:#B6ADC6; --ink-faint:#837A96; --line:#3A3350;
+      --ink:#EDE8F4; --ink-soft:#B6ADC6; --ink-faint:#A99FBA; --line:#3A3350;
       --accent:#A98FD6; --accent-soft:#332A4C; --gold:#D4B04A; --gold-soft:#3A3113; --clay:#C9A93E; --clay-soft:#37301A;
       --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 30px rgba(0,0,0,.45);
       --on-accent:#14111C; --gold-ink:#D9B44A; --warn-ink:#D4A017; --crit-ink:#E07777;
@@ -38,7 +38,7 @@
   }
   :root[data-theme=dark]{
     --bg:#171420; --bg-deep:#100E17; --surface:#221D2E; --surface-2:#2A2439;
-    --ink:#EDE8F4; --ink-soft:#B6ADC6; --ink-faint:#837A96; --line:#3A3350;
+    --ink:#EDE8F4; --ink-soft:#B6ADC6; --ink-faint:#A99FBA; --line:#3A3350;
     --accent:#A98FD6; --accent-soft:#332A4C; --gold:#D4B04A; --gold-soft:#3A3113; --clay:#C9A93E; --clay-soft:#37301A;
     --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 30px rgba(0,0,0,.45);
     --on-accent:#14111C; --gold-ink:#D9B44A; --warn-ink:#D4A017; --crit-ink:#E07777;
@@ -53,7 +53,7 @@
   .nav-top{display:flex;align-items:center;justify-content:space-between}
   .wordmark{font-family:var(--font-display);font-size:17px;letter-spacing:.01em;color:var(--ink);font-weight:500}
   .wordmark .os{color:var(--gold)}
-  .tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .tabs,.primary-room-tabs{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
   .tab{position:relative;background:none;border:0;cursor:pointer;font-family:var(--font-ui);font-size:14.5px;color:var(--ink-faint);padding:6px 10px;border-radius:8px;transition:color .16s ease}
   .tab:hover{color:var(--ink-soft)}
   .tab.active{color:var(--ink);font-weight:600}
@@ -110,7 +110,11 @@
   .rows{display:flex;flex-direction:column;gap:2px}
   .row{display:flex;align-items:center;gap:13px;padding:11px 12px;border-radius:10px;transition:background .16s ease, opacity .25s ease}
   .row:hover{background:var(--surface-2)}
-  .check{flex:none;width:19px;height:19px;border-radius:50%;border:1.6px solid var(--ink-faint);background:transparent;cursor:pointer;padding:0;display:grid;place-items:center;transition:all .16s ease}
+  .check{flex:none;width:44px;height:44px;border-radius:50%;border:1.6px solid transparent;background:transparent;cursor:pointer;padding:0;display:grid;place-items:center;transition:all .16s ease}
+  .check::before{content:"";width:19px;height:19px;border-radius:50%;border:1.6px solid var(--ink-faint);position:absolute}
+  .check{position:relative}
+  .check svg{width:19px;height:19px;position:relative;z-index:1;border-radius:50%;padding:3px}
+  .check.done::before{background:var(--accent);border-color:var(--accent)}
   .check:hover{border-color:var(--accent)}
   .row-text{flex:1;font-size:15.5px;color:var(--ink);min-width:0;word-break:break-word;background:none;border:0;text-align:left;cursor:text;padding:0;font-family:var(--font-ui)}
   .dot{flex:none;width:8px;height:8px;border-radius:50%}
@@ -125,6 +129,19 @@
   .icon-btn.pinned{opacity:1;color:var(--accent)}
   .icon-btn.show{opacity:1}
   .icon-btn svg{width:16px;height:16px}
+  .task-wrap{border-radius:12px;position:relative}
+  .task-row{align-items:flex-start;gap:8px;padding:8px 4px}
+  .task-main{flex:1;min-width:0;padding:8px 0 6px}
+  .task-main .row-text{display:block;width:100%;line-height:1.35;word-break:normal;overflow-wrap:anywhere}
+  .task-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:6px;min-height:18px}
+  .task-meta .dot{width:7px;height:7px}
+  .task-meta .due-chip{font-weight:600}
+  .task-meta .due-chip.overdue{background:rgba(178,91,91,.14);color:var(--crit-ink);border-color:rgba(178,91,91,.25)}
+  .task-more{flex:none;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:22px;line-height:1;display:grid;place-items:center}
+  .task-more:hover,.task-more[aria-expanded=true]{background:var(--surface-2);color:var(--accent)}
+  .task-menu{display:flex;gap:6px;flex-wrap:wrap;margin:0 4px 10px 56px;padding:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
+  .task-menu button{min-height:44px;padding:8px 12px}
+  .task-menu .danger{color:var(--crit-ink)}
 
   .un-row{display:flex;align-items:center;gap:13px;padding:11px 12px;border-radius:10px;transition:background .16s ease}
   .un-row:hover{background:var(--surface-2)}
@@ -386,7 +403,10 @@
   .vc-mic:active{transform:scale(.94)}
   .vc-mic{position:fixed;right:18px;bottom:76px;width:52px;height:52px;border-radius:999px;background:var(--accent);color:var(--on-accent);border:none;box-shadow:var(--shadow);font-size:22px;z-index:81;cursor:pointer;transition:transform .14s ease,box-shadow .16s ease}
   .vc-mic:hover{transform:translateY(-1px)}
-  .vc-panel{position:fixed;left:16px;right:16px;bottom:140px;max-width:420px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;z-index:82}
+  .vc-panel{position:fixed;left:16px;right:16px;bottom:86px;max-width:520px;max-height:calc(100vh - 120px);overflow:auto;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;z-index:9001}
+  .capture-sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+  .capture-sheet-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .capture-sheet-tabs button{min-height:44px}
   .vc-text{width:100%;min-height:64px;margin-bottom:10px;font-family:var(--font-ui);font-size:15px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 13px;resize:vertical}
   .vc-text:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .vc-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
@@ -529,20 +549,71 @@
   .seat-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}
   .seat-dot.good{background:#3FA34D}.seat-dot.meh{background:#C09A2B}.seat-dot.bad{background:#B25B5B}
   .today-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
+  .now-card{background:linear-gradient(145deg,var(--surface),var(--accent-soft));border:1px solid rgba(74,46,120,.28);border-radius:18px;box-shadow:var(--shadow);padding:22px;margin-bottom:12px}
+  .now-eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:800;margin:0 0 8px}
+  .now-outcome{font-family:var(--font-display);font-size:28px;line-height:1.18;margin:0;color:var(--ink);overflow-wrap:anywhere}
+  .now-next{font-size:16px;color:var(--ink);margin:14px 0 0;padding:12px 14px;border-left:4px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0}
+  .now-next strong{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:3px}
+  .now-support{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .now-support>div{background:rgba(255,255,255,.45);border:1px solid var(--line);border-radius:11px;padding:10px 12px}
+  .now-label{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin-bottom:3px}
+  .now-risk{color:var(--crit-ink);font-weight:700}
+  .now-commitments{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+  .now-commitments li{display:flex;align-items:center;gap:8px;min-height:44px;padding:5px 0;border-top:1px solid var(--line)}
+  .now-commitments .commit-text{flex:1;min-width:0;overflow-wrap:anywhere}
+  .now-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .support-summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+  .onboard-overlay{position:fixed;inset:0;z-index:10001;background:var(--bg);display:none;overflow:auto;padding:24px}
+  .onboard-overlay.open{display:grid;place-items:center}
+  .onboard-card{width:min(620px,100%);background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:24px}
+  .onboard-card h1{font-family:var(--font-display);font-size:30px;line-height:1.2;margin:0 0 8px}
+  .onboard-paths{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
+  .onboard-path{min-height:120px;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:14px;padding:16px;color:var(--ink);cursor:pointer}
+  .onboard-path strong{display:block;font-size:16px;margin-bottom:5px}
+  .onboard-fields{display:grid;gap:12px;margin-top:18px}
+  .demo-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--gold-soft);border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-bottom:12px}
   .snap-list,.heat-list,.library-list,.ai-review-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
   .snap-row,.heat-row,.library-row,.ai-review-row{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
   .library-row-main,.ai-review-main{flex:1;min-width:180px}
   .library-title{font-weight:700;color:var(--ink)}
   .library-meta{font-size:12px;color:var(--ink-faint);margin-top:2px}
   .library-actions,.ai-review-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .ai-compose-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0}
+  .ai-mode{min-height:54px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-weight:700;cursor:pointer}
+  .ai-mode.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .ai-share{display:grid;gap:8px;margin:12px 0 18px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+  .ai-share label{display:flex;align-items:flex-start;gap:9px;font-size:14px;line-height:1.35}
+  .ai-share input{width:18px;height:18px;margin-top:1px;accent-color:var(--accent)}
+  .proposal-meta{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+  .proposal-meta span{font-size:11px;padding:3px 7px;border-radius:999px;background:var(--surface-2);color:var(--ink-soft)}
+  .proposal-body{width:100%;min-height:110px;margin:8px 0;resize:vertical}
+  .proposal-status{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft)}
   .bottom-nav{display:none}
+  .attic-groups{display:flex;flex-direction:column;gap:8px}
   .attic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px}
   .attic-btn{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:left;color:var(--ink);font-family:var(--font-ui);cursor:pointer}
   .attic-btn:hover{border-color:var(--ink-faint)}
 
   @media (max-width:560px){
+    button{min-width:44px;min-height:44px}
+    .linklike{padding:10px 8px;border-radius:8px}
+    a.btn-soft,.stash-actions a{display:inline-flex;align-items:center;min-height:44px;padding:0 10px}
     .wrap{padding:calc(24px + env(safe-area-inset-top)) 14px 88px}
+    .nav{margin-bottom:18px}
+    .nav-top{min-height:44px}
+    .primary-room-tabs{display:none}
+    .tabs{flex-wrap:nowrap;align-items:center}
+    .vc-mic{display:none}
+    .vc-panel{bottom:78px;left:10px;right:10px;max-height:calc(100vh - 100px)}
     .greeting{font-size:28px}
+    .now-card{padding:18px 16px}
+    .now-outcome{font-size:24px}
+    .now-support{grid-template-columns:1fr}
+    .onboard-overlay{padding:12px}
+    .onboard-card{padding:20px 16px}
+    .onboard-paths{grid-template-columns:1fr}
+    .onboard-path{min-height:86px}
+    .ai-compose-grid{grid-template-columns:repeat(2,1fr)}
     .header{padding:24px 20px}
     .cell{min-height:54px;padding:6px;border-radius:9px}
     .cell .dnum{font-size:12px}
@@ -552,13 +623,18 @@
     .un-when{width:84px}
     .sweep-q{font-size:24px}
     .link-grid{grid-template-columns:1fr 1fr}
-    .bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:9000;background:var(--nav-bg);border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -6px 22px rgba(40,26,60,.08)}
+    .bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:9000;background:var(--nav-bg);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -6px 22px rgba(40,26,60,.08)}
     .bottom-nav button{border:0;background:transparent;color:var(--ink-soft);font-size:12px;font-family:var(--font-ui);padding:8px 4px;border-radius:10px;min-height:44px;transition:background .08s ease,transform .08s ease}
     .bottom-nav button:active{background:var(--accent-soft);transform:scale(.95)}
     .bottom-nav button.active,.bottom-nav button:hover{background:var(--accent-soft);color:var(--accent);font-weight:700}
-    .bottom-nav .plus{font-size:20px;line-height:1}
+    .bottom-nav .plus{font-size:12px;line-height:1;background:var(--accent);color:var(--on-accent);font-weight:700}
+    .bottom-nav .plus:hover,.bottom-nav .plus:active{background:var(--accent);color:var(--on-accent)}
+    .task-row{padding-left:0;padding-right:0}
+    .task-menu{margin-left:0}
+    [data-focus-move]{min-width:44px;min-height:44px}
   }
-  @media (prefers-reduced-motion:reduce){.fade-up{animation:none;opacity:1;transform:none}*{transition:none !important}}
+  @media (pointer:coarse){button,a.btn-soft,.stash-actions a{min-width:44px;min-height:44px}}
+  @media (prefers-reduced-motion:reduce){.fade-up{opacity:1;transform:none}*,*:before,*:after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition:none !important;scroll-behavior:auto !important}}
 </style>
 </head>
 <body>
@@ -567,11 +643,7 @@
       <div class="nav-top">
         <div class="wordmark">Kevin<span class="os">OS</span></div>
         <div class="tabs">
-          <button class="tab active" type="button" data-room="today">Today</button>
-          <button class="tab" type="button" data-room="calendar">Calendar</button>
-          <button class="tab" type="button" data-room="tasks">Tasks</button>
-          <button class="tab" type="button" data-room="library">Library</button>
-          <button class="tab" type="button" data-room="attic">More</button>
+          <span class="primary-room-tabs" id="primaryRoomTabs"></span>
           <span id="offlineChip" class="health-chip error" hidden role="status"><i></i>Offline</span>
           <button class="cmdk-btn" type="button" id="cmdkBtn">⌘K</button>
         </div>
@@ -759,12 +831,14 @@
 
     <!-- STUDIO -->
     <div class="room" id="room-studio">
-      <div class="sec-head"><p class="section-label">New build</p></div>
+      <div class="sec-head"><p class="section-label">AI Mission Control</p></div>
+      <p class="hint">Bounded missions with a human-readable outcome, proof, and resumable handoff.</p>
       <div class="add-row">
-        <input id="buildInput" class="capture-input" type="text" placeholder="Name a build or project" autocomplete="off" aria-label="New build" />
-        <button id="buildAddBtn" class="add-btn" type="button">Add</button>
+        <input id="buildInput" class="capture-input" type="text" placeholder="Mission outcome" autocomplete="off" aria-label="New mission" />
+        <button id="buildAddBtn" class="add-btn" type="button">Add mission</button>
       </div>
       <hr class="surface-line" />
+      <div class="filter-row" id="buildFilters" aria-label="Mission filter"></div>
       <div id="buildList"></div>
     </div>
 
@@ -816,7 +890,7 @@
 
     <div class="room" id="room-attic">
       <div class="sec-head"><p class="section-label">More</p></div>
-      <div class="attic-grid" id="atticGrid"></div>
+      <div class="attic-groups" id="atticGrid"></div>
       <hr class="surface-line" />
       <div id="roomHeatCard"></div>
     </div>
@@ -874,22 +948,20 @@
         <div class="cmdk-list" id="cmdkList"></div>
       </div>
     </div>
-    <button id="vcMic" class="vc-mic" type="button" aria-label="Voice capture">🎙️</button>
+    <button id="vcMic" class="vc-mic" type="button" aria-label="Open capture">+</button>
     <div id="vcPanel"></div>
 
     <footer class="foot fade-up d4">
       <div class="status" id="storageStatus"><span class="dot-live"></span>Connecting storage…</div>
-      <div class="storage-stats" id="storageStats"></div>
-      <div style="margin-top:6px"><button class="linklike" type="button" id="themeToggle" aria-label="Switch theme">Theme: Auto</button></div>
-      <div id="snapshotPanel"></div>
       <div class="foot-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn-soft" id="backupBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>Export backup</button>
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
+        <button class="btn-soft" type="button" id="themeToggle" aria-label="Switch theme">Theme: Auto</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
       </div>
       <div id="importConfirm"></div>
-      <div class="sync-row" id="syncRow" style="margin-top:14px"></div>
-      <div style="margin-top:10px"><span id="appVersion">KevinOS v0.49</span> · Life intake & whole-life Launch · Morning Launch Sequence · Goals & Weekly Check-In · Spend Pulse · People Radar · Link Stash + AI TL;DR · One-Tap Send · Habits & Streaks · Google Calendar Room · Voice Quick-Capture · ⌘K Command Palette · Daily + Next + Workspace + GitHub + Email · Council (live streaming + lanes + save-to-Notes) · phone reminders (morning brief + task-due push + habit nudges + people nudges) · GitHub sign-in via OAuth (token off-device) · cross-device sync (one dataset on every device) · AI calendar capture (photo/PDF/text → reviewed events) · Email Command Center (tone presets, confirmed sends, multi-account Gmail, AI-drafted replies you approve & send) · Inbox Intelligence (free-form inbox research + relationship-aware 3-way reply drafts) · unified inbox (every connected Gmail account merged into one stream) · smart inbox (Needs you / FYI / Noise — real mail floats up, marketing collapses) · triage actions (archive or snooze any message right from the cockpit) · overnight auto-drafts (the relay pre-writes replies to your real unread mail; wake up to ready-to-send drafts) · Council → action (turn a verdict into reviewed tasks) · Proactive Brief (the relay writes your morning brief fresh at 8am from synced tasks, events + a live inbox peek — smart even when the app is closed) · Weekly Review (a Sunday-evening “here’s your week ahead” brief, written fresh even when the app is closed), recurring tasks, share-capture, wind-down, offline-first.</div>
+      <details class="hint" style="margin-top:12px"><summary>Storage, snapshots & sync</summary><div class="storage-stats" id="storageStats"></div><div id="snapshotPanel"></div><div class="sync-row" id="syncRow" style="margin-top:14px"></div><p>Corruption-blocked boot, verified portable backups, snapshots, tombstones, and lossless revisioned sync.</p></details>
+      <div style="margin-top:10px"><span id="appVersion">KevinOS v0.50</span> · Local-first · Connections never travel in backups.</div>
     </footer>
   </main>
 
@@ -905,11 +977,14 @@
     <div class="sweep-inner" id="intakeInner"></div>
   </div>
 
+  <div class="onboard-overlay" id="onboardOverlay" role="dialog" aria-modal="true" aria-label="First useful day">
+    <div class="onboard-card" id="onboardCard"></div>
+  </div>
+  <div class="onboard-overlay" id="aiComposeOverlay" role="dialog" aria-modal="true" aria-label="Prepare an AI proposal">
+    <div class="onboard-card" id="aiComposeCard"></div>
+  </div>
+
   <nav class="bottom-nav" id="bottomNav" aria-label="Primary mobile navigation">
-    <button type="button" data-bottom-room="today" class="active">Today</button>
-    <button type="button" data-bottom-capture="1" class="plus" aria-label="Capture">+</button>
-    <button type="button" data-bottom-room="calendar">Calendar</button>
-    <button type="button" data-bottom-room="attic">More</button>
   </nav>
 
 <script>
@@ -962,7 +1037,7 @@
   var STORE_KEY="kevinos:v1";
   // Release checklist (three-bump rule, see README): APP_VERSION here + the
   // footer it stamps, CACHE in sw.js, and SCHEMA_VERSION only on shape change.
-  var APP_VERSION="0.49";
+  var APP_VERSION="0.50";
   var SCHEMA_VERSION=39;
   function makeStore(){
     if(typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function"){
@@ -1010,25 +1085,31 @@
     {type:"area",area:"Inbox",q:"Anything else.",prompt:"Whatever's still rattling around — random, big, small. Get it out of your head."},
     {type:"review"}
   ];
-  var COMMANDS=[
-    {id:"room-today",label:"Today",kind:"room",icon:"☀",keywords:"today home launch morning plan dashboard start",run:function(){go("today");}},
-    {id:"room-next",label:"Council & Briefs",kind:"room",icon:"▸",keywords:"next council briefs agenda brief focus",run:function(){go("next");}},
-    {id:"room-tasks",label:"Tasks",kind:"room",icon:"✓",keywords:"tasks todo list capture",run:function(){go("tasks");}},
-    {id:"room-calendar",label:"Calendar",kind:"room",icon:"□",keywords:"calendar events schedule agenda",run:function(){go("calendar");}},
-    {id:"room-library",label:"Library",kind:"room",icon:"☰",keywords:"library briefs prompts notes links stash reference",run:function(){go("library");}},
-    {id:"room-attic",label:"More",kind:"room",icon:"…",keywords:"more attic settings rooms workspace",run:function(){go("attic");}},
-    {id:"room-habits",label:"Habits",kind:"room",icon:"🔥",keywords:"habits streak routines daily chain",run:function(){go("habits");}},
-    {id:"room-goals",label:"Goals",kind:"room",icon:"◎",keywords:"goals quarterly check in progress",run:function(){go("goals");}},
-    {id:"room-projects",label:"Projects",kind:"room",icon:"◇",keywords:"projects plans areas",run:function(){go("projects");}},
-    {id:"room-studio",label:"Studio",kind:"room",icon:"◆",keywords:"studio builds projects making",run:function(){go("studio");}},
-    {id:"room-briefs",label:"Briefs",kind:"room",icon:"☰",keywords:"briefs sops docs reference",run:function(){go("briefs");}},
-    {id:"room-prompts",label:"Prompts",kind:"room",icon:"?",keywords:"prompts ai snippets council",run:function(){go("prompts");}},
-    {id:"room-launchpad",label:"Launchpad",kind:"room",icon:"↗",keywords:"launchpad links bookmarks stash",run:function(){go("launchpad");}},
-    {id:"room-notes",label:"Notes",kind:"room",icon:"✎",keywords:"notes para resource archive",run:function(){go("notes");}},
-    {id:"room-stash",label:"Stash",kind:"room",icon:"▤",keywords:"stash links read later summarize tldr tags",run:function(){go("stash");}},
-    {id:"room-people",label:"People",kind:"room",icon:"◎",keywords:"people radar contacts crm relationships follow up cadence",run:function(){go("people");}},
-    {id:"room-github",label:"GitHub",kind:"room",icon:"⌁",keywords:"github commits streak repos",run:function(){go("github");}},
-    {id:"room-email",label:"Email",kind:"room",icon:"✉",keywords:"email gmail inbox mail",run:function(){go("email");}},
+  var ROOM_DEFS=[
+    {id:"today",label:"Today",icon:"☀",group:"Primary",keywords:"today home launch morning plan dashboard start",renderer:renderToday,primary:1,mobile:1,legacyAliases:["home","launch"]},
+    {id:"calendar",label:"Calendar",icon:"□",group:"Primary",keywords:"calendar events schedule agenda hard stop",renderer:renderCalendar,primary:2,mobile:4,legacyAliases:[]},
+    {id:"tasks",label:"Tasks",icon:"✓",group:"Primary",keywords:"tasks todo list capture commitments",renderer:renderTasks,primary:3,mobile:2,legacyAliases:[]},
+    {id:"library",label:"Library",icon:"☰",group:"Reference",keywords:"library briefs prompts notes links stash reference",renderer:renderLibrary,primary:4,mobile:0,legacyAliases:[],inMore:true},
+    {id:"attic",label:"More",icon:"…",group:"System",keywords:"more attic settings rooms workspace",renderer:renderAttic,primary:5,mobile:5,legacyAliases:[]},
+    {id:"next",label:"Plan & Review",icon:"▸",group:"Plan",keywords:"next council briefs agenda review focus close",renderer:renderNext,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"projects",label:"Projects",icon:"◇",group:"Plan",keywords:"projects plans areas outcomes",renderer:renderProjects,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"goals",label:"Goals",icon:"◎",group:"Plan",keywords:"goals quarterly check in progress",renderer:renderGoals,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"habits",label:"Habits",icon:"🔥",group:"Plan",keywords:"habits streak routines daily chain",renderer:renderHabits,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"studio",label:"Studio",icon:"◆",group:"Work",keywords:"studio ai mission control builds projects making",renderer:renderBuilds,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"people",label:"People",icon:"◎",group:"Work",keywords:"people radar contacts crm relationships follow up cadence",renderer:renderPeople,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"email",label:"Email",icon:"✉",group:"Work",keywords:"email gmail inbox mail",renderer:renderEmail,primary:0,mobile:0,legacyAliases:[],inMore:true,onEnter:"email"},
+    {id:"github",label:"GitHub",icon:"⌁",group:"Work",keywords:"github commits streak repos",renderer:renderGithub,primary:0,mobile:0,legacyAliases:[],inMore:true,onEnter:"github"},
+    {id:"briefs",label:"Briefs",icon:"☰",group:"Reference",keywords:"briefs sops docs reference",renderer:renderBriefs,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"prompts",label:"Prompts",icon:"?",group:"Reference",keywords:"prompts ai snippets council",renderer:renderPrompts,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"launchpad",label:"Launchpad",icon:"↗",group:"Reference",keywords:"launchpad links bookmarks stash",renderer:renderLinks,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"notes",label:"Notes",icon:"✎",group:"Reference",keywords:"notes para resource archive",renderer:renderNotes,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"stash",label:"Stash",icon:"▤",group:"Reference",keywords:"stash links read later summarize tldr tags",renderer:renderStash,primary:0,mobile:0,legacyAliases:[],inMore:true},
+    {id:"home",label:"Legacy Home",icon:"",group:"Legacy",keywords:"",renderer:renderHome,primary:0,mobile:0,legacyAliases:[],canonical:"today",hidden:true},
+    {id:"launch",label:"Legacy Launch",icon:"",group:"Legacy",keywords:"",renderer:renderLaunch,primary:0,mobile:0,legacyAliases:[],canonical:"today",hidden:true}
+  ];
+  function roomDef(id){for(var i=0;i<ROOM_DEFS.length;i++)if(ROOM_DEFS[i].id===id)return ROOM_DEFS[i];return null;}
+  function roomCommands(){var out=[];ROOM_DEFS.forEach(function(d){if(d.hidden)return;out.push({id:"room-"+d.id,label:d.label,kind:"room",icon:d.icon,keywords:d.keywords,run:(function(r){return function(){go(r);};})(d.id)});});return out;}
+  var COMMANDS=roomCommands().concat([
     {id:"act-new-task",label:"New task",kind:"action",icon:"+",keywords:"add task capture todo",run:function(){go("tasks");var i=$("taskInput");if(i)i.focus();}},
     {id:"act-email",label:"Email",kind:"action",icon:"✉",keywords:"open email gmail inbox",run:function(){go("email");}},
     {id:"act-refresh-inbox",label:"Refresh inbox",kind:"action",icon:"↻",keywords:"refresh email gmail inbox reload",run:function(){go("email");if(typeof loadThreads==="function")loadThreads(true);}},
@@ -1036,7 +1117,7 @@
     {id:"act-generate-brief",label:"Generate brief",kind:"action",icon:"☀",keywords:"generate brief morning next ai",run:function(){go("next");if(typeof generateBrief==="function")generateBrief(true);}},
     {id:"act-generate-weekly",label:"Generate weekly review",kind:"action",icon:"↺",keywords:"generate weekly review week ai",run:function(){go("next");if(typeof generateWeekly==="function")generateWeekly(true);}},
     {id:"act-refresh-github",label:"Refresh GitHub",kind:"action",icon:"⌁",keywords:"refresh github repos commits streak",run:function(){go("github");if(typeof ghSync==="function")ghSync(true);}}
-  ];
+  ]);
 
   // THE canonical entity lists (audit F6). CONTENT_ARRAYS is the single
   // source for the 17 synced/portable content arrays — consumed by
@@ -1074,11 +1155,13 @@
   var ghMem={cache:null,fetchedAt:0}, sheetsMem={at:0,text:""}, swimMem={at:0,items:[]};
   var room="today", filter="All", selectedArea="Inbox", taskArea="Inbox", evArea="Inbox";
   var paletteOpen=false, paletteSel=0, paletteResults=[];
-  var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null;
+  var taskFilter="All", taskView="due", taskDoneOpen=false, editingId=null, taskMenuId="";
   var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={}, briefBusy=false, launchBusy=false, weeklyBusy=false, spendBusy=false, spendEditId="";
-  var vcOpen=false, vcState="idle", vcTranscript="", vcInterim="", vcRec=null, vcSupported=false, vcUndo=null, vcUndoT=0;
+  var vcOpen=false, vcState="idle", vcTranscript="", vcInterim="", vcRec=null, vcSupported=false, vcUndo=null, vcUndoT=0, captureMode="quick",vcReturnFocus=null;
+  var onboardOpen=false,onboardStep=0,onboardOutcome="",onboardAction="",onboardHardStop="",onboardCaptureId="",demoMode=false;
+  var aiCompose={open:false,kind:"",id:"",mode:"Draft",sharing:{profile:false,personEmail:false,personNotes:false,email:false,calendar:false,calendarDetails:false,history:false,library:false}},aiReturnFocus=null,aiReturnFocusSelector="";
   var projFilter="All", projView="status", editingProjId=null;
-  var editingBuildId=null;
+  var editingBuildId=null,missionFilter="All",missionAgentFilter="All",missionRoleFilter="All";
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
   var editingLinkId=null;
   var projAddArea="Inbox", briefAddKind="Brief", linkAddGroup="Studio";
@@ -1109,6 +1192,7 @@
   function touch(it){if(it){it.u=Date.now();invalidateDayCache();}}
   function bury(id){if(id!=null){state.deleted[String(id)]=Date.now();invalidateDayCache();}}
   function cloneJSON(x){return JSON.parse(JSON.stringify(x));}
+  function openExternal(url){try{var w=window.open(url,"_blank","noopener,noreferrer");if(w)w.opener=null;return !!w;}catch(e){return false;}}
   function clearEditingState(){editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;editingGoalId="";editingPersonId="";spendEditId="";}
   function portableDoc(src){
     src=src||{};
@@ -1353,28 +1437,38 @@
 
   function makeTaskRow(item,opts){
     opts=opts||{};
-    var row=document.createElement("div");row.className="row";
-    var check=document.createElement("button");check.className="check";check.type="button";
+    var wrap=document.createElement("div");wrap.className="task-wrap";
+    var row=document.createElement("div");row.className="row task-row";
+    var check=document.createElement("button");check.className="check"+(item.done?" done":"");check.type="button";
     check.setAttribute("aria-label",item.done?"Mark as not done":"Mark done");
     check.dataset.action="done";check.dataset.id=item.id;check.innerHTML=checkIcon();
-    if(item.done){check.style.background="var(--accent)";check.style.borderColor="var(--accent)";check.querySelector("svg").style.opacity=1;}
     row.appendChild(check);
+    var main=document.createElement("div");main.className="task-main";
     var text=document.createElement(opts.editable?"button":"span");
     text.className="row-text";text.textContent=item.text;
     if(opts.editable){text.type="button";text.dataset.action="edit";text.dataset.id=item.id;text.setAttribute("aria-label","Edit task");}
-    row.appendChild(text);
-    if(item.due&&!item.done){var dc=document.createElement("span");var tk=todayKey();dc.className="due-chip"+(item.due===tk?" today":(item.due<tk?" earlier":""));dc.textContent=dueLabel(item.due)+(item.dueTime?" "+fmtTime(item.dueTime):"");row.appendChild(dc);}
-    if(item.repeat&&!item.done){var rt=document.createElement("span");rt.className="rep-tag";rt.textContent="↻";rt.title="Repeats "+repeatLabel(item.repeat);row.appendChild(rt);}
-    var dot=document.createElement("span");dot.className="dot";dot.style.background=areaColor(item.area);row.appendChild(dot);
-    if(opts.areaTag){var tag=document.createElement("span");tag.className="area-tag";tag.textContent=item.area;row.appendChild(tag);}
-    if(item.projectId){var pr=findProject(item.projectId);if(pr){var pt=document.createElement("span");pt.className="proj-tag";pt.innerHTML='<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';var sp=document.createElement("span");sp.textContent=pr.title;pt.appendChild(sp);row.appendChild(pt);}}
-    if(item.personId){var pe=findPerson(item.personId);if(pe){var pp=document.createElement("span");pp.className="proj-tag";pp.innerHTML='<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>';var ps=document.createElement("span");ps.textContent=pe.name;pp.appendChild(ps);row.appendChild(pp);}}
-    if(opts.pin){var pin=document.createElement("button");pin.className="icon-btn"+(item.today?" pinned":"");pin.type="button";pin.dataset.action=item.today?"unpin":"pin";pin.dataset.id=item.id;pin.setAttribute("aria-label",item.today?"Unpin from today":"Pin to today");pin.innerHTML=pinSvg(item.today);row.appendChild(pin);}
-    var ai=document.createElement("button");ai.className="icon-btn show";ai.type="button";ai.setAttribute("aria-label","Draft with AI");ai.title="Draft with AI";ai.setAttribute("data-ai-kind","task");ai.setAttribute("data-ai-id",item.id);ai.textContent="AI";row.appendChild(ai);
-    var council=document.createElement("button");council.className="icon-btn show";council.type="button";council.setAttribute("aria-label","Send to Council");council.title="Send to Council";council.setAttribute("data-ai-kind","task");council.setAttribute("data-ai-id",item.id);council.setAttribute("data-ai-mode","council");council.textContent="Council";row.appendChild(council);
-    if(opts.restore){var u=document.createElement("button");u.className="icon-btn";u.type="button";u.dataset.action="done";u.dataset.id=item.id;u.setAttribute("aria-label","Restore");u.innerHTML=undoSvg();row.appendChild(u);}
-    if(opts.del){var d=document.createElement("button");d.className="icon-btn";d.type="button";d.dataset.action="delete";d.dataset.id=item.id;d.setAttribute("aria-label","Delete");d.innerHTML=delSvg();row.appendChild(d);}
-    return row;
+    main.appendChild(text);
+    var meta=document.createElement("div");meta.className="task-meta";
+    if(item.due&&!item.done){var dc=document.createElement("span");var tk=todayKey(),over=item.due<tk;dc.className="due-chip"+(item.due===tk?" today":(over?" overdue":""));dc.textContent=(over?"Overdue · ":"")+dueLabel(item.due)+(item.dueTime?" "+fmtTime(item.dueTime):"");meta.appendChild(dc);}
+    if(item.repeat&&!item.done){var rt=document.createElement("span");rt.className="rep-tag";rt.textContent="↻ "+repeatLabel(item.repeat);meta.appendChild(rt);}
+    var dot=document.createElement("span");dot.className="dot";dot.style.background=areaColor(item.area);meta.appendChild(dot);
+    if(opts.areaTag){var tag=document.createElement("span");tag.className="area-tag";tag.textContent=item.area;meta.appendChild(tag);}
+    if(item.projectId){var pr=findProject(item.projectId);if(pr){var pt=document.createElement("span");pt.className="proj-tag";pt.textContent=pr.title;meta.appendChild(pt);}}
+    if(item.personId){var pe=findPerson(item.personId);if(pe){var pp=document.createElement("span");pp.className="proj-tag";pp.textContent=pe.name;meta.appendChild(pp);}}
+    main.appendChild(meta);row.appendChild(main);
+    var more=document.createElement("button");more.className="task-more";more.type="button";more.dataset.action="menu";more.dataset.id=item.id;more.setAttribute("aria-label","More actions for "+item.text);more.setAttribute("aria-expanded",taskMenuId===item.id?"true":"false");more.textContent="⋯";row.appendChild(more);
+    wrap.appendChild(row);
+    if(taskMenuId===item.id){
+      var menu=document.createElement("div");menu.className="task-menu";menu.setAttribute("role","menu");
+      var mh="";
+      if(opts.pin)mh+='<button class="btn-soft" type="button" role="menuitem" data-action="'+(item.today?'unpin':'pin')+'" data-id="'+escapeHtml(item.id)+'">'+(item.today?'Remove from Today':'Pin to Today')+'</button>';
+      if(opts.editable)mh+='<button class="btn-soft" type="button" role="menuitem" data-action="edit" data-id="'+escapeHtml(item.id)+'">Edit</button>';
+      mh+='<button class="btn-soft" type="button" role="menuitem" data-ai-kind="task" data-ai-id="'+escapeHtml(item.id)+'">Draft with AI</button><button class="btn-soft" type="button" role="menuitem" data-ai-kind="task" data-ai-id="'+escapeHtml(item.id)+'" data-ai-mode="council">Send to Council</button>';
+      if(opts.restore)mh+='<button class="btn-soft" type="button" role="menuitem" data-action="done" data-id="'+escapeHtml(item.id)+'">Restore</button>';
+      if(opts.del)mh+='<button class="btn-soft danger" type="button" role="menuitem" data-action="delete" data-id="'+escapeHtml(item.id)+'">Delete</button>';
+      menu.innerHTML=mh;wrap.appendChild(menu);
+    }
+    return wrap;
   }
   function buildEditPanel(item){
     var p=document.createElement("div");p.className="edit-panel";
@@ -1462,7 +1556,9 @@
   }
   function handleTaskAction(e){
     var btn=e.target.closest("[data-action]");if(!btn)return;
-    var id=btn.dataset.id,act=btn.dataset.action,it=findItem(id);if(!it)return;
+    var id=btn.dataset.id,act=btn.dataset.action;
+    if(act==="menu"){taskMenuId=taskMenuId===id?"":id;renderTasks();return;}
+    var it=findItem(id);if(!it)return;taskMenuId="";
     if(act==="done"){it.done=!it.done;touch(it);if(it.done){var wasToday=it.today;it.today=false;var rolled=rollRecurring(it);if(editingId===id)editingId=null;armUndo({kind:"complete",id:id,today:wasToday,rolledId:rolled},"Done ✓");}}
     else if(act==="pin"){it.today=true;touch(it);}
     else if(act==="unpin"){it.today=false;touch(it);}
@@ -1962,8 +2058,9 @@
   }
   function maybeAutoWeekly(){if(room!=="today"||!relayOn()||weeklyBusy)return;if(state.weekly&&state.weekly.weekKey===weekStartKey(todayKey()))return;generateWeekly(false);}
   function vcDetect(){vcSupported=!!(window.SpeechRecognition||window.webkitSpeechRecognition);}
-  function vcOpenPanel(){vcOpen=true;vcState="idle";vcTranscript="";vcInterim="";renderVoiceCapture();if(vcSupported)vcStart();}
-  function vcClose(){vcStop();vcOpen=false;vcState="idle";renderVoiceCapture();}
+  function vcOpenPanel(trigger){vcReturnFocus=(trigger&&trigger.focus)?trigger:(document.activeElement&&document.activeElement!==document.body?document.activeElement:(document.querySelector("[data-bottom-capture]")||$("vcMic")));vcOpen=true;vcState="idle";captureMode="quick";vcTranscript="";vcInterim="";renderVoiceCapture();setTimeout(function(){var t=$("vcText");if(t)t.focus();},20);}
+  function vcRestoreFocus(){var r=vcReturnFocus;vcReturnFocus=null;setTimeout(function(){if(r&&r.isConnected&&r.focus)r.focus();},20);}
+  function vcClose(){vcStop();vcOpen=false;vcState="idle";renderVoiceCapture();vcRestoreFocus();}
   function vcStart(){
     var Rec=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!Rec){vcSupported=false;vcState="idle";renderVoiceCapture();return;}
@@ -2034,6 +2131,8 @@
   function vcSend(){
     var tx=$("vcText"),t=tx?(tx.value||""):vcTranscript;
     t=t.trim();if(!t)return;
+    if(captureMode==="event"&&!/^event:/i.test(t))t="event: "+t;
+    else if(captureMode==="note"&&!/^note:/i.test(t))t="note: "+t;
     vcStop();vcState="sending";renderVoiceCapture();
     var parsed=parseCaptureText(t);
     if(parsed&&parsed.ok){vcApply(parsed);return;}
@@ -2059,7 +2158,7 @@
       state.notes.unshift({id:id,title:(n.text||"Captured thought").toString(),para:"Resource",area:vcArea(n.area||"Inbox"),tags:"",body:"",createdAt:Date.now()});
       coll="notes";label="Note";
     }
-    vcUndo={coll:coll,id:id,label:label};save();vcOpen=false;vcState="idle";renderVoiceCapture();renderNext();renderHome();
+    vcUndo={coll:coll,id:id,label:label};save();vcOpen=false;vcState="idle";renderVoiceCapture();vcRestoreFocus();renderNext();renderHome();
     if(coll==="items")renderTasks();else if(coll==="events")renderCalendar();else renderNotes();
     vcToast(j.fallback?"Saved as task":(label+" added"),label);
   }
@@ -2081,18 +2180,22 @@
   function renderVoiceCapture(){
     var box=$("vcPanel");if(!box)return;
     if(!vcOpen){box.innerHTML="";return;}
-    var h='<div class="vc-panel">';
-    if(vcState==="listening")h+='<div class="vc-row"><span class="vc-dot"></span>🎙️ Listening…</div><div class="vc-live">'+escapeHtml(vcInterim||vcTranscript)+'</div><button class="btn-soft" type="button" data-vc="stop">Stop</button>';
+    var h='<div class="vc-panel" role="dialog" aria-modal="true" aria-label="Capture"><div class="capture-sheet-head"><strong>Capture</strong><button class="btn-soft" type="button" data-vc="cancel" aria-label="Close capture">Close</button></div><div class="capture-sheet-tabs" role="tablist"><button class="chip'+(captureMode==='quick'?' active':'')+'" type="button" data-capture-mode="quick">Quick text</button><button class="chip'+(captureMode==='voice'?' active':'')+'" type="button" data-capture-mode="voice">Voice</button><button class="chip'+(captureMode==='task'?' active':'')+'" type="button" data-capture-mode="task">Task</button><button class="chip'+(captureMode==='event'?' active':'')+'" type="button" data-capture-mode="event">Event</button><button class="chip'+(captureMode==='note'?' active':'')+'" type="button" data-capture-mode="note">Note / link</button>'+((relayHealth.caps&&relayHealth.caps.extract)?'<button class="chip" type="button" data-capture-extract="1">Photo / PDF</button>':'')+'</div>';
+    if(captureMode==="voice"&&vcState==="listening")h+='<div class="vc-row"><span class="vc-dot"></span>Listening…</div><div class="vc-live">'+escapeHtml(vcInterim||vcTranscript)+'</div><button class="btn-soft" type="button" data-vc="stop">Stop</button>';
+    else if(captureMode==="voice"&&vcState==="review")h+='<div class="vc-live">'+escapeHtml(vcTranscript)+'</div><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Save capture</button><button class="btn-soft" type="button" data-vc="voice">Try again</button></div>';
+    else if(captureMode==="voice")h+='<p class="hint">Speech stays in your browser until you save the result.</p><button class="add-btn" type="button" data-vc="voice">Start listening</button>';
     else if(vcState==="sending")h+='<div class="vc-row">Filing…</div>';
-    else if(vcState==="review")h+='<div class="vc-live">'+escapeHtml(vcTranscript)+'</div><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Send</button><button class="btn-soft" type="button" data-vc="cancel">Cancel</button></div>';
-    else h+='<textarea id="vcText" class="vc-text" placeholder="Type a quick thought…"></textarea><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Send</button><button class="btn-soft" type="button" data-vc="cancel">Cancel</button></div><p class="hint" style="margin-top:6px">#Area · @tomorrow · @3pm · +person · //project · ! pins · note: / event:</p>';
+    else h+='<textarea id="vcText" class="vc-text" placeholder="'+(captureMode==='task'?'What needs doing?':(captureMode==='event'?'What is the hard stop?':(captureMode==='note'?'Save a note or link…':'Type a quick thought…')))+'"></textarea><div class="vc-actions"><button class="add-btn" type="button" data-vc="send">Save '+(captureMode==='task'?'task':(captureMode==='event'?'event':(captureMode==='note'?'note':'capture')))+'</button></div><details class="hint" style="margin-top:10px"><summary>Power syntax</summary><div style="margin-top:6px">#Area · @tomorrow · @3pm · +person · //project · ! pins · note: / event:</div></details>';
     h+='</div>';box.innerHTML=h;
   }
   function handleVoiceClick(ev){
+    var mode=ev.target.closest("[data-capture-mode]");if(mode){captureMode=mode.getAttribute("data-capture-mode");vcState="idle";vcStop();renderVoiceCapture();setTimeout(function(){var t=$("vcText");if(t)t.focus();},20);return;}
+    if(ev.target.closest("[data-capture-extract]")){vcClose();go("calendar");var p=$("smartPanel");if(p)p.hidden=false;return;}
     var a=ev.target.closest("[data-vc]");if(!a)return;
     var act=a.getAttribute("data-vc");
     if(act==="stop"){vcStop();vcState=vcTranscript?"review":"idle";renderVoiceCapture();}
     else if(act==="send")vcSend();
+    else if(act==="voice"){vcTranscript="";vcInterim="";vcStart();}
     else if(act==="cancel")vcClose();
     else if(act==="undo")vcUndoLast();
   }
@@ -2179,7 +2282,7 @@
     state.items.unshift({id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});
     inp.value="";renderNext();renderHome();save();
   }
-  function relayBase(){var u=((state.relay&&state.relay.url)||"").trim();return u.replace(/\/+$/,"");}
+  function relayBase(){var u=safeHttpUrl((state.relay&&state.relay.url)||"");return u?u.replace(/\/+$/,""):"";}
   function relayOn(){return !!relayBase();}
   function relay401IsAccount(j){return !!(j&&(j.reconnect||j.error==="not connected"));}
   // THE relay fetch idiom (audit item 87): token header + 401 handling in
@@ -2220,7 +2323,7 @@
   }
   function saveRelayUrl(){
     var ri=$("relayUrl"),rt=$("relayToken");
-    if(ri){if(!state.relay)state.relay={url:"",token:""};state.relay.url=(ri.value||"").trim();state.relay.token=rt?(rt.value||"").trim():((state.relay&&state.relay.token)||"");relayAuthRejected=false;relayAuthToastShown=false;relayHealth={status:"unknown",checkedAt:0,caps:null,err:""};}
+    if(ri){var raw=(ri.value||"").trim(),safe=raw?safeHttpUrl(raw):"";if(raw&&!safe){toast("Relay URL must be http:// or https:// with no embedded credentials.");return;}if(!state.relay)state.relay={url:"",token:""};state.relay.url=safe?safe.replace(/\/+$/,""):"";state.relay.token=rt?(rt.value||"").trim():((state.relay&&state.relay.token)||"");relayAuthRejected=false;relayAuthToastShown=false;relayHealth={status:"unknown",checkedAt:0,caps:null,err:""};}
     var sels=document.querySelectorAll("[data-lanepin]"),pins={},i,id,v;
     for(i=0;i<sels.length;i++){id=sels[i].getAttribute("data-lanepin");v=sels[i].value||"";if(id&&laneKeyOk(v))pins[id]=v;}
     if(sels.length)state.lanePins=pins;
@@ -3098,7 +3201,7 @@
     if(!base){gcalError="Connect the relay first (Next → Connect AI).";renderCalendar();return;}
     emailCfg();if(!state.email.session)state.email.session=uid()+uid()+uid();
     calConnecting=true;gcalError="";save();
-    try{window.open(base+"/google/login?session="+encodeURIComponent(state.email.session),"_blank");}catch(e){}
+    openExternal(base+"/google/login?session="+encodeURIComponent(state.email.session));
     renderCalendar();calConnectPoll(0);
   }
   function calConnectPoll(n){
@@ -3513,18 +3616,19 @@
       var evs=j.events||[];
       if(!evs.length){renderSmartCap();toast("No events found in that.");return;}
       var now=Date.now();
-      evs.forEach(function(e){state.pending.push({id:uid(),title:e.title,date:e.date,time:e.start||null,allDay:!!e.allDay,end:e.end||"",location:e.location||"",notes:e.notes||"",area:"Inbox",source:"ai",createdAt:now});});
+      evs.forEach(function(e){state.pending.push({id:uid(),kind:"event",title:e.title,date:e.date,time:e.start||null,allDay:!!e.allDay,end:e.end||"",location:e.location||"",notes:e.notes||"",area:"Inbox",source:"ai",createdAt:now});});
       if($("smartText"))$("smartText").value="";smartFileData=null;if($("smartFileName"))$("smartFileName").textContent="";
       save();renderPending();renderSmartCap();toast("Found "+evs.length+" event"+(evs.length===1?"":"s")+" — review below.");
     }).catch(function(){smartBusy=false;renderSmartCap();toast("Couldn’t reach the relay.");});
   }
   function findPending(id){for(var i=0;i<state.pending.length;i++)if(state.pending[i].id===id)return state.pending[i];return null;}
+  function calendarPendings(){return state.pending.filter(function(p){return p&&(!p.kind||p.kind==="event");});}
   function pendAreaOpts(sel){var o="",i;for(i=0;i<AREAS.length;i++)o+='<option value="'+AREAS[i].key+'"'+(AREAS[i].key===sel?" selected":"")+">"+AREAS[i].key+"</option>";return o;}
   function renderPending(){
     var box=$("pendingList");if(!box)return;
-    if(!state.pending.length){box.innerHTML="";return;}
-    var h='<div style="margin-top:12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><p class="section-label">Proposed events · '+state.pending.length+'</p><div><button class="linklike" type="button" data-pend="allapprove">Approve all</button> &nbsp;<button class="linklike" type="button" data-pend="alldismiss" style="color:#B25B5B">Dismiss all</button></div></div>';
-    state.pending.forEach(function(p){
+    var rows=calendarPendings();if(!rows.length){box.innerHTML="";return;}
+    var h='<div style="margin-top:12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><p class="section-label">Proposed events · '+rows.length+'</p><div><button class="linklike" type="button" data-pend="allapprove">Approve all</button> &nbsp;<button class="linklike" type="button" data-pend="alldismiss" style="color:#B25B5B">Dismiss all</button></div></div>';
+    rows.forEach(function(p){
       h+='<div class="pend-card" data-pcard="'+escapeHtml(p.id)+'" style="border:1px solid rgba(91,59,140,.18);border-radius:12px;padding:10px;margin-bottom:8px">'+
         '<input class="inp" data-pf="title" value="'+escapeHtml(p.title)+'" style="font-weight:600;margin-bottom:6px;width:100%">'+
         '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
@@ -3555,11 +3659,11 @@
   }
   function dismissPending(id){bury(id);state.pending=state.pending.filter(function(x){return x.id!==id;});save();renderPending();}
   function approveAllPending(){
-    var ids=state.pending.map(function(p){return p.id;}),n=0;
-    ids.forEach(function(id){bury(id);var p=findPending(id);if(!p)return;var ed=readPendCard(id)||{};if(!(ed.title||p.title)||!(ed.date||p.date))return;state.events.push(pendToEvent(p,ed));n++;});
-    state.pending=[];save();renderCalendar();renderHome();toast("Added "+n+" event"+(n===1?"":"s")+" to your calendar.");
+    var ids=calendarPendings().map(function(p){return p.id;}),n=0,kill={};
+    ids.forEach(function(id){var p=findPending(id);if(!p)return;var ed=readPendCard(id)||{};if(!(ed.title||p.title)||!(ed.date||p.date))return;state.events.push(pendToEvent(p,ed));bury(id);kill[id]=1;n++;});
+    state.pending=state.pending.filter(function(p){return !kill[p.id];});save();renderCalendar();renderHome();toast("Added "+n+" event"+(n===1?"":"s")+" to your calendar.");
   }
-  function dismissAllPending(){state.pending.forEach(function(p){bury(p.id);});state.pending=[];save();renderPending();}
+  function dismissAllPending(){var rows=calendarPendings(),kill={};rows.forEach(function(p){bury(p.id);kill[p.id]=1;});state.pending=state.pending.filter(function(p){return !kill[p.id];});save();renderPending();}
   function handleSmartClick(e){
     if(e.target.closest("#smartToggle")){smartOpen=!smartOpen;renderSmartCap();return;}
     if(e.target.closest("#smartFileBtn")){$("smartFile").click();return;}
@@ -3896,7 +4000,8 @@
   function genFilterChips(boxId,opts,getSel,setSel,after){var box=$(boxId);if(!box)return;var all=[{key:"All",label:"All"}].concat(opts);optChips(box,all,getSel,function(k){setSel(k);genFilterChips(boxId,opts,getSel,setSel,after);if(after)after();});}
   function colorFor(arr,key){for(var i=0;i<arr.length;i++)if(arr[i].key===key)return arr[i].color||"var(--ink-soft)";return "var(--ink-soft)";}
   function sectionWith(parent,name,arr,cardFn,color){var sec=document.createElement("div");sec.className="bucket";sec.innerHTML='<p class="bucket-head">'+(color?'<span class="dot" style="display:inline-block;background:'+color+'"></span> ':'')+name+' <span class="bc">'+arr.length+'</span></p>';var list=document.createElement("div");list.className="elist";arr.forEach(function(it){list.appendChild(cardFn(it));});sec.appendChild(list);parent.appendChild(sec);}
-  function normalizeUrl(u){u=(u||"").trim();if(!u)return "";if(!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(u))u="https://"+u;return u;}
+  function safeHttpUrl(u){u=(u||"").toString().trim();if(!u)return "";try{var p=new URL(u);return (p.protocol==="http:"||p.protocol==="https:")&&!p.username&&!p.password?p.href:"";}catch(e){return "";}}
+  function normalizeUrl(u){u=(u||"").trim();if(!u)return "";if(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(u)&&!/^https?:/i.test(u))return "";if(!/^https?:\/\//i.test(u))u="https://"+u;return safeHttpUrl(u);}
   function copyText(t){try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t);}catch(e){}}
   function findBuild(id){for(var i=0;i<state.builds.length;i++)if(state.builds[i].id===id)return state.builds[i];return null;}
   function findBrief(id){for(var i=0;i<state.briefs.length;i++)if(state.briefs[i].id===id)return state.briefs[i];return null;}
@@ -3954,16 +4059,40 @@
   }
 
   /* ---------- STUDIO ---------- */
-  function addBuild(){var t=($("buildInput").value||"").trim();if(!t)return;state.builds.unshift({id:uid(),name:t,stage:"Idea",next:"",tests:"",notes:"",createdAt:Date.now()});$("buildInput").value="";renderBuilds();save();}
+  var AI_ROLES=[{key:"Architect"},{key:"Builder"},{key:"Verifier"},{key:"Release"},{key:"Auditor"},{key:"Writer"}];
+  var VERIFY_STATUS=[{key:"unverified",label:"Unverified"},{key:"manual",label:"Manually verified"},{key:"machine",label:"Machine verified"},{key:"blocked",label:"Blocked"}];
+  function addBuild(){var t=($("buildInput").value||"").trim();if(!t)return;state.builds.unshift({id:uid(),name:t,outcome:t,stage:"Idea",currentState:"Not started",next:"Define the first physical action",assignedAI:"",aiRole:"Builder",repo:"",branch:"",worktree:"",allowedScope:"",forbiddenFiles:"",acceptance:"",tests:"",verificationStatus:"unverified",evidence:"",commitRef:"",blockers:"",lastHandoff:"",notes:"",createdAt:Date.now()});$("buildInput").value="";renderBuilds();save();}
   function buildBuildEditor(b){
     var w=document.createElement("div");w.className="edit-panel";
     var f1=field("Name");f1.appendChild(inpEl("bName","text",b.name));w.appendChild(f1);
     var f2=field("Stage");f2.appendChild(selEl("bStage",BUILD_STAGES,b.stage));w.appendChild(f2);
-    var f3=field("Next action");f3.appendChild(inpEl("bNext","text",b.next||""));w.appendChild(f3);
-    var f4=field("Tests");f4.appendChild(inpEl("bTests","text",b.tests||""));w.appendChild(f4);
-    var f5=field("Notes");f5.appendChild(taEl("bNotes",b.notes||""));w.appendChild(f5);
+    var f3=field("Outcome");f3.appendChild(taEl("bOutcome",b.outcome||b.name||""));w.appendChild(f3);
+    var f4=field("Current state");f4.appendChild(inpEl("bCurrent","text",b.currentState||""));w.appendChild(f4);
+    var f5=field("Next physical action");f5.appendChild(inpEl("bNext","text",b.next||""));w.appendChild(f5);
+    var f6=field("Assigned AI");f6.appendChild(inpEl("bAI","text",b.assignedAI||""));w.appendChild(f6);
+    var f7=field("AI role");f7.appendChild(selEl("bRole",AI_ROLES,b.aiRole||"Builder"));w.appendChild(f7);
+    var f8=field("Repository / project");f8.appendChild(inpEl("bRepo","text",b.repo||""));w.appendChild(f8);
+    var f9=field("Branch");f9.appendChild(inpEl("bBranch","text",b.branch||""));w.appendChild(f9);
+    var f10=field("Worktree / local checkout");f10.appendChild(inpEl("bWorktree","text",b.worktree||""));w.appendChild(f10);
+    var f11=field("Allowed scope / files");f11.appendChild(taEl("bScope",b.allowedScope||""));w.appendChild(f11);
+    var f12=field("Forbidden files / actions");f12.appendChild(taEl("bForbidden",b.forbiddenFiles||""));w.appendChild(f12);
+    var f13=field("Acceptance criteria");f13.appendChild(taEl("bAcceptance",b.acceptance||""));w.appendChild(f13);
+    var f14=field("Verification commands");f14.appendChild(taEl("bTests",b.tests||""));w.appendChild(f14);
+    var f15=field("Verification status");f15.appendChild(selEl("bVerify",VERIFY_STATUS,b.verificationStatus||"unverified"));w.appendChild(f15);
+    var f16=field("Evidence / receipts");f16.appendChild(taEl("bEvidence",b.evidence||""));w.appendChild(f16);
+    var f17=field("Commit / checkpoint reference");f17.appendChild(inpEl("bCommit","text",b.commitRef||""));w.appendChild(f17);
+    var f18=field("Blockers");f18.appendChild(taEl("bBlockers",b.blockers||""));w.appendChild(f18);
+    var f19=field("Last handoff");f19.appendChild(taEl("bHandoff",b.lastHandoff||""));w.appendChild(f19);
+    var f20=field("Notes");f20.appendChild(taEl("bNotes",b.notes||""));w.appendChild(f20);
     w.appendChild(editActions("build",b.id));
     return w;
+  }
+  function missionVerified(b){return !!(b&&((b.verificationStatus==="manual"||b.verificationStatus==="machine")&&(b.evidence||"").trim()));}
+  function missionPacket(b,kind){
+    b=b||{};kind=kind||"work";var head=kind==="audit"?"AUDIT PACKET":kind==="verify"?"VERIFICATION PACKET":kind==="handoff"?"HANDOFF":"IMPLEMENTATION WORK PACKET";
+    var s="# "+head+" — "+(b.name||"Mission")+"\n\nOutcome\n"+(b.outcome||b.name||"Not set")+"\n\nCurrent state\n"+(b.currentState||"Not set")+"\n\nNext physical action\n"+(b.next||"Not set")+"\n\nAssigned AI / role\n"+(b.assignedAI||"Unassigned")+" / "+(b.aiRole||"Builder")+"\n\nRepository / branch / worktree\n"+(b.repo||"Not set")+" / "+(b.branch||"Not set")+" / "+(b.worktree||"Not set")+"\n\nAllowed scope\n"+(b.allowedScope||"Not set")+"\n\nForbidden files / actions\n"+(b.forbiddenFiles||"None recorded")+"\n\nCanonical constraints\nPreserve KevinOS state, approval, sync, backup, and accessibility contracts. Do not expose secrets or overwrite unrelated work.\n\nAcceptance criteria\n"+(b.acceptance||"Not set")+"\n\nVerification commands\n"+(b.tests||"Not set")+"\n\nVerification status\n"+(b.verificationStatus||"unverified")+"\n\nEvidence\n"+(b.evidence||"None yet")+"\n\nCommit / checkpoint\n"+(b.commitRef||"Not recorded")+"\n\nBlockers\n"+(b.blockers||"None recorded");
+    if(kind==="handoff")s+="\n\nLast handoff\n"+(b.lastHandoff||"None recorded");
+    return s;
   }
   function buildCard(b){
     var wrap=document.createElement("div");
@@ -3973,19 +4102,27 @@
     var pill=document.createElement("button");pill.className="pill solid";pill.style.background=colorFor(BUILD_STAGES,b.stage);pill.dataset.buildCycle=b.id;pill.textContent=b.stage;pill.title="Tap to advance stage";top.appendChild(pill);
     el.appendChild(top);
     var meta=document.createElement("div");meta.className="ecard-meta";var has=false;
-    if(b.tests){var t=document.createElement("span");t.className="metatag";t.textContent=b.tests+" tests";meta.appendChild(t);has=true;}
+    var vstat=b.verificationStatus||"unverified";var t=document.createElement("span");t.className="metatag";t.textContent=(missionVerified(b)?"Verified":"Needs proof")+" · "+vstat;meta.appendChild(t);has=true;
     if(b.next){var n=document.createElement("span");n.className="metatag";n.textContent="Next: "+b.next;meta.appendChild(n);has=true;}
+    if(b.assignedAI){var a=document.createElement("span");a.className="metatag";a.textContent=(b.aiRole||"AI")+": "+b.assignedAI;meta.appendChild(a);has=true;}
     if(has)el.appendChild(meta);
-    if(b.notes){var sn=document.createElement("div");sn.className="snip";sn.textContent=b.notes;el.appendChild(sn);}
+    if(b.outcome){var sn=document.createElement("div");sn.className="snip";sn.textContent=b.outcome;el.appendChild(sn);}
+    var actions=document.createElement("div");actions.className="library-actions";actions.innerHTML='<button class="linklike" type="button" data-mission-copy="work" data-id="'+escapeHtml(b.id)+'">Work packet</button><button class="linklike" type="button" data-mission-copy="audit" data-id="'+escapeHtml(b.id)+'">Audit packet</button><button class="linklike" type="button" data-mission-copy="verify" data-id="'+escapeHtml(b.id)+'">Verify packet</button><button class="linklike" type="button" data-mission-copy="handoff" data-id="'+escapeHtml(b.id)+'">Handoff</button>';el.appendChild(actions);
     wrap.appendChild(el);
     if(editingBuildId===b.id)wrap.appendChild(buildBuildEditor(b));
     return wrap;
   }
-  function renderBuilds(){var box=$("buildList");box.innerHTML="";if(!state.builds.length){box.innerHTML='<p class="empty">Studio tracks the things you’re making — apps, essays, anything with stages. Add your first build above.</p>';return;}BUILD_STAGES.forEach(function(s){var arr=state.builds.filter(function(b){return b.stage===s.key;});if(arr.length)sectionWith(box,s.key,arr,buildCard,s.color);});}
+  function renderBuildFilters(){var box=$("buildFilters");if(!box)return;var fs=["All","Active","Blocked","Awaiting proof","Complete"],h="",i,agents={};for(i=0;i<fs.length;i++)h+='<button class="chip'+(missionFilter===fs[i]?' active':'')+'" type="button" data-mission-filter="'+fs[i]+'">'+fs[i]+'</button>';for(i=0;i<state.builds.length;i++)if((state.builds[i].assignedAI||"").trim())agents[state.builds[i].assignedAI.trim()]=true;h+='<label class="sr-only" for="missionAgentFilter">Assigned AI filter</label><select id="missionAgentFilter" class="mini-select" data-mission-agent-filter="1"><option>All</option>';Object.keys(agents).sort().forEach(function(a){h+='<option'+(missionAgentFilter===a?' selected':'')+'>'+escapeHtml(a)+'</option>';});h+='</select><label class="sr-only" for="missionRoleFilter">AI role filter</label><select id="missionRoleFilter" class="mini-select" data-mission-role-filter="1"><option>All</option>';for(i=0;i<AI_ROLES.length;i++)h+='<option'+(missionRoleFilter===AI_ROLES[i].key?' selected':'')+'>'+AI_ROLES[i].key+'</option>';h+='</select>';box.innerHTML=h;}
+  function missionMatches(b){var status=true;if(missionFilter==="Active")status=b.stage!=="Shipped"&&b.stage!=="Paused"&&!b.blockers;else if(missionFilter==="Blocked")status=!!(b.blockers||"").trim()||b.verificationStatus==="blocked";else if(missionFilter==="Awaiting proof")status=b.stage==="Testing"&&!missionVerified(b);else if(missionFilter==="Complete")status=b.stage==="Shipped";return status&&(missionAgentFilter==="All"||b.assignedAI===missionAgentFilter)&&(missionRoleFilter==="All"||b.aiRole===missionRoleFilter);}
+  function renderBuilds(){renderBuildFilters();var box=$("buildList");box.innerHTML="";var visible=state.builds.filter(missionMatches);if(!visible.length){box.innerHTML='<p class="empty">'+(state.builds.length?"No missions match this filter.":"Add a mission outcome above. Then assign a role, scope the work, and define proof before delegating.")+'</p>';return;}BUILD_STAGES.forEach(function(s){var arr=visible.filter(function(b){return b.stage===s.key;});if(arr.length)sectionWith(box,s.key,arr,buildCard,s.color);});}
   function handleBuildsClick(e){
-    var cy=e.target.closest("[data-build-cycle]");if(cy){var b=findBuild(cy.dataset.buildCycle);if(b){var idx=0;for(var i=0;i<BUILD_STAGES.length;i++)if(BUILD_STAGES[i].key===b.stage)idx=i;b.stage=BUILD_STAGES[(idx+1)%BUILD_STAGES.length].key;touch(b);}renderBuilds();save();return;}
+    var fl=e.target.closest("[data-mission-filter]");if(fl){missionFilter=fl.getAttribute("data-mission-filter");renderBuilds();return;}
+    var af=e.target.closest("[data-mission-agent-filter]");if(af){missionAgentFilter=af.value;renderBuilds();return;}
+    var rf=e.target.closest("[data-mission-role-filter]");if(rf){missionRoleFilter=rf.value;renderBuilds();return;}
+    var cp=e.target.closest("[data-mission-copy]");if(cp){var bm=findBuild(cp.getAttribute("data-id"));if(bm){copyText(missionPacket(bm,cp.getAttribute("data-mission-copy")));flashCopied(cp,"Copied");}return;}
+    var cy=e.target.closest("[data-build-cycle]");if(cy){var b=findBuild(cy.dataset.buildCycle);if(b){var idx=0;for(var i=0;i<BUILD_STAGES.length;i++)if(BUILD_STAGES[i].key===b.stage)idx=i;var next=BUILD_STAGES[(idx+1)%BUILD_STAGES.length].key;if(next==="Shipped"&&!missionVerified(b)){editingBuildId=b.id;toast("Add verification evidence before marking this mission Shipped.");renderBuilds();return;}b.stage=next;touch(b);}renderBuilds();save();return;}
     var op=e.target.closest("[data-build-open]");if(op){editingBuildId=(editingBuildId===op.dataset.buildOpen)?null:op.dataset.buildOpen;renderBuilds();return;}
-    var sv=e.target.closest("[data-build-save]");if(sv){var b2=findBuild(sv.dataset.buildSave);if(b2){var t=(pf(sv,"bName").value||"").trim();if(t)b2.name=t;b2.stage=pf(sv,"bStage").value;b2.next=pf(sv,"bNext").value;b2.tests=pf(sv,"bTests").value;b2.notes=pf(sv,"bNotes").value;touch(b2);}editingBuildId=null;renderBuilds();save();return;}
+    var sv=e.target.closest("[data-build-save]");if(sv){var b2=findBuild(sv.dataset.buildSave);if(b2){var t=(pf(sv,"bName").value||"").trim();if(t)b2.name=t;b2.stage=pf(sv,"bStage").value;b2.outcome=pf(sv,"bOutcome").value;b2.currentState=pf(sv,"bCurrent").value;b2.next=pf(sv,"bNext").value;b2.assignedAI=pf(sv,"bAI").value;b2.aiRole=pf(sv,"bRole").value;b2.repo=pf(sv,"bRepo").value;b2.branch=pf(sv,"bBranch").value;b2.worktree=pf(sv,"bWorktree").value;b2.allowedScope=pf(sv,"bScope").value;b2.forbiddenFiles=pf(sv,"bForbidden").value;b2.acceptance=pf(sv,"bAcceptance").value;b2.tests=pf(sv,"bTests").value;b2.verificationStatus=pf(sv,"bVerify").value;b2.evidence=pf(sv,"bEvidence").value;b2.commitRef=pf(sv,"bCommit").value;b2.blockers=pf(sv,"bBlockers").value;b2.lastHandoff=pf(sv,"bHandoff").value;b2.notes=pf(sv,"bNotes").value;if(b2.stage==="Shipped"&&!missionVerified(b2)){b2.stage="Testing";toast("Mission kept in Testing until evidence is recorded.");}touch(b2);}editingBuildId=null;renderBuilds();save();return;}
     var cn=e.target.closest("[data-build-cancel]");if(cn){editingBuildId=null;renderBuilds();return;}
     var dl=e.target.closest("[data-build-delete]");if(dl){bury(dl.dataset.buildDelete);state.builds=state.builds.filter(function(x){return x.id!==dl.dataset.buildDelete;});editingBuildId=null;renderBuilds();save();return;}
   }
@@ -4075,7 +4212,7 @@
     return w;
   }
   function linkTile(l){
-    var a=document.createElement("a");a.className="ltile";a.href=l.url||"#";a.target="_blank";a.rel="noopener noreferrer";
+    var a=document.createElement("a");a.className="ltile";a.href=safeHttpUrl(l.url)||"#";a.target="_blank";a.rel="noopener noreferrer";
     var ll=document.createElement("div");ll.className="ll";ll.textContent=l.label||l.url;a.appendChild(ll);
     var lu=document.createElement("div");lu.className="lu";lu.textContent=l.url||"";a.appendChild(lu);
     var ed=document.createElement("div");ed.className="ledit";
@@ -4097,7 +4234,7 @@
   }
   function handleLinksClick(e){
     var ed=e.target.closest("[data-link-edit]");if(ed){e.preventDefault();editingLinkId=ed.dataset.linkEdit;renderLinks();return;}
-    var sv=e.target.closest("[data-link-save]");if(sv){var l=findLink(sv.dataset.linkSave);if(l){var lb=(pf(sv,"lLabel").value||"").trim();l.label=lb||l.label;l.url=normalizeUrl(pf(sv,"lUrl").value);l.group=pf(sv,"lGroup").value;touch(l);}editingLinkId=null;renderLinks();save();return;}
+    var sv=e.target.closest("[data-link-save]");if(sv){var l=findLink(sv.dataset.linkSave);if(l){var lb=(pf(sv,"lLabel").value||"").trim(),lu=normalizeUrl(pf(sv,"lUrl").value);if(!lu){toast("Use an http:// or https:// link.");return;}l.label=lb||l.label;l.url=lu;l.group=pf(sv,"lGroup").value;touch(l);}editingLinkId=null;renderLinks();save();return;}
     var cn=e.target.closest("[data-link-cancel]");if(cn){editingLinkId=null;renderLinks();return;}
     var dl=e.target.closest("[data-link-delete]");if(dl){bury(dl.dataset.linkDelete);state.links=state.links.filter(function(x){return x.id!==dl.dataset.linkDelete;});editingLinkId=null;renderLinks();save();return;}
   }
@@ -4414,7 +4551,7 @@
     var sid=uid()+uid()+uid();
     if(!state.github)state.github={token:"",session:"",login:"",pendingOAuth:false};
     state.github.session=sid;state.github.token="";ghMem.cache=null;ghMem.fetchedAt=0;state.github.pendingOAuth=true;ghError=null;save();
-    try{window.open(base+"/github/login?session="+encodeURIComponent(sid),"_blank");}catch(e){}
+    openExternal(base+"/github/login?session="+encodeURIComponent(sid));
     renderGithub();
     ghOAuthPoll(0);
   }
@@ -4444,7 +4581,7 @@
     if(act==="connect")ghConnect();
     else if(act==="oauth")ghOAuthStart();
     else if(act==="checkoauth")ghOAuthPoll(0);
-    else if(act==="reopenoauth"){var b=relayBase();if(b&&state.github&&state.github.session){try{window.open(b+"/github/login?session="+encodeURIComponent(state.github.session),"_blank");}catch(e2){}}}
+    else if(act==="reopenoauth"){var b=relayBase();if(b&&state.github&&state.github.session)openExternal(b+"/github/login?session="+encodeURIComponent(state.github.session));}
     else if(act==="canceloauth")ghClear();
     else if(act==="refresh")ghSync(true);
     else if(act==="reset")ghClear();
@@ -4523,7 +4660,7 @@
       '<div class="gh-prof">'+
       (c.avatarUrl?'<img class="gh-ava" src="'+escapeHtml(c.avatarUrl)+'&amp;s=104" alt="">':'')+
       '<div><div class="gh-name">'+escapeHtml(c.name||c.login)+'</div>'+
-      '<a class="gh-login" href="'+escapeHtml(c.url)+'" target="_blank" rel="noopener">@'+escapeHtml(c.login)+' ↗</a></div></div>';
+      '<a class="gh-login" href="'+escapeHtml(safeHttpUrl(c.url)||"#")+'" target="_blank" rel="noopener noreferrer">@'+escapeHtml(c.login)+' ↗</a></div></div>';
     var todayB=''+
       '<div class="gh-today '+(s.todayDone?"done":"todo")+'">'+ghFlame()+'<div>'+
       (s.todayDone?'<strong>Shipped today.</strong> Your '+s.current+'-day streak is alive — keep it rolling.':
@@ -4542,7 +4679,7 @@
     else{
       repos+='<div class="gh-repos">';
       for(var i=0;i<nodes.length;i++){var rp=nodes[i];
-        repos+='<a class="gh-repo" href="'+escapeHtml(rp.url)+'" target="_blank" rel="noopener">'+
+        repos+='<a class="gh-repo" href="'+escapeHtml(safeHttpUrl(rp.url)||"#")+'" target="_blank" rel="noopener noreferrer">'+
           '<span class="gh-repo-name">'+escapeHtml(rp.name)+(rp.isPrivate?ghLock():"")+'</span>'+
           (rp.description?'<span class="gh-repo-desc">'+escapeHtml(rp.description)+'</span>':"")+
           '<span class="gh-repo-meta">'+
@@ -4558,7 +4695,14 @@
     var sc=box.querySelector(".gh-heat-scroll");if(sc)sc.scrollLeft=sc.scrollWidth;
   }
 
-  function normalizeRoom(r){return (r==="home"||r==="launch")?"today":(r||"today");}
+  function normalizeRoom(r){
+    r=r||"today";var i,d,j;
+    for(i=0;i<ROOM_DEFS.length;i++){
+      d=ROOM_DEFS[i];if(d.id===r)return d.canonical||d.id;
+      for(j=0;j<(d.legacyAliases||[]).length;j++)if(d.legacyAliases[j]===r)return d.id;
+    }
+    return "today";
+  }
   function isTodayRoom(){return room==="today";}
   function trackRoomVisit(r){
     if(!state.roomStats||typeof state.roomStats!=="object")state.roomStats={};
@@ -4605,6 +4749,12 @@
     }
     return '<button class="health-chip '+escapeHtml(relayUnlocked()?"unknown":st)+'" type="button" data-relay-health="1"><i></i>'+escapeHtml(relayHealthLabel())+'</button>'+body;
   }
+  function systemHealthHTML(){
+    var issues=[],backup=state.lastBackupAt?ghAgo(new Date(state.lastBackupAt).toISOString()):"never",sync=syncOn()?((state.sync&&state.sync.err)?"needs attention":"linked · rev "+(state.sync.rev||0)):"off",accounts=((state.email&&state.email.accounts)||[]).length;
+    if(saveFailing||loadFailed)issues.push("storage");if(relayHealth.status==="auth"||relayHealth.status==="error"||relayUnlocked())issues.push("relay");if(syncOn()&&state.sync.err)issues.push("sync");if(!state.lastBackupAt)issues.push("backup");
+    var label=issues.length?issues.length+" item"+(issues.length===1?"":"s")+" need attention":"healthy";
+    return '<details class="launch-card"><summary class="support-summary"><span class="section-label">System health</span><span>'+escapeHtml(label)+'</span></summary><div class="heat-list"><div class="heat-row"><span>App / schema</span><span>v'+escapeHtml(APP_VERSION)+' / v'+SCHEMA_VERSION+'</span></div><div class="heat-row"><span>Storage</span><span>'+escapeHtml(store.mode)+(saveFailing?" · SAVE FAILING":" · ready")+'</span></div><div class="heat-row"><span>Backup</span><span>'+escapeHtml(backup)+'</span></div><div class="heat-row"><span>Snapshots</span><span>'+(_lastSnapAt?escapeHtml(ghAgo(new Date(_lastSnapAt).toISOString())):"available after first write")+'</span></div><div class="heat-row"><span>Sync</span><span>'+escapeHtml(sync)+'</span></div><div class="heat-row"><span>Relay</span><span>'+escapeHtml(relayHealthLabel())+'</span></div><div class="heat-row"><span>Push</span><span>'+((state.push&&state.push.enabled)?"enabled":"off")+'</span></div><div class="heat-row"><span>Connections</span><span>'+accounts+' Google · '+((state.github&&(state.github.session||state.github.token))?"GitHub linked":"GitHub off")+'</span></div><div class="heat-row"><span>Recovery</span><span>portable export + verified import + tombstones</span></div></div>'+(relayUnlocked()?'<p class="hint"><strong>Lock this relay:</strong> it has no KEVINOS_TOKEN and anyone with the URL can use it.</p>':'')+'<div class="today-actions"><button class="btn-soft" type="button" data-backup="1">Export backup</button><button class="btn-soft" type="button" data-go="next">Connections & sync</button></div></details>';
+  }
   function refreshRelayHealth(force){
     var base=relayBase();
     if(!base){relayHealth={status:"off",checkedAt:Date.now(),caps:null,err:""};return;}
@@ -4625,29 +4775,131 @@
     if(state.habits&&state.habits.length){var hd=0,i;for(i=0;i<state.habits.length;i++){if(habitDoneToday(state.habits[i]))hd++;}html+='<button class="gh-nudge" type="button" data-go="habits" style="background:var(--gold-soft);margin-top:14px"><span class="gh-fire" style="color:var(--clay)">🔥</span><span class="nu-txt"><strong>Habits.</strong> '+hd+'/'+state.habits.length+' done today.</span><span class="nu-arrow">'+chevSvg()+'</span></button>';}
     return html;
   }
+  function sideGet(k){try{return window.localStorage?window.localStorage.getItem(k):null;}catch(e){return null;}}
+  function sideSet(k,v){try{if(window.localStorage)window.localStorage.setItem(k,v);}catch(e){}}
+  function sideDel(k){try{if(window.localStorage)window.localStorage.removeItem(k);}catch(e){}}
+  function onboardingDone(){return sideGet("kevinos:onboarding")==="done";}
+  function finishOnboarding(){sideSet("kevinos:onboarding","done");onboardOpen=false;onboardStep=0;renderOnboarding();go("today");}
+  function startDemoMode(){
+    sideSet("kevinos:demo-return",JSON.stringify(portableDoc(state)));sideSet("kevinos:demo","1");demoMode=true;
+    var now=Date.now(),pid="demo-project",tid="demo-task",eid="demo-event";
+    state.projects=[{id:pid,title:"Make today useful",area:"Personal",status:"Active",outcome:"Finish one meaningful outcome",nextAction:"Open the NOW card and take the first step",notes:"Demo only",demo:true,createdAt:now}];
+    state.items=[{id:tid,text:"Finish one meaningful outcome",area:"Personal",today:true,done:false,due:todayKey(),projectId:pid,repeat:"",demo:true,createdAt:now}];
+    state.events=[{id:eid,title:"Demo hard stop",date:todayKey(),time:"17:00",allDay:false,area:"Personal",source:"demo",demo:true}];
+    state.notes=[{id:"demo-note",title:"Captured thought",para:"Resource",area:"Inbox",tags:"demo",body:"Demo content is isolated and removable.",demo:true,createdAt:now}];
+    touch(state.projects[0]);touch(state.items[0]);touch(state.events[0]);touch(state.notes[0]);save();onboardOpen=false;renderOnboarding();go("today");
+  }
+  function clearDemoMode(){
+    var raw=sideGet("kevinos:demo-return"),doc=null;try{doc=raw?JSON.parse(raw):null;}catch(e){}
+    if(doc)applyPortableDoc(doc,{reason:"demo-clear"});
+    else{for(var i=0;i<CONTENT_ARRAYS.length;i++)state[CONTENT_ARRAYS[i]]=[];state.deleted={};}
+    sideDel("kevinos:demo");sideDel("kevinos:demo-return");demoMode=false;save();onboardOpen=true;onboardStep=0;renderOnboarding();go("today");
+  }
+  function saveFirstUsefulDay(){
+    var out=($("obOutcome").value||"").trim(),act=($("obAction").value||"").trim(),stop=$("obStop").value||"";
+    if(!out||!act){toast("Add the outcome and first physical action.");return;}
+    var pid=uid(),task=uid(),p={id:pid,title:out,area:"Inbox",status:"Active",outcome:out,nextAction:act,notes:"",createdAt:Date.now()},t={id:task,text:out,area:"Inbox",today:true,done:false,due:todayKey(),dueTime:"",projectId:pid,repeat:"",createdAt:Date.now()};
+    touch(p);touch(t);state.projects.unshift(p);state.items.unshift(t);
+    if(stop){var ev={id:uid(),title:"Hard stop · "+out,date:todayKey(),time:stop,allDay:false,area:"Inbox",source:"app"};touch(ev);state.events.push(ev);}
+    onboardOutcome=out;onboardAction=act;onboardHardStop=stop;save();onboardStep=2;renderOnboarding();
+  }
+  function saveOnboardCapture(){
+    var inp=$("obCapture"),text=(inp?(inp.value||""):"").trim();if(!text)return;
+    var it={id:uid(),text:text,area:"Inbox",today:false,done:false,due:null,dueTime:"",projectId:null,repeat:"",createdAt:Date.now()};touch(it);state.items.unshift(it);onboardCaptureId=it.id;save();onboardStep=3;renderOnboarding();
+  }
+  function undoOnboardCapture(){if(!onboardCaptureId)return;bury(onboardCaptureId);state.items=state.items.filter(function(x){return x.id!==onboardCaptureId;});onboardCaptureId="";save();onboardStep=2;renderOnboarding();}
+  function renderOnboarding(){
+    var ov=$("onboardOverlay"),box=$("onboardCard");if(!ov||!box)return;
+    ov.classList.toggle("open",!!onboardOpen);if(!onboardOpen){box.innerHTML="";return;}
+    var h="";
+    if(onboardStep===0)h='<p class="now-eyebrow">First useful day</p><h1>Start with a win, not setup homework.</h1><p class="hint">KevinOS can stay entirely local. Choose the safest path for this device.</p><div class="onboard-paths"><button class="onboard-path" type="button" data-ob="restore"><strong>Restore my KevinOS</strong>Import a portable backup, then reconnect device-only services.</button><button class="onboard-path" type="button" data-ob="clean"><strong>Start clean</strong>Create one real outcome, action, and hard stop.</button><button class="onboard-path" type="button" data-ob="demo"><strong>Explore demo</strong>Use isolated sample data with one-click removal.</button></div>';
+    else if(onboardStep===1)h='<p class="now-eyebrow">Step 2 of 5</p><h1>Make today real.</h1><p class="hint">These three answers create the deterministic NOW card.</p><div class="onboard-fields"><label class="field">One outcome that matters today<input class="inp" id="obOutcome" type="text" placeholder="What would make today count?"></label><label class="field">First physical action<input class="inp" id="obAction" type="text" placeholder="Open, call, write, review…"></label><label class="field">Next hard stop (optional)<input class="inp" id="obStop" type="time"></label><button class="add-btn" type="button" data-ob="day">Build my NOW card</button></div>';
+    else if(onboardStep===2)h='<p class="now-eyebrow">Step 3 of 5</p><h1>Prove fast capture.</h1><p class="hint">Drop one uncategorized thought. It lands in Inbox and remains editable.</p><div class="onboard-fields"><input class="inp" id="obCapture" type="text" placeholder="Something I do not want to forget"><button class="add-btn" type="button" data-ob="capture">Capture to Inbox</button></div>';
+    else if(onboardStep===3)h='<p class="now-eyebrow">Step 4 of 5</p><h1>Captured. You stay in control.</h1><p>Your thought is in Tasks → Inbox. Nothing was sent anywhere.</p><div class="now-actions"><button class="btn-soft" type="button" data-ob="undo">Undo capture</button><button class="add-btn" type="button" data-ob="recovery">Set recovery</button></div>';
+    else h='<p class="now-eyebrow">Step 5 of 5</p><h1>Choose your recovery path.</h1><p class="hint">Backups contain content, never live connections. Sync is optional and can be connected later.</p><div class="onboard-paths"><button class="onboard-path" type="button" data-ob="backup"><strong>Export first backup</strong>Download a portable JSON copy now.</button><button class="onboard-path" type="button" data-ob="sync"><strong>Connect sync</strong>Open Plan & Review after onboarding.</button><button class="onboard-path" type="button" data-ob="later"><strong>Remind me later</strong>Use KevinOS locally and keep a visible reminder.</button></div>';
+    box.innerHTML=h;setTimeout(function(){var first=box.querySelector("input,button");if(first)first.focus();},20);
+  }
+  function handleOnboarding(e){
+    var b=e.target.closest("[data-ob]");if(!b)return;var a=b.getAttribute("data-ob");
+    if(a==="restore"){finishOnboarding();setTimeout(function(){var r=$("restoreInput");if(r)r.click();},20);}
+    else if(a==="clean"){onboardStep=1;renderOnboarding();}
+    else if(a==="demo")startDemoMode();
+    else if(a==="day")saveFirstUsefulDay();
+    else if(a==="capture")saveOnboardCapture();
+    else if(a==="undo")undoOnboardCapture();
+    else if(a==="recovery"){onboardStep=4;renderOnboarding();}
+    else if(a==="backup"){exportBackup();finishOnboarding();}
+    else if(a==="sync"){finishOnboarding();go("next");}
+    else if(a==="later"){sideSet("kevinos:backup-reminder","1");finishOnboarding();}
+  }
+  function backupReminderHTML(){return sideGet("kevinos:backup-reminder")==="1"&&!state.lastBackupAt?'<button class="gh-nudge" type="button" data-backup="1" style="background:var(--gold-soft);margin-top:12px"><span class="nu-txt"><strong>Protect today.</strong> Export your first portable backup.</span><span class="nu-arrow">'+chevSvg()+'</span></button>':"";}
+  function nowModel(key,time){
+    key=key||todayKey();time=time||pad((new Date()).getHours())+":"+pad((new Date()).getMinutes());
+    var plate=windItems().slice(0,3),all=windItems(),top=plate[0]||null,overdue=0,i,e,stops=[],seenG={},project=null,next="";
+    for(i=0;i<all.length;i++)if(all[i].due&&all[i].due<key)overdue++;
+    for(i=0;i<state.events.length;i++){e=state.events[i];if(e.gcalId)seenG[e.gcalId]=true;if(e.date===key&&e.time&&e.time>=time)stops.push({time:e.time,title:e.title||"(untitled)"});}
+    for(i=0;i<gcalEvents.length;i++){e=gcalEvents[i];if(e.date===key&&e.start&&!seenG[e.id]&&e.start>=time)stops.push({time:e.start,title:e.title||"(untitled)"});}
+    stops.sort(function(a,b){return a.time<b.time?-1:(a.time>b.time?1:0);});
+    if(top&&top.projectId)project=findProject(top.projectId);
+    next=project&&project.nextAction?project.nextAction:(top?top.text:"");
+    return {taskId:top?top.id:"",outcome:top?top.text:"Choose the one thing that matters today",nextAction:next||"Capture or choose a commitment",hardStop:stops[0]||null,commitments:plate,overdue:overdue,total:all.length};
+  }
+  function nowCardHTML(){
+    var n=nowModel(),h='<section class="now-card" aria-labelledby="nowTitle"><p class="now-eyebrow">Now</p><h1 class="now-outcome" id="nowTitle">'+escapeHtml(n.outcome)+'</h1><div class="now-next"><strong>Do next</strong>'+escapeHtml(n.nextAction)+'</div><div class="now-support"><div><span class="now-label">Next hard stop</span>'+(n.hardStop?escapeHtml(fmtTime(n.hardStop.time)+" · "+n.hardStop.title):'None set — add one in Calendar')+'</div><div'+(n.overdue?' class="now-risk"':'')+'><span class="now-label">Risk</span>'+(n.overdue?escapeHtml(n.overdue+" overdue commitment"+(n.overdue===1?"":"s")):'No overdue commitments')+'</div></div>';
+    if(n.commitments.length){h+='<ol class="now-commitments" aria-label="Today commitments">';for(var i=0;i<n.commitments.length;i++){var t=n.commitments[i];h+='<li><span class="dot" style="background:'+areaColor(t.area)+'"></span><span class="commit-text">'+escapeHtml(t.text)+'</span>'+(i>0?'<button class="btn-soft icon-sq" type="button" data-focus-move="up" data-id="'+escapeHtml(t.id)+'" aria-label="Move '+escapeHtml(t.text)+' up">↑</button>':'')+(i<n.commitments.length-1?'<button class="btn-soft icon-sq" type="button" data-focus-move="down" data-id="'+escapeHtml(t.id)+'" aria-label="Move '+escapeHtml(t.text)+' down">↓</button>':'')+'</li>';}h+='</ol>';}
+    h+='<div class="now-actions">'+(n.taskId?'<button class="add-btn" type="button" data-now-task="'+escapeHtml(n.taskId)+'">Open next action</button>':'<button class="add-btn" type="button" data-go="tasks">Choose focus</button>')+'<button class="btn-soft" type="button" data-openwind="1">Close the loop</button></div></section>';
+    return h;
+  }
+  function normalizeAiProposal(p){
+    if(!p||p.kind!=="ai")return p;
+    if(!p.mode)p.mode="Draft";if(!p.status)p.status=(p.body&&p.body!=="Working...")?"review":"working";
+    if(!p.provider)p.provider="unrecorded";if(!p.model)p.model="unrecorded";if(!p.seat)p.seat="AI collaborator";
+    if(!p.promptId)p.promptId="legacy-draft";if(!p.promptVersion)p.promptVersion=1;if(!isArr(p.contextCategories))p.contextCategories=["source item"];
+    return p;
+  }
   function renderAiReviewHTML(){
-    var rows=(state.pending||[]).filter(function(p){return p&&p.kind==="ai";});
+    var rows=(state.pending||[]).filter(function(p){return p&&p.kind==="ai";}).map(normalizeAiProposal);
     if(!rows.length)return "";
-    var h='<div class="launch-card"><div class="lc-head"><p class="section-label">AI review queue</p></div><div class="ai-review-list">';
-    rows.forEach(function(p){h+='<div class="ai-review-row"><div class="ai-review-main"><strong>'+escapeHtml(p.title||"AI draft")+'</strong><p class="hint">'+escapeHtml((p.body||p.text||"Working...").slice(0,260))+'</p></div><div class="ai-review-actions"><button class="linklike" type="button" data-ai-save="'+escapeHtml(p.id)+'">Save to Notes</button><button class="linklike" type="button" data-ai-dismiss="'+escapeHtml(p.id)+'">Dismiss</button></div></div>';});
-    return h+'</div></div>';
+    var active=rows.filter(function(p){return p.status==="working"||p.status==="review"||p.status==="edited"||p.status==="error";}).length,stats=aiFeedbackSummary(rows);
+    var h='<details class="launch-card"><summary class="support-summary"><span class="section-label">AI Proposal Inbox</span><span>'+active+' need review · '+rows.length+' total</span></summary><p class="hint">Local outcomes: '+stats.accepted+' accepted · '+stats.edited+' edited first · '+stats.rejected+' rejected · '+stats.escalated+' escalated · '+stats.errors+' failed'+(stats.medianMinutes!=null?' · median '+stats.medianMinutes+'m to resolve':'')+(stats.stale?' · '+stats.stale+' stale':'')+'. Provider reliability: '+stats.reliability+'%.</p><div class="ai-review-list">';
+    rows.forEach(function(p){
+      var editable=p.status!=="working",cats=(p.contextCategories||[]).join(", ");
+      h+='<article class="ai-review-row"><div class="ai-review-main"><div class="proposal-status">'+escapeHtml(p.status)+'</div><strong>'+escapeHtml(p.title||"AI proposal")+'</strong><div class="proposal-meta"><span>'+escapeHtml(p.mode)+'</span><span>'+escapeHtml(p.seat)+'</span><span>'+escapeHtml(p.provider)+' · '+escapeHtml(p.model)+'</span><span>Prompt '+escapeHtml(p.promptId)+' v'+escapeHtml(p.promptVersion)+'</span></div><p class="hint">Shared: '+escapeHtml(cats||"source item")+' · Created '+escapeHtml(ghAgo(new Date(p.createdAt||Date.now()).toISOString()))+'</p>'+(editable?'<textarea class="inp proposal-body" data-ai-body="'+escapeHtml(p.id)+'" aria-label="Edit '+escapeHtml(p.title||"AI proposal")+'">'+escapeHtml(p.body||p.text||"")+'</textarea>':'<p class="hint">Working…</p>')+'</div>';
+      if(editable)h+='<div class="ai-review-actions"><button class="linklike" type="button" data-ai-edit="'+escapeHtml(p.id)+'">Save edit</button>'+(p.status==="applied"&&p.undo?'<button class="linklike" type="button" data-ai-undo="'+escapeHtml(p.id)+'">Undo</button>':'<button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="task">Apply as task</button><button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="note">Apply as note</button><button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="event">Apply as event</button>'+(p.sourceKind==="project"?'<button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="project">Apply to project</button>':'')+'<button class="linklike" type="button" data-ai-escalate="'+escapeHtml(p.id)+'">Council</button><button class="linklike" type="button" data-ai-reject="'+escapeHtml(p.id)+'">Reject</button>')+'</div>';
+      h+='</article>';
+    });
+    return h+'</div></details>';
+  }
+  function aiFeedbackSummary(rows){
+    rows=rows||[];var a=0,ed=0,r=0,es=0,er=0,stale=0,done=0,total=0,times=[],now=Date.now(),i,p,end;
+    for(i=0;i<rows.length;i++){p=rows[i]||{};if(p.feedback==="accepted"||p.feedback==="edited-accepted"){a++;if(p.feedback==="edited-accepted")ed++;}if(p.feedback==="rejected")r++;if(p.feedback==="escalated")es++;if(p.status==="error")er++;if(p.status!=="error"&&p.status!=="working"){done++;}if(p.status!=="working")total++;if((p.status==="review"||p.status==="edited")&&now-(p.createdAt||now)>604800000)stale++;end=p.resolvedAt||p.appliedAt||p.undoneAt;if(end&&p.createdAt&&end>=p.createdAt)times.push(Math.round((end-p.createdAt)/60000));}
+    times.sort(function(x,y){return x-y;});return {accepted:a,edited:ed,rejected:r,escalated:es,errors:er,stale:stale,medianMinutes:times.length?times[Math.floor(times.length/2)]:null,reliability:total?Math.round(done*100/total):100};
+  }
+  function workPulseHTML(){
+    var h="";
+    if(state.weatherLoc)h+=launchWeatherHTML();
+    h+=launchSwimCardHTML()+launchSheetsCardHTML();
+    if(!h)return "";
+    return '<details class="launch-card"><summary class="section-label" style="cursor:pointer">Work Pulse</summary><div style="margin-top:10px">'+h+'</div></details>';
   }
   function renderToday(){
     var box=$("todayView");if(!box)return;
     if(isEditing()&&box.contains(document.activeElement))return;
-    refreshRelayHealth(false);maybeLaunchIntake();
-    box.innerHTML='<div class="launch-greet">'+escapeHtml(launchGreeting())+'</div>'+relayHealthChipHTML()+renderAiReviewHTML()+
-      launchPlanCardHTML()+launchAgendaCardHTML()+launchFocusCardHTML()+
-      '<div class="launch-card"><div class="lc-head"><p class="section-label">Quick capture</p></div><div class="capture-row"><input id="todayCaptureInput" class="capture-input" type="text" placeholder="Capture to Inbox..." autocomplete="off" aria-label="Today quick capture"><button class="add-btn" type="button" data-today-capture="1">Add</button></div><p class="hint" style="margin-top:6px">#Area · @tomorrow · @3pm · +person · //project · ! pins · note: / event:</p></div>'+
-      launchHabitsCardHTML()+
-      ((typeof emailOn==="function"&&emailOn())?launchInboxCardHTML():"")+
-      weeklyCardHTML()+
-      '<details class="launch-card"><summary class="section-label" style="cursor:pointer">Council</summary><div class="capture-row" style="margin-top:10px"><input id="todayCouncilInput" class="capture-input" type="text" placeholder="Ask the Council..." autocomplete="off"><button class="add-btn" type="button" data-today-council="1">Ask</button></div><p class="hint"><button class="linklike" type="button" data-go="next">Open Council & Briefs</button></p></details>'+
-      '<div class="today-actions"><button class="btn-soft" type="button" data-go="next">Council & Briefs</button><button class="btn-soft" type="button" data-start-sweep="1">Start Life Sweep</button>'+((new Date()).getHours()>=closeHourVal()?'<button class="btn-soft" type="button" data-openwind="1">Wind down</button>':"")+'</div>'+
-      todayNudgesHTML()+
-      '<button class="sweep-card" type="button" data-start-intake="1" style="margin-top:12px"><span class="sw-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg></span><span class="sw-txt"><span class="sw-title">Get to know me</span><span class="sw-sub">Add context KevinOS can use in plans and briefs.</span></span><span class="sw-arrow">'+chevSvg()+'</span></button>';
+    refreshRelayHealth(false);
+    var needsProfile=!state.profile||state.profile.length<2;
+    box.innerHTML=(demoMode?'<div class="demo-banner"><span><strong>Demo Mode</strong> · Sample data is isolated from your real KevinOS.</span><button class="btn-soft" type="button" data-clear-demo="1">Clear demo</button></div>':'')+'<div class="launch-greet">'+escapeHtml(launchGreeting())+'</div>'+nowCardHTML()+
+      '<div class="launch-card"><div class="lc-head"><p class="section-label">Quick capture</p></div><div class="capture-row"><input id="todayCaptureInput" class="capture-input" type="text" placeholder="Capture to Inbox..." autocomplete="off" aria-label="Today quick capture"><button class="add-btn" type="button" data-today-capture="1">Add</button></div><details class="hint" style="margin-top:8px"><summary>Power syntax</summary><div style="margin-top:6px">#Area · @tomorrow · @3pm · +person · //project · ! pins · note: / event:</div></details></div>'+
+      launchAgendaCardHTML()+
+      '<details class="launch-card"><summary class="support-summary"><span class="section-label">Support</span><span>Plan, habits, AI & system</span></summary><div style="margin-top:12px">'+
+        systemHealthHTML()+
+        '<details class="launch-card" style="margin-top:10px"><summary class="support-summary"><span class="section-label">Why this plan</span><span>Deterministic first</span></summary><div style="margin-top:10px">'+launchPlanCardHTML()+'</div></details>'+
+        renderAiReviewHTML()+launchHabitsCardHTML()+workPulseHTML()+
+        ((typeof emailOn==="function"&&emailOn())?launchInboxCardHTML():"")+weeklyCardHTML()+
+        '<details class="launch-card"><summary class="support-summary"><span class="section-label">Council</span><span>Challenge or escalate</span></summary><div class="capture-row" style="margin-top:10px"><input id="todayCouncilInput" class="capture-input" type="text" placeholder="Ask the Council..." autocomplete="off"><button class="add-btn" type="button" data-today-council="1">Ask</button></div><p class="hint"><button class="linklike" type="button" data-go="next">Open Plan & Review</button></p></details>'+
+        '<div class="today-actions"><button class="btn-soft" type="button" data-go="next">Plan & Review</button><button class="btn-soft" type="button" data-start-sweep="1">Start Life Sweep</button></div>'+todayNudgesHTML()+backupReminderHTML()+
+        (needsProfile?'<button class="sweep-card" type="button" data-start-intake="1" style="margin-top:12px"><span class="sw-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg></span><span class="sw-txt"><span class="sw-title">Personalize later</span><span class="sw-sub">Optional context for plans and briefs.</span></span><span class="sw-arrow">'+chevSvg()+'</span></button>':'')+
+      '</div></details>';
     if(calOn())loadGcal(false);
-    if(relayOn()){maybeAutoLaunch();maybeAutoWeekly();}
   }
   function addTodayCapture(){
     var inp=$("todayCaptureInput"),t=(inp?(inp.value||""):"").trim();if(!t)return;
@@ -4671,19 +4923,25 @@
     if(relayOn())runCouncil(id);else renderCurrentRoom();
   }
   function handleTodayClick(e){
+    if(e.target.closest("[data-clear-demo]")){clearDemoMode();return;}
+    if(e.target.closest("[data-backup]")){sideDel("kevinos:backup-reminder");exportBackup();renderToday();return;}
     if(e.target.closest("[data-relay-health]")){relayHealthOpen=!relayHealthOpen;renderToday();return;}
     if(e.target.closest("[data-today-capture]")){addTodayCapture();return;}
     if(e.target.closest("[data-today-council]")){var ci=$("todayCouncilInput");addCouncilFromText(ci?ci.value:"");if(ci)ci.value="";return;}
     if(e.target.closest("[data-start-sweep]")){startSweep();return;}
     if(e.target.closest("[data-start-intake]")){startIntake();return;}
     if(e.target.closest("[data-openwind]")){openWind();return;}
+    var nt=e.target.closest("[data-now-task]");if(nt){taskMenuId=nt.getAttribute("data-now-task");go("tasks");renderTasks();return;}
     var fm=e.target.closest("[data-focus-move]");
     if(fm){if(moveFocusTask(fm.getAttribute("data-id"),fm.getAttribute("data-focus-move"))){save();renderToday();}return;}
     var g=e.target.closest("[data-go]");if(g){go(g.getAttribute("data-go"));return;}
     var hp=e.target.closest("[data-launch-habit]");
     if(hp){var h=findHabit(hp.getAttribute("data-launch-habit"));if(h){toggleHabitToday(h);touch(h);save();renderToday();renderHabits();}return;}
-    var aiSave=e.target.closest("[data-ai-save]");if(aiSave){saveAiPendingToNotes(aiSave.getAttribute("data-ai-save"));return;}
-    var aiDis=e.target.closest("[data-ai-dismiss]");if(aiDis){dismissAiPending(aiDis.getAttribute("data-ai-dismiss"));return;}
+    var aiEdit=e.target.closest("[data-ai-edit]");if(aiEdit){editAIProposal(aiEdit.getAttribute("data-ai-edit"));return;}
+    var aiApply=e.target.closest("[data-ai-apply]");if(aiApply){applyAIProposal(aiApply.getAttribute("data-ai-apply"),aiApply.getAttribute("data-ai-target"));return;}
+    var aiReject=e.target.closest("[data-ai-reject]");if(aiReject){rejectAIProposal(aiReject.getAttribute("data-ai-reject"));return;}
+    var aiEsc=e.target.closest("[data-ai-escalate]");if(aiEsc){escalateAIProposal(aiEsc.getAttribute("data-ai-escalate"));return;}
+    var aiUndo=e.target.closest("[data-ai-undo]");if(aiUndo){undoAIProposal(aiUndo.getAttribute("data-ai-undo"));return;}
   }
   function handleTodayKeydown(e){
     if(e.key!=="Enter")return;
@@ -4730,38 +4988,46 @@
     var op=e.target.closest("[data-lib-open]");if(op){openLibraryOriginal(op.getAttribute("data-id"));return;}
     var cp=e.target.closest("[data-lib-copy]");if(cp){var r=findLibraryRecord(cp.getAttribute("data-lib-copy"));if(r){copyText((r.title||"")+(r.body?("\n\n"+r.body):"")+(r.url?("\n"+r.url):""));flashCopied(cp,"Copied");}return;}
     var co=e.target.closest("[data-lib-council]");if(co){var rr=findLibraryRecord(co.getAttribute("data-lib-council"));if(rr){addCouncilFromText("Review this "+rr.kind+": "+rr.title+"\n\n"+(rr.body||rr.url||""));toast("Sent to Council");}return;}
-    var ai=e.target.closest("[data-ai-kind]");if(ai){e.stopPropagation();startUniversalAI(ai.getAttribute("data-ai-kind"),ai.getAttribute("data-ai-id"),"draft");return;}
+    var ai=e.target.closest("[data-ai-kind]");if(ai){e.stopPropagation();startUniversalAI(ai.getAttribute("data-ai-kind"),ai.getAttribute("data-ai-id"),"draft",ai);return;}
   }
   function handleLibraryInput(){var i=$("librarySearch");libraryQuery=i?(i.value||""):"";renderLibrary();}
-  function atticRooms(){
-    return [
-      ["next","Council & Briefs"],["projects","Projects"],["habits","Habits"],["people","People"],["email","Email"],["library","Library"],["github","GitHub"],["goals","Goals"],["studio","Studio"],["briefs","Briefs"],["prompts","Prompts"],["launchpad","Launchpad"],["notes","Notes"],["stash","Stash"]
-    ];
-  }
+  function atticRooms(){var order={Plan:1,Work:2,Reference:3,System:4};return ROOM_DEFS.filter(function(d){return !!d.inMore;}).slice().sort(function(a,b){return (order[a.group]||9)-(order[b.group]||9);});}
   function renderHeatCard(){
     var box=$("roomHeatCard");if(!box)return;
     var stats=state.roomStats||{},rows=atticRooms(),h='<div class="sec-head"><p class="section-label">Room heat</p></div><div class="heat-list">',i,r,s,last;
-    for(i=0;i<rows.length;i++){r=rows[i];s=stats[r[0]]||{visits:0,last:0};last=s.last?ghAgo(new Date(s.last).toISOString()):"never";h+='<div class="heat-row"><span>'+escapeHtml(r[1])+'</span><span>'+((s.visits||0))+' visits · '+escapeHtml(last)+'</span></div>';}
+    for(i=0;i<rows.length;i++){r=rows[i];s=stats[r.id]||{visits:0,last:0};last=s.last?ghAgo(new Date(s.last).toISOString()):"never";h+='<div class="heat-row"><span>'+escapeHtml(r.label)+'</span><span>'+((s.visits||0))+' visits · '+escapeHtml(last)+'</span></div>';}
     box.innerHTML=h+'</div>';
   }
   function renderAttic(){
     var grid=$("atticGrid");if(!grid)return;
-    var rows=atticRooms(),h="",i;
-    for(i=0;i<rows.length;i++)h+='<button class="attic-btn" type="button" data-attic-room="'+rows[i][0]+'"><strong>'+escapeHtml(rows[i][1])+'</strong><div class="hint">Open room</div></button>';
+    var rows=atticRooms(),h="",i,g="";
+    for(i=0;i<rows.length;i++){
+      if(rows[i].group!==g){g=rows[i].group;h+=(i?'</div>':'')+'<section class="attic-group"><p class="section-label" style="margin:12px 0 8px">'+escapeHtml(g)+'</p><div class="attic-grid">';}
+      h+='<button class="attic-btn" type="button" data-attic-room="'+rows[i].id+'"><strong>'+escapeHtml(rows[i].label)+'</strong><div class="hint">'+escapeHtml(rows[i].keywords.split(" ").slice(0,3).join(" · "))+'</div></button>';
+    }
+    if(rows.length)h+='</div></section>';
     grid.innerHTML=h;renderHeatCard();
   }
   function handleAtticClick(e){var b=e.target.closest("[data-attic-room]");if(b)go(b.getAttribute("data-attic-room"));}
-  function aiContext(kind,id){
+  var AI_PROMPTS={
+    Decide:{id:"decide",version:1,seat:"Decision partner",instruction:"State the decision, the strongest options and tradeoffs, then recommend one reversible next action. Do not pretend to decide for Kevin."},
+    Plan:{id:"plan",version:1,seat:"Planner",instruction:"Turn this into a short ordered plan. Name the first physical action, acceptance criteria, and likely blockers."},
+    Review:{id:"review",version:1,seat:"Reviewer",instruction:"Review this critically. Separate facts, assumptions, risks, and missing evidence. End with the smallest useful correction."},
+    Draft:{id:"draft",version:2,seat:"Writer",instruction:"Draft a concise, useful artifact from this context. Mark any assumption and do not invent facts."},
+    Challenge:{id:"challenge",version:1,seat:"Skeptic",instruction:"Challenge the current approach constructively. Identify the failure mode that matters most and propose a safer alternative or test."}
+  };
+  function aiContext(kind,id,sharing){
+    sharing=sharing||{};
     var x,r;
-    if(kind==="task"){x=findItem(id);if(!x)return null;return {title:x.text||"Task",text:"Task: "+(x.text||"")+"\nArea: "+(x.area||"Inbox")+"\nDue: "+(x.due||"none")};}
+    if(kind==="task"){x=findItem(id);if(!x)return null;var direct="";if(x.projectId){var lp=findProject(x.projectId);if(lp)direct="\nLinked project: "+(lp.title||"")+"\nProject outcome: "+(lp.outcome||"")+"\nProject next action: "+(lp.nextAction||"");}return {title:x.text||"Task",text:"Task: "+(x.text||"")+"\nArea: "+(x.area||"Inbox")+"\nDue: "+(x.due||"none")+direct};}
     if(kind==="project"){x=findProject(id);if(!x)return null;return {title:x.title||"Project",text:"Project: "+(x.title||"")+"\nOutcome: "+(x.outcome||"")+"\nNext action: "+(x.nextAction||"")+"\nNotes: "+(x.notes||"")};}
-    if(kind==="person"){x=findPerson(id);if(!x)return null;return {title:x.name||"Person",text:"Person: "+(x.name||"")+"\nEmail: "+(x.email||"")+"\nNotes: "+(x.notes||"")+"\nLast contact: "+(x.lastContact||"")};}
+    if(kind==="person"){x=findPerson(id);if(!x)return null;return {title:x.name||"Person",text:"Person: "+(x.name||"")+"\nLast contact: "+(x.lastContact||"unknown")+(sharing.personEmail?"\nEmail: "+(x.email||"none"):"")+(sharing.personNotes?"\nPerson notes: "+(x.notes||"none"):"")};}
     if(kind==="library"){r=findLibraryRecord(id);if(!r)return null;return {title:r.title||"Library item",text:r.kind+": "+r.title+"\n\n"+(r.body||r.url||"")};}
     var i;
     if(kind==="event"){
       for(i=0;i<state.events.length;i++)if(state.events[i].id===id){x=state.events[i];break;}
       if(!x)return null;
-      return {title:x.title||"Event",text:"Event: "+(x.title||"")+"\nWhen: "+(x.date||"")+(x.time?" at "+x.time:" (all day)")+(x.end?", through "+x.end:"")+(x.location?"\nWhere: "+x.location:"")+(x.notes?"\nNotes: "+x.notes:"")};
+      return {title:x.title||"Event",text:"Event: "+(x.title||"")+"\nWhen: "+(x.date||"")+(x.time?" at "+x.time:" (all day)")+(x.end?", through "+x.end:"")+(sharing.calendarDetails&&x.location?"\nWhere: "+x.location:"")+(sharing.calendarDetails&&x.notes?"\nNotes: "+x.notes:"")};
     }
     if(kind==="stash"){
       if(!isArr(state.stash))state.stash=[];
@@ -4771,27 +5037,68 @@
     }
     return null;
   }
-  function universalAIActionsHTML(kind,id){return '<button class="linklike" type="button" data-ai-kind="'+escapeHtml(kind)+'" data-ai-id="'+escapeHtml(id)+'">Draft with AI</button><button class="linklike" type="button" data-ai-kind="'+escapeHtml(kind)+'" data-ai-id="'+escapeHtml(id)+'" data-ai-mode="council">Send to Council</button>';}
-  function startUniversalAI(kind,id,mode){
-    var ctx=aiContext(kind,id);if(!ctx){toast("Nothing to send.");return;}
+  function aiFingerprint(s){var h=2166136261,i;for(i=0;i<s.length;i++){h^=s.charCodeAt(i);h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);}return (h>>>0).toString(16);}
+  function universalAIActionsHTML(kind,id){return '<button class="linklike" type="button" data-ai-kind="'+escapeHtml(kind)+'" data-ai-id="'+escapeHtml(id)+'">Ask AI…</button><button class="linklike" type="button" data-ai-kind="'+escapeHtml(kind)+'" data-ai-id="'+escapeHtml(id)+'" data-ai-mode="council">Send to Council</button>';}
+  function renderAiComposer(){
+    var ov=$("aiComposeOverlay"),box=$("aiComposeCard");if(!ov||!box)return;ov.classList.toggle("open",!!aiCompose.open);if(!aiCompose.open){box.innerHTML="";return;}
+    var ctx=aiContext(aiCompose.kind,aiCompose.id,aiCompose.sharing);if(!ctx){closeAiComposer();return;}
+    var modes=["Decide","Plan","Review","Draft","Challenge"],h='<p class="now-eyebrow">Prepare AI proposal</p><h1>'+escapeHtml(ctx.title)+'</h1><p class="hint">Choose the job and exactly what leaves this device. The returned text cannot change KevinOS until you apply it.</p><div class="ai-compose-grid">',i,m;
+    for(i=0;i<modes.length;i++){m=modes[i];h+='<button class="ai-mode'+(aiCompose.mode===m?' active':'')+'" type="button" data-ai-compose-mode="'+m+'">'+m+'</button>';}
+    h+='</div><div class="ai-share"><label><input type="checkbox" checked disabled> Source item and its direct link — sent to AI</label><label><input type="checkbox" data-ai-share="profile"'+(aiCompose.sharing.profile?' checked':'')+'> Profile facts — sent to AI</label>'+(aiCompose.kind==="person"?'<label><input type="checkbox" data-ai-share="personEmail"'+(aiCompose.sharing.personEmail?' checked':'')+'> Email address — sent to AI</label><label><input type="checkbox" data-ai-share="personNotes"'+(aiCompose.sharing.personNotes?' checked':'')+'> Person notes — sent to AI</label>':'')+'<label><input type="checkbox" data-ai-share="email"'+(aiCompose.sharing.email?' checked':'')+'> Gmail subjects and snippets — sent to AI</label><label><input type="checkbox" data-ai-share="calendar"'+(aiCompose.sharing.calendar?' checked':'')+'> Today’s calendar titles and times — sent to AI</label><label><input type="checkbox" data-ai-share="calendarDetails"'+(aiCompose.sharing.calendarDetails?' checked':'')+'> Calendar notes and locations — sent to AI</label><label><input type="checkbox" data-ai-share="history"'+(aiCompose.sharing.history?' checked':'')+'> Related completed-task history — sent to AI</label><label><input type="checkbox" data-ai-share="library"'+(aiCompose.sharing.library?' checked':'')+'> Other Library titles and snippets — sent to AI</label></div><details><summary>Preview shared context</summary><pre class="copy-box" style="white-space:pre-wrap;margin-top:8px">'+escapeHtml(buildAiSharedContext(ctx,aiCompose.sharing))+'</pre></details><div class="now-actions"><button class="add-btn" type="button" data-ai-compose-run="1">Generate '+escapeHtml(aiCompose.mode)+' proposal</button><button class="btn-soft" type="button" data-ai-compose-close="1">Cancel</button></div>';
+    box.innerHTML=h;setTimeout(function(){var a=box.querySelector(".ai-mode.active");if(a)a.focus();},20);
+  }
+  function buildAiSharedContext(ctx,sharing){
+    var out=ctx.text||"",i,x;
+    if(sharing.profile&&state.profile.length){out+="\n\nPROFILE CONTEXT\n";for(i=0;i<Math.min(state.profile.length,12);i++){x=state.profile[i];out+=(x.label||x.q||"Fact")+": "+(x.value||x.answer||x.text||"")+"\n";}}
+    if(sharing.calendar){out+="\n\nTODAY CALENDAR\n";for(i=0;i<state.events.length;i++){x=state.events[i];if(x.date===todayKey())out+=(x.time||"all day")+" — "+(x.title||"Untitled")+"\n";}}
+    if(sharing.calendarDetails){out+="\n\nCALENDAR DETAILS\n";for(i=0;i<state.events.length;i++){x=state.events[i];if(x.date===todayKey()&&(x.location||x.notes))out+=(x.title||"Untitled")+": "+(x.location||"no location")+(x.notes?" · "+x.notes:"")+"\n";}}
+    if(sharing.email){out+="\n\nGMAIL CONTEXT\n";for(i=0;i<Math.min(emailThreads.length,10);i++){x=emailThreads[i];out+=(x.from||"Unknown")+" — "+(x.subject||"(no subject)")+": "+(x.snippet||"").slice(0,240)+"\n";}}
+    if(sharing.history){out+="\n\nRECENT COMPLETED WORK\n";var done=state.items.filter(function(t){return t.done;}).slice(0,10);for(i=0;i<done.length;i++)out+="- "+(done[i].text||"")+"\n";}
+    if(sharing.library){out+="\n\nOTHER LIBRARY CONTEXT\n";var lib=libraryRecords().slice(0,10);for(i=0;i<lib.length;i++)out+=(lib[i].kind||"Item")+": "+(lib[i].title||"")+" — "+(lib[i].body||lib[i].url||"").slice(0,240)+"\n";}
+    return out;
+  }
+  function closeAiComposer(restore){var r=aiReturnFocus,sel=aiReturnFocusSelector;aiReturnFocus=null;aiReturnFocusSelector="";aiCompose.open=false;renderAiComposer();if(restore!==false)setTimeout(function(){var target=(sel&&document.querySelector(sel))||r;if(target&&target.isConnected&&target.focus)target.focus();},20);}
+  function handleAiComposer(e){
+    var m=e.target.closest("[data-ai-compose-mode]");if(m){aiCompose.mode=m.getAttribute("data-ai-compose-mode");renderAiComposer();return;}
+    var sh=e.target.closest("[data-ai-share]");if(sh){aiCompose.sharing[sh.getAttribute("data-ai-share")]=!!sh.checked;renderAiComposer();return;}
+    if(e.target.closest("[data-ai-compose-close]")){closeAiComposer();return;}
+    if(e.target.closest("[data-ai-compose-run]")){runAiProposal();return;}
+  }
+  function startUniversalAI(kind,id,mode,trigger){
+    var ctx=aiContext(kind,id,{});if(!ctx){toast("Nothing to send.");return;}
     if(mode==="council"){addCouncilFromText(ctx.text);toast("Sent to Council");return;}
     if(!relayOn()){toast("Connect AI first.");return;}
-    var pid=uid();if(!isArr(state.pending))state.pending=[];
-    state.pending.unshift({id:pid,kind:"ai",title:"AI draft · "+ctx.title,body:"Working...",sourceKind:kind,sourceId:id,createdAt:Date.now()});save();renderCurrentRoom();
-    relayPost("/ai",{prompt:"Draft a useful next step, note, message, or plan from this KevinOS item. Keep it concise and actionable.\n\n"+ctx.text}).then(function(j){
-      var p=findPending(pid);if(!p)return;p.body=(j&&j.text)||((j&&j.error)?"AI error: "+j.error:"No draft returned.");p.status=(j&&j.text)?"review":"error";touch(p);save();renderCurrentRoom();
-    }).catch(function(){var p=findPending(pid);if(p){p.body="Could not reach the relay.";p.status="error";touch(p);save();renderCurrentRoom();}});
+    aiReturnFocus=(trigger&&trigger.focus)?trigger:(document.activeElement&&document.activeElement!==document.body?document.activeElement:null);aiReturnFocusSelector=(trigger&&trigger.closest&&trigger.closest(".task-wrap"))?'[data-action="menu"][data-id="'+id+'"]':"";aiCompose={open:true,kind:kind,id:id,mode:(AI_PROMPTS[mode]?mode:"Draft"),sharing:{profile:false,personEmail:false,personNotes:false,email:false,calendar:false,calendarDetails:false,history:false,library:false}};renderAiComposer();
   }
-  function saveAiPendingToNotes(id){
-    var p=findPending(id);if(!p)return;
-    state.notes.unshift({id:uid(),title:p.title||"AI draft",para:"Resource",area:"Inbox",tags:"ai,review",body:p.body||"",createdAt:Date.now()});
-    bury(id);state.pending=state.pending.filter(function(x){return x.id!==id;});save();renderCurrentRoom();toast("Saved to Notes");
+  function runAiProposal(){
+    var ctx=aiContext(aiCompose.kind,aiCompose.id,aiCompose.sharing),def=AI_PROMPTS[aiCompose.mode]||AI_PROMPTS.Draft;if(!ctx)return;
+    var shared=buildAiSharedContext(ctx,aiCompose.sharing),cats=["source item"],k;for(k in aiCompose.sharing)if(aiCompose.sharing.hasOwnProperty(k)&&aiCompose.sharing[k])cats.push(k);
+    var pid=uid(),created=Date.now(),p={id:pid,kind:"ai",proposalType:"text",mode:aiCompose.mode,status:"working",title:aiCompose.mode+" · "+ctx.title,body:"Working...",sourceKind:aiCompose.kind,sourceId:aiCompose.id,targetKind:"",targetId:"",provider:"pending",model:"pending",seat:def.seat,promptId:def.id,promptVersion:def.version,createdAt:created,contextCategories:cats,contextFingerprint:aiFingerprint(shared),warnings:[],applicationState:"not-applied",feedback:""};
+    state.pending.unshift(p);save();closeAiComposer(false);go("today");
+    relayPost("/ai",{prompt:def.instruction+"\n\n"+shared,promptId:def.id,promptVersion:def.version,mode:aiCompose.mode}).then(function(j){var x=findPending(pid);if(!x)return;x.body=(j&&j.text)||"No proposal returned.";x.status=(j&&j.text)?"review":"error";x.provider=(j&&j.provider)||"relay";x.model=(j&&j.model)||"unreported";x.completedAt=Date.now();touch(x);save();renderCurrentRoom();}).catch(function(){var x=findPending(pid);if(x){x.body="Could not reach the relay.";x.status="error";x.provider="relay";x.model="unavailable";x.completedAt=Date.now();touch(x);save();renderCurrentRoom();}});
   }
-  function dismissAiPending(id){bury(id);state.pending=state.pending.filter(function(x){return x.id!==id;});save();renderCurrentRoom();}
-  // One room -> renderer map (audit item 32). Used by renderCurrentRoom,
-  // syncRerender, and go()'s dispatch. Rooms with entry side-effects
-  // (github fetch, email enter, calendar gcal load) keep those in go().
-  var RENDERERS={today:renderToday,home:renderHome,next:renderNext,launch:renderLaunch,tasks:renderTasks,calendar:renderCalendar,habits:renderHabits,goals:renderGoals,projects:renderProjects,studio:renderBuilds,briefs:renderBriefs,launchpad:renderLinks,prompts:renderPrompts,notes:renderNotes,stash:renderStash,people:renderPeople,github:renderGithub,email:renderEmail,library:renderLibrary,attic:renderAttic};
+  function editAIProposal(id){var p=findPending(id),ta=document.querySelector('[data-ai-body="'+id+'"]');if(!p||!ta)return;p.body=ta.value;p.editedAt=Date.now();p.status="edited";p.feedback="edited";touch(p);save();renderCurrentRoom();toast("Proposal edit saved");}
+  function applyAIProposal(id,target){
+    var p=normalizeAiProposal(findPending(id));if(!p||p.status==="working")return;var rid=uid(),body=p.body||"",rec;
+    if(target==="note"){rec={id:rid,title:p.title||"AI proposal",para:"Resource",area:"Inbox",tags:"ai,approved",body:body,createdAt:Date.now()};touch(rec);state.notes.unshift(rec);p.undo={kind:"create",collection:"notes",id:rid};}
+    else if(target==="event"){rec={id:rid,title:(body.split(/\n/)[0]||p.title||"AI proposal").replace(/^[-*# ]+/,"").slice(0,200),date:todayKey(),time:null,allDay:true,area:"Inbox",notes:body,source:"ai-approved"};touch(rec);state.events.push(rec);p.undo={kind:"create",collection:"events",id:rid};}
+    else if(target==="project"&&p.sourceKind==="project"){rec=findProject(p.sourceId);if(!rec)return;p.undo={kind:"project",id:rec.id,notes:rec.notes||""};rec.notes=(rec.notes?rec.notes+"\n\n":"")+body;touch(rec);}
+    else{rec={id:rid,text:(body.split(/\n/)[0]||p.title||"AI proposal").replace(/^[-*# ]+/,"").slice(0,240),area:"Inbox",today:false,done:false,due:null,dueTime:"",projectId:p.sourceKind==="project"?p.sourceId:null,repeat:"",notes:body,createdAt:Date.now()};touch(rec);state.items.unshift(rec);p.undo={kind:"create",collection:"items",id:rid};}
+    p.status="applied";p.applicationState="applied";p.appliedAs=target;p.targetKind=target;p.targetId=rec&&rec.id||p.sourceId||"";p.appliedAt=Date.now();p.resolvedAt=p.appliedAt;p.feedback=p.editedAt?"edited-accepted":"accepted";touch(p);save();renderCurrentRoom();toast("Proposal applied — Undo is available");
+  }
+  function rejectAIProposal(id){var p=findPending(id);if(!p)return;p.status="rejected";p.applicationState="rejected";p.feedback="rejected";p.resolvedAt=Date.now();touch(p);save();renderCurrentRoom();}
+  function escalateAIProposal(id){var p=findPending(id);if(!p)return;addCouncilFromText("Challenge this "+(p.mode||"AI")+" proposal:\n\n"+(p.body||""));p.status="escalated";p.applicationState="escalated";p.feedback="escalated";p.resolvedAt=Date.now();touch(p);save();renderCurrentRoom();toast("Escalated to Council");}
+  function undoAIProposal(id){
+    var p=findPending(id),u=p&&p.undo;if(!p||!u)return;
+    if(u.kind==="create"&&isArr(state[u.collection])){bury(u.id);state[u.collection]=state[u.collection].filter(function(x){return x.id!==u.id;});}
+    else if(u.kind==="project"){var pr=findProject(u.id);if(pr){pr.notes=u.notes||"";touch(pr);}}
+    p.status="review";p.applicationState="undone";p.feedback="undone";p.undoneAt=Date.now();delete p.undo;touch(p);save();renderCurrentRoom();toast("Applied change undone");
+  }
+  function saveAiPendingToNotes(id){applyAIProposal(id,"note");}
+  function dismissAiPending(id){rejectAIProposal(id);}
+  // Derived from ROOM_DEFS: one room truth for routing, rendering, labels,
+  // navigation, command entries, More grouping, and compatibility aliases.
+  var RENDERERS={};ROOM_DEFS.forEach(function(d){RENDERERS[d.id]=d.renderer;});
   function renderCurrentRoom(){
     var _pt0=perfProbe?perfNow():0;
     var f=RENDERERS[room];if(f)f();
@@ -4806,10 +5113,11 @@
     var tabs=document.querySelectorAll("#nav .tab");
     for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle("active",tabs[i].dataset.room===r);
     var btm=document.querySelectorAll("#bottomNav [data-bottom-room]");for(i=0;i<btm.length;i++)btm[i].classList.toggle("active",btm[i].dataset.bottomRoom===r);
-    ["today","home","next","launch","tasks","calendar","habits","goals","projects","studio","briefs","prompts","launchpad","notes","stash","people","github","email","library","attic"].forEach(function(rm){var el=$("room-"+rm);if(el)el.classList.toggle("active",rm===r);});
-    // Entry side-effects stay explicit; everything else renders via the map.
-    if(r==="github")ghSync(false);
-    else if(r==="email")emailEnter();
+    ROOM_DEFS.forEach(function(d){var el=$("room-"+d.id);if(el)el.classList.toggle("active",d.id===r);});
+    // Entry side-effects stay explicit; their names live in ROOM_DEFS.
+    var def=roomDef(r);
+    if(def&&def.onEnter==="github")ghSync(false);
+    else if(def&&def.onEnter==="email")emailEnter();
     else{
       var f=RENDERERS[r];if(f)f();
       if(r==="calendar"&&calOn())loadGcal(false);
@@ -4817,6 +5125,18 @@
     perfLog("go:"+r,_pt0);
     var sec=$("room-"+r);if(sec){sec.setAttribute("tabindex","-1");try{sec.focus({preventScroll:true});}catch(eF){try{sec.focus();}catch(eG){}}}
     try{window.scrollTo(0,0);}catch(e){}
+  }
+  function renderPrimaryNavigation(){
+    var top=$("primaryRoomTabs"),bottom=$("bottomNav"),defs=ROOM_DEFS.slice(),h="",i,d;
+    defs.sort(function(a,b){return (a.primary||0)-(b.primary||0);});
+    for(i=0;i<defs.length;i++){d=defs[i];if(d.primary)h+='<button class="tab'+(d.id==='today'?' active':'')+'" type="button" data-room="'+escapeHtml(d.id)+'">'+escapeHtml(d.label)+'</button>';}
+    if(top)top.innerHTML=h;
+    defs=ROOM_DEFS.filter(function(x){return !!x.mobile;}).sort(function(a,b){return a.mobile-b.mobile;});h="";
+    for(i=0;i<defs.length;i++){
+      d=defs[i];if(d.mobile===4)h+='<button type="button" data-bottom-capture="1" class="plus" aria-label="Open capture">Capture</button>';
+      h+='<button type="button" data-bottom-room="'+escapeHtml(d.id)+'"'+(d.id==='today'?' class="active"':'')+'>'+escapeHtml(d.label)+'</button>';
+    }
+    if(bottom)bottom.innerHTML=h;
   }
   function seedDefaults(){
     if(!state.builds.length){state.builds=[
@@ -4942,10 +5262,11 @@
     if(e.target.closest("[data-snap-cancel]")){snapConfirmAt=0;renderSnapshots();return;}
     var b=e.target.closest("[data-snap-restore]");if(b)restoreSnapshot(b.getAttribute("data-snap-restore"));
   });
-  $("bottomNav").addEventListener("click",function(e){var c=e.target.closest("[data-bottom-capture]");if(c){vcOpenPanel();return;}var b=e.target.closest("[data-bottom-room]");if(b)go(b.getAttribute("data-bottom-room"));});
-  document.addEventListener("click",function(e){if(e.target.closest("[data-save-export]")){exportBackup();return;}if(e.target.closest("[data-raw-storage]")){downloadRawStorage();return;}if(e.target.closest("[data-emergency-import]")){$("restoreInput").click();return;}if(e.target.closest("[data-weekly-retro]")){councilRetroAsk();return;}var ai=e.target.closest("[data-ai-kind]");if(ai){startUniversalAI(ai.getAttribute("data-ai-kind"),ai.getAttribute("data-ai-id"),ai.getAttribute("data-ai-mode")||"draft");}});
+  $("bottomNav").addEventListener("click",function(e){var c=e.target.closest("[data-bottom-capture]");if(c){vcOpenPanel(c);return;}var b=e.target.closest("[data-bottom-room]");if(b)go(b.getAttribute("data-bottom-room"));});
+  document.addEventListener("click",function(e){if(e.target.closest("[data-save-export]")){exportBackup();return;}if(e.target.closest("[data-raw-storage]")){downloadRawStorage();return;}if(e.target.closest("[data-emergency-import]")){$("restoreInput").click();return;}if(e.target.closest("[data-weekly-retro]")){councilRetroAsk();return;}var ai=e.target.closest("[data-ai-kind]");if(ai){startUniversalAI(ai.getAttribute("data-ai-kind"),ai.getAttribute("data-ai-id"),ai.getAttribute("data-ai-mode")||"draft",ai);}});
   $("cmdkBtn").addEventListener("click",function(){openPalette();});
   document.addEventListener("keydown",function(e){
+    if(e.key==="Escape"&&taskMenuId){taskMenuId="";if(room==="tasks")renderTasks();return;}
     if((e.metaKey||e.ctrlKey)&&(e.key==="k"||e.key==="K")){e.preventDefault();if(paletteOpen){closePalette();}else{openPalette();}return;}
     if((e.key==="c"||e.key==="C")&&!paletteOpen&&!isEditing()&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();vcOpenPanel();return;}
     if(!paletteOpen)return;
@@ -4957,7 +5278,7 @@
   $("cmdkInput").addEventListener("input",function(){paletteFilter(this.value);paletteSel=0;renderPalette();});
   $("cmdkOverlay").addEventListener("click",function(e){if(e.target===this)closePalette();});
   $("cmdkList").addEventListener("click",function(e){var r=e.target.closest("[data-cmdk-idx]");if(!r)return;paletteSel=parseInt(r.dataset.cmdkIdx,10)||0;paletteExec();});
-  $("vcMic").addEventListener("click",vcOpenPanel);
+  $("vcMic").addEventListener("click",function(){vcOpenPanel(this);});
   $("vcPanel").addEventListener("click",handleVoiceClick);
   document.addEventListener("click",function(e){var u=e.target.closest('[data-vc="undo"]');if(u)vcUndoLast();});
   document.addEventListener("click",function(e){var u=e.target.closest("[data-undo-task]");if(u)runUndo();});
@@ -4966,6 +5287,9 @@
   $("sweepCardTasks").addEventListener("click",startSweep);
   $("intakeCardHome").addEventListener("click",startIntake);
   $("intakeInner").addEventListener("click",handleIntake);
+  $("onboardOverlay").addEventListener("click",handleOnboarding);
+  $("onboardOverlay").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="obCapture"){e.preventDefault();saveOnboardCapture();}});
+  $("aiComposeOverlay").addEventListener("click",handleAiComposer);
 
   $("taskAddBtn").addEventListener("click",function(){addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat","taskDueTime");});
   $("taskInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addTask($("taskInput"),function(){return taskArea;},"taskDue","taskRepeat","taskDueTime");}});
@@ -5006,13 +5330,16 @@
   $("sweepInner").addEventListener("keydown",function(e){if(e.key==="Enter"){var step=SWEEP_STEPS[sweep.step];if(step&&step.type==="area"){e.preventDefault();sweepAdd();}}});
   $("windInner").addEventListener("click",handleWind);
   $("windInner").addEventListener("change",function(e){if(e.target&&e.target.id==="windHourSel"){state.closeHour=parseInt(e.target.value,10)||17;persist();toast("Close ritual set for "+fmtTime(pad(closeHourVal())+":00"));}});
-  document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(sweep.active)exitSweep();else if(windActive)closeWind();else if(intakeActive)exitIntake();}});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(aiCompose.open)closeAiComposer();else if(vcOpen)vcClose();else if(sweep.active)exitSweep();else if(windActive)closeWind();else if(intakeActive)exitIntake();}});
   document.addEventListener("keydown",function(e){
     if(e.key!=="Tab")return;
     if(sweep.active)trapTab(e,$("sweepInner"));
     else if(windActive)trapTab(e,$("windInner"));
     else if(intakeActive)trapTab(e,$("intakeInner"));
     else if(paletteOpen)trapTab(e,$("cmdkOverlay"));
+    else if(vcOpen)trapTab(e,$("vcPanel"));
+    else if(onboardOpen)trapTab(e,$("onboardCard"));
+    else if(aiCompose.open)trapTab(e,$("aiComposeCard"));
   });
 
   $("projAddBtn").addEventListener("click",addProject);
@@ -5021,6 +5348,8 @@
   $("projViewToggle").addEventListener("click",function(e){var b=e.target.closest("[data-pview]");if(!b)return;projView=b.dataset.pview;var btns=$("projViewToggle").querySelectorAll(".vt-btn");for(var i=0;i<btns.length;i++)btns[i].classList.toggle("active",btns[i].dataset.pview===projView);renderProjList();});
   $("buildAddBtn").addEventListener("click",addBuild);
   $("buildInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addBuild();}});
+  $("buildFilters").addEventListener("click",handleBuildsClick);
+  $("buildFilters").addEventListener("change",handleBuildsClick);
   $("buildList").addEventListener("click",handleBuildsClick);
   $("briefAddBtn").addEventListener("click",addBrief);
   $("briefInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addBrief();}});
@@ -5144,7 +5473,7 @@
     if(!base){emailError="Connect the relay first (Next → Connect AI).";renderEmail();return;}
     var e=emailCfg();if(!e.session)e.session=uid()+uid()+uid();
     e.pendingOAuth=true;emailError="";save();
-    try{window.open(base+"/google/login?session="+encodeURIComponent(e.session),"_blank");}catch(x){}
+    openExternal(base+"/google/login?session="+encodeURIComponent(e.session));
     renderEmail();emailOAuthPoll(0);
   }
   function emailOAuthPoll(n){
@@ -5392,7 +5721,7 @@
     var act=a.getAttribute("data-em"),id=a.getAttribute("data-id");
     if(act==="connect"||act==="add")emailOAuthStart();
     else if(act==="checkoauth")emailOAuthPoll(0);
-    else if(act==="reopen"){var b=relayBase();if(b&&state.email&&state.email.session){try{window.open(b+"/google/login?session="+encodeURIComponent(state.email.session),"_blank");}catch(x){}}}
+    else if(act==="reopen"){var b=relayBase();if(b&&state.email&&state.email.session)openExternal(b+"/google/login?session="+encodeURIComponent(state.email.session));}
     else if(act==="cancel")emailDisconnect(null);
     else if(act==="refresh")loadThreads(true);
     else if(act==="draftall")fetchOvernight(true);
@@ -5645,6 +5974,7 @@
 
   /* ---------- init ---------- */
   paintHeader();
+  renderPrimaryNavigation();
   function paintChipsHome(){buildChips($("chips"),function(){return selectedArea;},function(k){selectedArea=k;paintChipsHome();$("captureInput").focus();});}
   function paintChipsTask(){buildChips($("taskChips"),function(){return taskArea;},function(k){taskArea=k;paintChipsTask();});}
   function paintChipsEv(){buildChips($("evChips"),function(){return evArea;},function(k){evArea=k;paintChipsEv();});}
@@ -5679,7 +6009,7 @@
     if(!loadResult||!loadResult.ok){
       loadFailed=true;loadFailedRaw=loadResult?loadResult.raw:null;paintStatus(store.mode);renderStorageStats();renderLoadEmergency();return;
     }
-    var saved=loadResult.data;
+    var saved=loadResult.data,freshInstall=!loadResult.data;
     var prevV=(saved&&typeof saved==="object"&&(saved.v||0))||0;
     if(saved&&typeof saved==="object"){
       var bi,bk;
@@ -5719,8 +6049,8 @@
       if(saved.lanePins&&typeof saved.lanePins==="object")state.lanePins=saved.lanePins;
       if(saved.seatStats&&typeof saved.seatStats==="object")state.seatStats=saved.seatStats;
     }
-    if(prevV<4)seedDefaults();
-    if(prevV<5)seedPrompts();
+    // Fresh normal mode stays clean. Historic installs keep any old seeded
+    // rows, but KevinOS never injects sample content into an empty device now.
     if(prevV<37){ // v0.38: profile intake + sheets, plus device-local caches (swim, sheets digest, weather)
       if(!isArr(state.profile))state.profile=[];
       if(!isArr(state.sheets))state.sheets=[];
@@ -5749,6 +6079,9 @@
     renderOfflineChip();
     checkPushHealth();
     go(roomQ&&RENDERERS[normalizeRoom(roomQ)]?roomQ:"today");
+    demoMode=sideGet("kevinos:demo")==="1";
+    onboardOpen=!!(freshInstall&&!demoMode&&!onboardingDone()&&!sharedMsg);
+    renderOnboarding();
     vcDetect();
     save();
     renderStorageStats();if(typeof renderSnapshots==="function")renderSnapshots();if(typeof snapBootMaybe==="function")snapBootMaybe();

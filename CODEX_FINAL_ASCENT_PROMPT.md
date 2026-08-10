@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This model-specific final-ascent prompt is not current. Read `AGENTS.md` and `docs/CURRENT_STATE.md` first.
+
 # KevinOS — THE FINAL ASCENT · Codex Edition (v0.49 → v1.0.0)
 *(Kevin: paste everything below this line as the FIRST message in a fresh Codex session. Be present for Phase 0 and every ⛳ GO checkpoint; the long build stretches run without you. Written 2026-07-23 against live v0.49.)*
 

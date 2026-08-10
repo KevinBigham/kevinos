@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This audit is retained as evidence, not as the current implementation plan. Read `AGENTS.md` and `docs/CURRENT_STATE.md` first.
+
 # KevinOS — Audit V2: State of the GOAT
 *Prepared 2026-07-12 · Audits the LIVE repo at v0.47 (GitHub archive of `main`, commit `a67c040`)*
 *Companion to `KEVINOS_AUDIT.md` (v1, the pre-campaign audit) and `KEVINOS_EXECUTION_ORDER.md` (the mission + Wave Log). Drop this file in the repo root.*

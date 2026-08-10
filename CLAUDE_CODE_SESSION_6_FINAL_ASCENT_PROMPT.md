@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This model-specific final-ascent prompt is not current. Read `AGENTS.md` and `docs/CURRENT_STATE.md` first.
+
 # KevinOS — THE FINAL ASCENT Marathon Prompt (Session 6 · fresh window)
 *(Paste everything below this line as the FIRST message in a brand-new Claude Code chat. Kevin: have this file and `KEVINOS_AUDIT_V2.md` sitting in `~/Downloads/kevinos-main` — Step 0 seeds them into the real workspace for you. Be present for Phase 0 and the GO checkpoints; the long build stretches run without you.)*
 

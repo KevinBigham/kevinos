@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This model-specific marathon prompt is not current. Read `AGENTS.md` and `docs/CURRENT_STATE.md` first.
+
 # KevinOS GOAT Wave Marathon — Claude Code Mission Prompt
 *(Paste everything below this line as your first message to Claude Code. Prerequisite: `KEVINOS_EXECUTION_ORDER.md` and `KEVINOS_AUDIT.md` must be in the repo root.)*
 

@@ -1,3 +1,5 @@
+> **HISTORICAL / SUPERSEDED:** This handoff records earlier releases. Read `AGENTS.md` and `docs/CURRENT_STATE.md` for current work.
+
 # KevinOS — Handoff to the next Claude Code
 
 *Written 2026-06-22; body covers through v0.38 (2026-07-02), plus the **§0.5 v0.39 addendum** and the **§0.6 v0.40→v0.49 GOAT-campaign addendum** below. Trust order when docs disagree: **code → the Wave Log (bottom of `KEVINOS_EXECUTION_ORDER.md`) → `MISSION.md` → `GETTING_STARTED.md` → this file.** Everything (app + backend + docs) lives in one repo: `github.com/KevinBigham/kevinos`.*
