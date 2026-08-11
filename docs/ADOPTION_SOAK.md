@@ -4,6 +4,8 @@ Start this scorecard on the first day v0.50 becomes Kevin's daily driver. It is 
 
 ## Daily check (days 1–30)
 
+Attention evidence is optional. If enabled, inspect the local seven-day summary only when useful; it is not a required daily ritual. Record whether the single signal was useful, noisy, or absent.
+
 Copy one row per day. Use `yes`, `no`, a duration, or a short friction note.
 
 | Date | Opened | Capture visible under 10s | Focus confirmed under 2m | Close ritual | Proposal backlog | Recovery/data failure | Friction worth removing |

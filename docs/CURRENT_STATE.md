@@ -12,6 +12,14 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 - Browser baseline: real Chromium at 390x844 reproduced crushed mobile task text, duplicate navigation, missing Tasks bottom-nav entry, and microphone overlap; console had zero warnings/errors.
 - Governing mission: KevinOS Convergence. Historical marathon documents are evidence, not current plans.
 
+## v0.51 candidate — Attention Proof Loop
+
+- Status: `MACHINE-VERIFIED` for the recorder, deterministic evidence functions, local state classification, and Mission Capsule JSON generation. Browser verification is `NOT ATTEMPTED` in this checkout.
+- Added: opt-in content-minimized attention receipts, 30-day/500 receipt bounds, malformed-state rejection, idempotent daily-open receipts, seven-day digest, one-signal precedence, Today progressive disclosure controls, and Studio JSON capsules with stable ordering/fingerprint.
+- State: compatible top-level `attention` field; schema remains v39. It is restored locally and excluded from backup/portable and sync allowlists. No version bump.
+- Tests: `node test/attention-proof.test.js` — `attention-proof harness ok`; `node tools/doctor.js` — doctor ok; `sh test/run.sh` — green, including syntax/ES5 scans and app logic.
+- Manual/browser: `NOT ATTEMPTED` for required viewports, accessibility interaction, offline reload, and console inspection. No known P0/P1 regression from automated coverage.
+
 ## Status ledger
 
 | Wave | Status | Current result |

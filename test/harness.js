@@ -119,6 +119,7 @@ const EXPORT_NAMES = [
   "relay401IsAccount", "emailConnectionError", "emailIntelDraftFrom", "emailIntelHTML",
   "weeklyContextText", "councilRetroAsk",
   "factNorm", "profileDupeIds", "dedupeProfileFacts", "staleFact", "FACT_STALE_DAYS",
+  "ATTENTION_VERSION", "ATTENTION_RETENTION_DAYS", "ATTENTION_HARD_CAP", "ATTENTION_EVENT_TYPES", "sanitizeAttention", "recordAttentionReceipt", "pruneAttention", "attentionDigest", "attentionSignal", "missionCapsule",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

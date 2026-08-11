@@ -6,6 +6,7 @@
 - Synced/portable collections: the 17 names in `CONTENT_ARRAYS`.
 - Portable metadata: `PORTABLE_OBJS` plus explicitly copied scalar settings.
 - Device-local/connection state: relay token, sync key/revision, push subscription, GitHub/Google sessions, calendar connection, and caches.
+- `attention` is device-local evidence: `{version, enabled, retentionDays, receipts, lastPrunedAt}`. Receipts are sanitized, retained for 30 days, and capped at 500. It is restored by the boot whitelist but excluded from `CONTENT_ARRAYS`, `PORTABLE_OBJS`, backups, sync documents, relay requests, and AI context.
 
 Nested records are intentionally tolerant of missing optional fields. Read old records defensively and normalize at use sites. A new top-level field is stricter: initialize it, restore it in the boot whitelist, classify it, and add round-trip coverage in one change.
 
@@ -28,6 +29,8 @@ Convergence intentionally keeps schema v39. `pending[kind=ai]` carries text-prop
 Boot parses `kevinos:v1`, blocks all writes on corruption, captures the previous version, restores through a whitelist, runs ordered migration gates, stamps the current schema, sanitizes IDs, and records last-good-boot evidence. Imports from newer schemas warn and still apply only known allowlisted fields.
 
 Schema changes require one deterministic previous-version gate and tests for old/malformed fixtures, boot round trip, backup/import, merge, and convergence.
+
+The Attention Proof Loop is a compatible top-level extension; `SCHEMA_VERSION` remains 39 because no incompatible persisted-shape migration was required. Rollback is the normal prior app build; old builds ignore the optional field and retain their existing content state.
 
 ## Sync
 

@@ -1147,9 +1147,13 @@
   var COUNCIL_RENDER_MS=80;              // council stream repaints coalesce per burst (item 37)
   var FACT_STALE_DAYS=90;                // profile facts unreviewed this long get a "still true?" card (item 70)
   var PTR_PX=70;                         // pull distance that triggers Today's pull-to-refresh (item 55)
+  var ATTENTION_VERSION=1;
+  var ATTENTION_RETENTION_DAYS=30;
+  var ATTENTION_HARD_CAP=500;
+  var ATTENTION_EVENT_TYPES=["day-opened","capture-created","capture-undone","focus-confirmed","focus-moved","task-completed","task-reopened","task-deferred","close-completed"];
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",lanePins:{},seatStats:{},v:SCHEMA_VERSION};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",lanePins:{},seatStats:{},attention:{version:ATTENTION_VERSION,enabled:false,retentionDays:ATTENTION_RETENTION_DAYS,receipts:[],lastPrunedAt:0},v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
   var relayHealth={status:"unknown",checkedAt:0,caps:null,err:""}, relayHealthOpen=false;
   var ghMem={cache:null,fetchedAt:0}, sheetsMem={at:0,text:""}, swimMem={at:0,items:[]};
@@ -1161,7 +1165,7 @@
   var onboardOpen=false,onboardStep=0,onboardOutcome="",onboardAction="",onboardHardStop="",onboardCaptureId="",demoMode=false;
   var aiCompose={open:false,kind:"",id:"",mode:"Draft",sharing:{profile:false,personEmail:false,personNotes:false,email:false,calendar:false,calendarDetails:false,history:false,library:false}},aiReturnFocus=null,aiReturnFocusSelector="";
   var projFilter="All", projView="status", editingProjId=null;
-  var editingBuildId=null,missionFilter="All",missionAgentFilter="All",missionRoleFilter="All";
+  var editingBuildId=null,missionFilter="All",missionAgentFilter="All",missionRoleFilter="All",attentionClearArm=false;
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
   var editingLinkId=null;
   var projAddArea="Inbox", briefAddKind="Brief", linkAddGroup="Studio";
@@ -1192,6 +1196,53 @@
   function touch(it){if(it){it.u=Date.now();invalidateDayCache();}}
   function bury(id){if(id!=null){state.deleted[String(id)]=Date.now();invalidateDayCache();}}
   function cloneJSON(x){return JSON.parse(JSON.stringify(x));}
+  function attentionDayKey(ts){return dateKey(new Date(typeof ts==="number"?ts:Date.now()));}
+  function sanitizeAttention(raw){
+    var a=raw&&typeof raw==="object"?raw:{},out={version:ATTENTION_VERSION,enabled:a.enabled===true,retentionDays:ATTENTION_RETENTION_DAYS,receipts:[],lastPrunedAt:typeof a.lastPrunedAt==="number"?a.lastPrunedAt:0},r,i,t;
+    if(a.retentionDays===ATTENTION_RETENTION_DAYS&&isArr(a.receipts)){
+      for(i=0;i<a.receipts.length&&out.receipts.length<ATTENTION_HARD_CAP;i++){
+        r=a.receipts[i];if(!r||typeof r!=="object"||typeof r.id!=="string"||!r.id||typeof r.ts!=="number"||!isFinite(r.ts)||typeof r.day!=="string"||ATTENTION_EVENT_TYPES.indexOf(r.type)<0||typeof r.source!=="string")continue;
+        t={id:r.id.slice(0,64),ts:r.ts,day:r.day.slice(0,10),type:r.type,source:r.source.slice(0,32)};
+        if(r.entityType!=null&&typeof r.entityType==="string")t.entityType=r.entityType.slice(0,32);
+        if(r.entityId!=null&&typeof r.entityId==="string")t.entityId=r.entityId.slice(0,64);
+        out.receipts.push(t);
+      }
+    }
+    return out;
+  }
+  function pruneAttention(raw,now){
+    var a=sanitizeAttention(raw),cut=(typeof now==="number"?now:Date.now())-ATTENTION_RETENTION_DAYS*86400000,i,out=[];
+    for(i=0;i<a.receipts.length;i++)if(a.receipts[i].ts>=cut)out.push(a.receipts[i]);
+    a.receipts=out.slice(Math.max(0,out.length-ATTENTION_HARD_CAP));a.lastPrunedAt=typeof now==="number"?now:Date.now();return a;
+  }
+  function recordAttentionReceipt(raw,type,opts,now){
+    var a=sanitizeAttention(raw),o=opts||{},ts=typeof now==="number"?now:Date.now(),r,i;
+    if(!a.enabled||ATTENTION_EVENT_TYPES.indexOf(type)<0)return a;
+    if(type==="day-opened")for(i=0;i<a.receipts.length;i++)if(a.receipts[i].type===type&&a.receipts[i].day===attentionDayKey(ts))return a;
+    r={id:(typeof o.id==="string"&&o.id?o.id:uid()),ts:ts,day:attentionDayKey(ts),type:type,source:typeof o.source==="string"?o.source.slice(0,32):"app"};
+    if(typeof o.entityType==="string")r.entityType=o.entityType.slice(0,32);if(typeof o.entityId==="string")r.entityId=o.entityId.slice(0,64);
+    a.receipts.push(r);return pruneAttention(a,ts);
+  }
+  function logAttention(type,opts){
+    if(!state.attention||state.attention.enabled!==true)return false;
+    state.attention=recordAttentionReceipt(state.attention,type,opts);return true;
+  }
+  function attentionDigest(raw,now){
+    var a=pruneAttention(raw,now),by={},i,r,k,days=[],focus=0,completions=0,reopens=0,deferred=0,close=0,first=null;
+    for(i=0;i<a.receipts.length;i++){r=a.receipts[i];k=r.day;by[k]=(by[k]||[]);by[k].push(r);if(days.indexOf(k)<0)days.push(k);if(r.type==="focus-moved")focus++;if(r.type==="task-completed")completions++;if(r.type==="task-reopened")reopens++;if(r.type==="task-deferred")deferred++;if(r.type==="close-completed")close++;if(r.type==="focus-confirmed"&&(first===null||r.ts<first))first=r.ts;}
+    days.sort();return {days:days,receipts:a.receipts.length,focusChanges:focus,completions:completions,reopenings:reopens,repeatedDeferrals:deferred,closeCompletions:close,timeToFirstFocus:first===null?null:first-(typeof now==="number"?now:Date.now())+0,byDay:by};
+  }
+  function attentionSignal(d){
+    d=d||{};if(!d.receipts)return {kind:"insufficient",text:"Not enough local attention evidence yet."};
+    if(d.focusChanges>=4)return {kind:"friction",text:"Focus changed four times today. Consider freezing NOW for one work interval."};
+    if(d.repeatedDeferrals>=5)return {kind:"friction",text:"Several tasks were deferred repeatedly. Consider choosing one smaller next action."};
+    if(d.closeCompletions>=3)return {kind:"healthy",text:"The close ritual was completed three times this week."};
+    return {kind:"healthy",text:"No single friction pattern is strong enough to call out."};
+  }
+  function missionCapsule(b){
+    b=b||{};var c={capsuleVersion:1,outcome:b.outcome||b.name||"",currentState:b.currentState||"",nextPhysicalAction:b.next||"",assignedAI:b.assignedAI||"",role:b.aiRole||"",repository:b.repo||"",branch:b.branch||"",worktree:b.worktree||"",allowedScope:b.allowedScope||"",forbiddenScope:b.forbiddenFiles||"",contextPolicy:b.contextPolicy||"KevinOS mission fields only",privacyBoundary:b.privacyBoundary||"No connections or credentials",dataClassification:b.dataClassification||"mission metadata",expectedArtifact:b.expectedArtifact||"",acceptanceCriteria:b.acceptance||"",verificationCommands:b.tests||"",evidence:b.evidence||"",rollbackPlan:b.rollbackPlan||"",blockers:b.blockers||"",lastHandoff:b.lastHandoff||""};
+    c.fingerprint=aiFingerprint(JSON.stringify(c));return c;
+  }
   function openExternal(url){try{var w=window.open(url,"_blank","noopener,noreferrer");if(w)w.opener=null;return !!w;}catch(e){return false;}}
   function clearEditingState(){editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;editingGoalId="";editingPersonId="";spendEditId="";}
   function portableDoc(src){
@@ -2444,7 +2495,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,theme:1,lanePins:1,seatStats:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,theme:1,lanePins:1,seatStats:1,attention:1,v:1};
   var _syncPushT=null,_syncBusy=false,_lastPushedDoc=null;
   // Sync activity log (item 71): last 20 pull/push events, device-local and
   // memory-only — debuggability, not data.
@@ -4107,7 +4158,7 @@
     if(b.assignedAI){var a=document.createElement("span");a.className="metatag";a.textContent=(b.aiRole||"AI")+": "+b.assignedAI;meta.appendChild(a);has=true;}
     if(has)el.appendChild(meta);
     if(b.outcome){var sn=document.createElement("div");sn.className="snip";sn.textContent=b.outcome;el.appendChild(sn);}
-    var actions=document.createElement("div");actions.className="library-actions";actions.innerHTML='<button class="linklike" type="button" data-mission-copy="work" data-id="'+escapeHtml(b.id)+'">Work packet</button><button class="linklike" type="button" data-mission-copy="audit" data-id="'+escapeHtml(b.id)+'">Audit packet</button><button class="linklike" type="button" data-mission-copy="verify" data-id="'+escapeHtml(b.id)+'">Verify packet</button><button class="linklike" type="button" data-mission-copy="handoff" data-id="'+escapeHtml(b.id)+'">Handoff</button>';el.appendChild(actions);
+    var actions=document.createElement("div");actions.className="library-actions";actions.innerHTML='<button class="linklike" type="button" data-mission-copy="work" data-id="'+escapeHtml(b.id)+'">Work packet</button><button class="linklike" type="button" data-mission-copy="audit" data-id="'+escapeHtml(b.id)+'">Audit packet</button><button class="linklike" type="button" data-mission-copy="verify" data-id="'+escapeHtml(b.id)+'">Verify packet</button><button class="linklike" type="button" data-mission-copy="handoff" data-id="'+escapeHtml(b.id)+'">Handoff</button><button class="linklike" type="button" data-mission-capsule="1" data-id="'+escapeHtml(b.id)+'">Copy JSON capsule</button>';el.appendChild(actions);
     wrap.appendChild(el);
     if(editingBuildId===b.id)wrap.appendChild(buildBuildEditor(b));
     return wrap;
@@ -4120,6 +4171,7 @@
     var af=e.target.closest("[data-mission-agent-filter]");if(af){missionAgentFilter=af.value;renderBuilds();return;}
     var rf=e.target.closest("[data-mission-role-filter]");if(rf){missionRoleFilter=rf.value;renderBuilds();return;}
     var cp=e.target.closest("[data-mission-copy]");if(cp){var bm=findBuild(cp.getAttribute("data-id"));if(bm){copyText(missionPacket(bm,cp.getAttribute("data-mission-copy")));flashCopied(cp,"Copied");}return;}
+    var cap=e.target.closest("[data-mission-capsule]");if(cap){var cb=findBuild(cap.getAttribute("data-id"));if(cb){copyText(JSON.stringify(missionCapsule(cb),null,2));flashCopied(cap,"Copied");}return;}
     var cy=e.target.closest("[data-build-cycle]");if(cy){var b=findBuild(cy.dataset.buildCycle);if(b){var idx=0;for(var i=0;i<BUILD_STAGES.length;i++)if(BUILD_STAGES[i].key===b.stage)idx=i;var next=BUILD_STAGES[(idx+1)%BUILD_STAGES.length].key;if(next==="Shipped"&&!missionVerified(b)){editingBuildId=b.id;toast("Add verification evidence before marking this mission Shipped.");renderBuilds();return;}b.stage=next;touch(b);}renderBuilds();save();return;}
     var op=e.target.closest("[data-build-open]");if(op){editingBuildId=(editingBuildId===op.dataset.buildOpen)?null:op.dataset.buildOpen;renderBuilds();return;}
     var sv=e.target.closest("[data-build-save]");if(sv){var b2=findBuild(sv.dataset.buildSave);if(b2){var t=(pf(sv,"bName").value||"").trim();if(t)b2.name=t;b2.stage=pf(sv,"bStage").value;b2.outcome=pf(sv,"bOutcome").value;b2.currentState=pf(sv,"bCurrent").value;b2.next=pf(sv,"bNext").value;b2.assignedAI=pf(sv,"bAI").value;b2.aiRole=pf(sv,"bRole").value;b2.repo=pf(sv,"bRepo").value;b2.branch=pf(sv,"bBranch").value;b2.worktree=pf(sv,"bWorktree").value;b2.allowedScope=pf(sv,"bScope").value;b2.forbiddenFiles=pf(sv,"bForbidden").value;b2.acceptance=pf(sv,"bAcceptance").value;b2.tests=pf(sv,"bTests").value;b2.verificationStatus=pf(sv,"bVerify").value;b2.evidence=pf(sv,"bEvidence").value;b2.commitRef=pf(sv,"bCommit").value;b2.blockers=pf(sv,"bBlockers").value;b2.lastHandoff=pf(sv,"bHandoff").value;b2.notes=pf(sv,"bNotes").value;if(b2.stage==="Shipped"&&!missionVerified(b2)){b2.stage="Testing";toast("Mission kept in Testing until evidence is recorded.");}touch(b2);}editingBuildId=null;renderBuilds();save();return;}
@@ -4833,6 +4885,13 @@
     else if(a==="later"){sideSet("kevinos:backup-reminder","1");finishOnboarding();}
   }
   function backupReminderHTML(){return sideGet("kevinos:backup-reminder")==="1"&&!state.lastBackupAt?'<button class="gh-nudge" type="button" data-backup="1" style="background:var(--gold-soft);margin-top:12px"><span class="nu-txt"><strong>Protect today.</strong> Export your first portable backup.</span><span class="nu-arrow">'+chevSvg()+'</span></button>':"";}
+  function attentionCardHTML(){
+    var a=sanitizeAttention(state.attention),d=attentionDigest(a),s=attentionSignal(d),h='<details class="launch-card"><summary class="support-summary"><span class="section-label">Attention evidence</span><span>'+(a.enabled?"Recording on":"Recording off")+'</span></summary><div style="margin-top:10px"><p class="hint">Only timestamps, day keys, allowlisted event types, opaque IDs, and source surfaces are recorded. Never titles, notes, URLs, people, prompts, responses, credentials, or connections. Receipts stay on this device for 30 days and can be cleared.</p>';
+    h+='<p class="hint">Seven-day evidence: '+d.receipts+' receipts · '+d.focusChanges+' focus changes · '+d.completions+' completions · '+d.reopenings+' reopenings · '+d.repeatedDeferrals+' deferrals · '+d.closeCompletions+' closes.</p><p class="hint">'+escapeHtml(s.text)+'</p><div class="today-actions">';
+    if(a.enabled)h+='<button class="btn-soft" type="button" data-attention-disable="1">Disable</button>';else h+='<button class="add-btn" type="button" data-attention-enable="1">Enable local recording</button>';
+    h+=attentionClearArm?'<span class="hint" role="alert">Clear all local attention receipts?</span><button class="add-btn" type="button" data-attention-clear-yes="1">Yes, clear</button><button class="btn-soft" type="button" data-attention-clear-no="1">Cancel</button>':'<button class="btn-soft" type="button" data-attention-clear="1">Clear receipts</button>';
+    h+='</div></div></details>';return h;
+  }
   function nowModel(key,time){
     key=key||todayKey();time=time||pad((new Date()).getHours())+":"+pad((new Date()).getMinutes());
     var plate=windItems().slice(0,3),all=windItems(),top=plate[0]||null,overdue=0,i,e,stops=[],seenG={},project=null,next="";
@@ -4893,7 +4952,7 @@
       '<details class="launch-card"><summary class="support-summary"><span class="section-label">Support</span><span>Plan, habits, AI & system</span></summary><div style="margin-top:12px">'+
         systemHealthHTML()+
         '<details class="launch-card" style="margin-top:10px"><summary class="support-summary"><span class="section-label">Why this plan</span><span>Deterministic first</span></summary><div style="margin-top:10px">'+launchPlanCardHTML()+'</div></details>'+
-        renderAiReviewHTML()+launchHabitsCardHTML()+workPulseHTML()+
+        renderAiReviewHTML()+launchHabitsCardHTML()+workPulseHTML()+attentionCardHTML()+
         ((typeof emailOn==="function"&&emailOn())?launchInboxCardHTML():"")+weeklyCardHTML()+
         '<details class="launch-card"><summary class="support-summary"><span class="section-label">Council</span><span>Challenge or escalate</span></summary><div class="capture-row" style="margin-top:10px"><input id="todayCouncilInput" class="capture-input" type="text" placeholder="Ask the Council..." autocomplete="off"><button class="add-btn" type="button" data-today-council="1">Ask</button></div><p class="hint"><button class="linklike" type="button" data-go="next">Open Plan & Review</button></p></details>'+
         '<div class="today-actions"><button class="btn-soft" type="button" data-go="next">Plan & Review</button><button class="btn-soft" type="button" data-start-sweep="1">Start Life Sweep</button></div>'+todayNudgesHTML()+backupReminderHTML()+
@@ -4903,7 +4962,7 @@
   }
   function addTodayCapture(){
     var inp=$("todayCaptureInput"),t=(inp?(inp.value||""):"").trim();if(!t)return;
-    var parsed=parseCaptureText(t);
+    var parsed=parseCaptureText(t);logAttention("capture-created",{source:"today"});
     if(parsed&&parsed.type==="task"){
       var k=parsed.task||{};state.items.unshift({id:uid(),text:k.text||t,area:vcArea(k.area||"Inbox"),today:!!k.today,done:false,due:k.due||null,dueTime:k.dueTime||"",projectId:k.projectId||null,personId:k.personId||null,repeat:"",createdAt:Date.now()});
     }else if(parsed&&parsed.type==="event"){
@@ -4930,6 +4989,11 @@
     if(e.target.closest("[data-today-council]")){var ci=$("todayCouncilInput");addCouncilFromText(ci?ci.value:"");if(ci)ci.value="";return;}
     if(e.target.closest("[data-start-sweep]")){startSweep();return;}
     if(e.target.closest("[data-start-intake]")){startIntake();return;}
+    if(e.target.closest("[data-attention-enable]")){state.attention.enabled=true;state.attention=sanitizeAttention(state.attention);persist();renderToday();return;}
+    if(e.target.closest("[data-attention-disable]")){state.attention.enabled=false;persist();renderToday();return;}
+    if(e.target.closest("[data-attention-clear]")){attentionClearArm=true;renderToday();return;}
+    if(e.target.closest("[data-attention-clear-no]")){attentionClearArm=false;renderToday();return;}
+    if(e.target.closest("[data-attention-clear-yes]")){state.attention.receipts=[];state.attention.lastPrunedAt=Date.now();attentionClearArm=false;persist();renderToday();return;}
     if(e.target.closest("[data-openwind]")){openWind();return;}
     var nt=e.target.closest("[data-now-task]");if(nt){taskMenuId=nt.getAttribute("data-now-task");go("tasks");renderTasks();return;}
     var fm=e.target.closest("[data-focus-move]");
@@ -6048,6 +6112,7 @@
       if(saved.theme==="dark"||saved.theme==="light")state.theme=saved.theme;
       if(saved.lanePins&&typeof saved.lanePins==="object")state.lanePins=saved.lanePins;
       if(saved.seatStats&&typeof saved.seatStats==="object")state.seatStats=saved.seatStats;
+      if(saved.attention&&typeof saved.attention==="object")state.attention=sanitizeAttention(saved.attention);
     }
     // Fresh normal mode stays clean. Historic installs keep any old seeded
     // rows, but KevinOS never injects sample content into an empty device now.
@@ -6070,6 +6135,8 @@
     if(!state.roomStats||typeof state.roomStats!=="object")state.roomStats={};
     state.v=SCHEMA_VERSION;
     sanitizeIds(); // storage written before this version may hold pre-sanitizer ids
+    state.attention=sanitizeAttention(state.attention);
+    state.attention=recordAttentionReceipt(state.attention,"day-opened",{source:"today"});
     // W7 item 60 — ?room= deep link (manifest shortcuts + push URLs use it).
     // Read before ingestShared, whose replaceState strips the query string.
     var roomQ=null;try{roomQ=new URLSearchParams(location.search).get("room");}catch(e){}
