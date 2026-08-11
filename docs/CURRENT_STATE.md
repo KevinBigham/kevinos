@@ -31,7 +31,7 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 - Keep `index.html` single-file, dependency-free, and ES5-style.
 - Schema stayed v39. AI proposals and Studio extend existing open record shapes compatibly; old records normalize at use sites and remain readable.
 - GATE-76 client-side sync encryption remains deferred until the live version is confirmed, the real-device re-key drill passes, and Kevin explicitly approves it.
-- The v0.50 landing mission authorizes one normal non-force push to the established upstream. It does not authorize secret mutation, manual relay deployment, GATE-76, or historical-file deletion.
+- The v0.50 production-activation mission narrowly authorizes deployment of the unchanged committed `relay/worker.js` to the existing `kevinos-relay` Worker after the prior version and rollback path are captured. It does not authorize secret/binding/resource mutation, schema changes, GATE-76, force-pushes, or historical-file deletion.
 - The 30-day daily-driver observation period starts when Kevin adopts v0.50; its ready-to-use local scorecard is `docs/ADOPTION_SOAK.md`.
 
 ## Historical material
@@ -54,11 +54,21 @@ Keep for evidence, but do not treat as current instructions: `MISSION.md`, `HAND
 - Operating layer: `AGENTS.md`, `relay/AGENTS.md`, `docs/*`, `.agents/skills/*`, `CLAUDE.md`, `.github/copilot-instructions.md`, `GETTING_STARTED.md`, `README.md`.
 - Install/release: `manifest.json` now has stable `id: "./"`; `docs/ADOPTION_SOAK.md` is the local 30-day scorecard.
 
+## Production activation
+
+- Static v0.50 at commit `9813dbb87d174125b08cc6f1cca1a556a6673996` is live on GitHub Pages with green CI and Pages runs.
+- Production browser checks at 390x844 and 1440x900 are green, including offline reload and zero significant console messages.
+- Lighthouse 13.4.1: mobile 99/100/100 and desktop 100/100/100 for Performance/Accessibility/Best Practices; SEO 90 is informational for the personal PWA.
+- Canonical setup/navigation drift and direct-to-`main` examples are repaired on `agent/v050-production-activation`; `tools/doctor.js` protects the contract.
+- `docs/RELEASE_v0.50.md` is the activation/rollback ledger and `docs/REAL_DEVICE_VALIDATION_v0.50.md` is the honest physical-device handoff.
+- Relay version `583e5905-f97a-4c6a-9391-54db89f53ada` was promoted from the clean static release commit on 2026-08-10 at 22:53 CDT and now receives 100% traffic. Health, missing-token boundaries, and OAuth replay are green. Exact rollback target: `4fb64ad8-a5c7-4b75-8f59-66a45cbff242`.
+- Activation status is YELLOW only because the available production browser has no device-local relay token and physical-device/OAuth/provider checks remain honestly unverified; no P0/P1 defect is known.
+
 ## Residual risks
 
-- Live Pages propagation, Lighthouse-on-live, real provider calls, real OAuth consent, real-device push, 30 elapsed days of adoption evidence, and multi-device re-key remain deployment/device checks rather than local implementation receipts.
+- Authenticated app-to-relay provider proof, real OAuth consent, real-device push, 30 elapsed days of adoption evidence, and multi-device re-key remain device/manual checks rather than claimed machine receipts.
 - GATE-76 remains intentionally deferred by its explicit product gate. Historical Home/Launch internals remain as compatibility/reuse code; their user-facing routes alias Today.
 
 ## Cold resume
 
-Read `AGENTS.md`, this file, and one relevant domain doc. Run `node tools/doctor.js` and `sh test/run.sh`. Treat all Convergence waves as complete; the next work is deployment/real-device validation or an explicitly approved future track, never an inferred schema or encryption gate.
+Read `AGENTS.md`, this file, `docs/RELEASE_v0.50.md`, and `docs/REAL_DEVICE_VALIDATION_v0.50.md`. Run `node tools/doctor.js` and `sh test/run.sh`. Treat all Convergence waves as complete and the core static/relay stack as activated. Remaining work is the explicit physical-device/authenticated checklist and 30-day adoption soak; never infer a schema or encryption gate.

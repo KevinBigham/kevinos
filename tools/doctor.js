@@ -8,7 +8,8 @@ const errors = [];
 const required = [
   "AGENTS.md", "relay/AGENTS.md", "docs/CURRENT_STATE.md", "docs/ARCHITECTURE.md",
   "docs/STATE_CONTRACT.md", "docs/ROOM_MAP.md", "docs/RELAY_ROUTE_MATRIX.md",
-  "docs/DECISIONS.md", "docs/ADOPTION_SOAK.md", "docs/ai/WORK_PACKET_TEMPLATE.md", "docs/ai/HANDOFF_TEMPLATE.md",
+  "docs/DECISIONS.md", "docs/ADOPTION_SOAK.md", "docs/RELEASE_v0.50.md", "docs/REAL_DEVICE_VALIDATION_v0.50.md",
+  "docs/ai/WORK_PACKET_TEMPLATE.md", "docs/ai/HANDOFF_TEMPLATE.md",
   ".agents/skills/kevinos-change/SKILL.md", ".agents/skills/kevinos-release/SKILL.md",
   ".agents/skills/kevinos-audit/SKILL.md",
 ];
@@ -25,6 +26,15 @@ const sw = read("sw.js");
 const worker = read("relay/worker.js");
 const current = read("docs/CURRENT_STATE.md");
 const routeMatrix = read("docs/RELAY_ROUTE_MATRIX.md");
+const roomMap = read("docs/ROOM_MAP.md");
+const canonicalDocs = ["AGENTS.md", "README.md", "GETTING_STARTED.md", "relay/RELAY_SETUP.md", "docs/CURRENT_STATE.md", "docs/ROOM_MAP.md"];
+
+for (const rel of canonicalDocs) {
+  const text = read(rel);
+  if (text.indexOf("/Users/kevin/KevinOS/app") >= 0) errors.push(rel + " contains the obsolete archive-era checkout path");
+}
+if (/This supplied archive has no `\.git`/.test(read("AGENTS.md"))) errors.push("AGENTS.md incorrectly claims the real checkout has no Git metadata");
+if (/git push origin main/.test(read("GETTING_STARTED.md"))) errors.push("GETTING_STARTED.md teaches direct-to-main as the default publish path");
 
 const appMatch = html.match(/var APP_VERSION="([^"]+)"/);
 const schemaMatch = html.match(/var SCHEMA_VERSION=(\d+)/);
@@ -74,6 +84,12 @@ if (roomDefsMatch) {
   for (const id of domRooms) if (!unique.has(id)) errors.push("room missing from ROOM_DEFS: " + id);
   const rendererCount = [...roomDefsMatch[1].matchAll(/renderer:[A-Za-z_$][A-Za-z0-9_$]*/g)].length;
   if (rendererCount !== registryIds.length) errors.push("ROOM_DEFS entry missing renderer");
+  const registryLabels = new Map([...roomDefsMatch[1].matchAll(/\{id:"([a-z0-9-]+)",label:"([^"]+)"/g)].map((m) => [m[1], m[2]]));
+  for (const row of roomMap.matchAll(/^\| `([a-z0-9-]+)` \| ([^|]+?) \|/gm)) {
+    const expected = registryLabels.get(row[1]);
+    if (!expected) errors.push("ROOM_MAP documents unknown room: " + row[1]);
+    else if (expected !== row[2].trim()) errors.push("ROOM_MAP label for " + row[1] + " is " + row[2].trim() + ", expected " + expected);
+  }
 }
 
 const workerRoutes = new Set();

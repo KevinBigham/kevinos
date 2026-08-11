@@ -9,7 +9,7 @@ New setup or fresh device? Start with **[KevinOS Getting Started](GETTING_STARTE
 Quick local preview:
 
 ```sh
-cd /Users/kevin/KevinOS/app
+cd /Users/tkevinbigham/Projects/kevinos
 python3 -m http.server 8128
 ```
 
