@@ -74,7 +74,7 @@ Cost expectation:
 
 1. Open https://kevinbigham.github.io/kevinos/
 2. If you are on iPhone or iPad, install it to the Home Screen for the full PWA and push-notification path.
-3. In **Next -> Council queue**, confirm the relay URL is:
+3. In **More → Plan & Review → Council queue**, confirm the relay URL is:
 
 ```text
 https://kevinos-relay.kevinbigham.workers.dev
@@ -134,7 +134,7 @@ You need:
 - This repo path on Kevin's Mac:
 
 ```sh
-cd /Users/kevin/KevinOS/app
+cd /Users/tkevinbigham/Projects/kevinos
 ```
 
 The first `npx wrangler ...` command may ask to install Wrangler. Press `y`; that is expected.
@@ -144,7 +144,7 @@ The first `npx wrangler ...` command may ask to install Wrangler. Press `y`; tha
 The repo root is:
 
 ```sh
-cd /Users/kevin/KevinOS/app
+cd /Users/tkevinbigham/Projects/kevinos
 ```
 
 Important app files:
@@ -156,13 +156,13 @@ Important app files:
 Opening `index.html` directly works for basic use:
 
 ```sh
-open /Users/kevin/KevinOS/app/index.html
+open /Users/tkevinbigham/Projects/kevinos/index.html
 ```
 
 For a more realistic PWA preview, serve the folder over local HTTP:
 
 ```sh
-cd /Users/kevin/KevinOS/app
+cd /Users/tkevinbigham/Projects/kevinos
 python3 -m http.server 8128
 ```
 
@@ -196,18 +196,20 @@ The live app is served from GitHub Pages:
 https://kevinbigham.github.io/kevinos/
 ```
 
-The repo is public. The static app deploy is a normal commit and push to `main`; GitHub Pages usually rebuilds quickly.
+The repo is public. Normal changes land through a focused branch and reviewed pull request; merging to `main` triggers the GitHub Pages rebuild.
 
 For docs-only changes, do not bump the app version, `state.v`, or service worker cache. For app code changes, bump the visible footer version and the service worker cache so installed clients fetch the new shell. Only bump `state.v` when the persisted state shape changes.
 
 Docs deploy example:
 
 ```sh
-cd /Users/kevin/KevinOS/app
+cd /Users/tkevinbigham/Projects/kevinos
 git status
+git switch -c docs/<short-description>
 git add README.md GETTING_STARTED.md relay/RELAY_SETUP.md HANDOFF.md
 git commit -m "Add Getting Started guide"
-git push origin main
+git push -u origin docs/<short-description>
+# Open a pull request into main; merge only after its checks pass.
 ```
 
 This guide shows the commit commands for later use. Do not commit from an automation run unless Kevin asks for it.
@@ -232,7 +234,7 @@ Current source:
 Deploy:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler login
 npx wrangler deploy
 ```
@@ -299,7 +301,7 @@ npx wrangler secret put KEVINOS_TOKEN
 npx wrangler deploy
 ```
 
-3. Paste the same token into the app: **Next → Connect AI → Relay token**, then Save. The token is stored device-local only — it is never included in backups, snapshots, or the sync doc, so repeat this step once per device.
+3. Paste the same token into the app: **More → Plan & Review → Connect AI → Relay token**, then Save. The token is stored device-local only — it is never included in backups, snapshots, or the sync doc, so repeat this step once per device.
 
 Verify:
 
@@ -342,7 +344,7 @@ Optional Council seats:
 Set secrets interactively only:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put GROQ_API_KEY
 npx wrangler secret put MISTRAL_API_KEY
@@ -365,7 +367,7 @@ Checkpoint:
 
 - Relay health `seats` includes `gemini` when `GEMINI_API_KEY` exists.
 - Relay health `seats` includes `cloudflare` when the `[ai]` binding is active.
-- Next -> Council queue can answer a one-sentence prompt after the relay URL is connected in the app.
+- More → Plan & Review → Council queue can answer a one-sentence prompt after the relay URL is connected in the app.
 
 ## Part 5: Configure Web Push Reminders
 
@@ -398,7 +400,7 @@ node -e 'const c=crypto.subtle;(async()=>{const k=await c.generateKey({name:"ECD
 3. Store the private value as a Worker secret.
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler secret put VAPID_PRIVATE_KEY
 ```
 
@@ -420,7 +422,7 @@ id = "PASTE_KV_NAMESPACE_ID_HERE"
 
 ```toml
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/2 * * * *"]
 ```
 
 7. Deploy.
@@ -429,7 +431,7 @@ crons = ["* * * * *"]
 npx wrangler deploy
 ```
 
-8. In KevinOS, open **Next -> Phone reminders**, choose **Turn on**, then **Send test**.
+8. In KevinOS, open **More → Plan & Review → Phone reminders**, choose **Turn on**, then **Send test**.
 
 iOS/PWA caveats:
 
@@ -461,7 +463,7 @@ How it works:
 Fresh D1 setup:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler d1 create kevinos-sync
 npx wrangler d1 execute kevinos-sync --remote --command "CREATE TABLE IF NOT EXISTS docs (id TEXT PRIMARY KEY, doc TEXT NOT NULL, updated_at INTEGER NOT NULL, rev INTEGER NOT NULL DEFAULT 0, device_id TEXT);"
 npx wrangler deploy
@@ -512,7 +514,7 @@ Authorization callback URL: https://kevinos-relay.kevinbigham.workers.dev/github
 7. Store the secret with Wrangler.
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler secret put GITHUB_CLIENT_SECRET
 npx wrangler deploy
 ```
@@ -529,7 +531,7 @@ The OAuth scope is `read:user repo`, matching the app's contribution and private
 
 App steps:
 
-1. Make sure the relay URL is connected in **Next -> Council queue**.
+1. Make sure the relay URL is connected in **More → Plan & Review → Council queue**.
 2. Open the **GitHub** room.
 3. Choose **Connect with GitHub**.
 4. Approve the OAuth screen.
@@ -568,7 +570,7 @@ https://kevinos-relay.kevinbigham.workers.dev/google/callback
 12. Store the client secret privately.
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler deploy
 ```
@@ -612,7 +614,7 @@ Google warning:
 
 App steps:
 
-1. Make sure the relay URL is connected in **Next -> Council queue**.
+1. Make sure the relay URL is connected in **More → Plan & Review → Council queue**.
 2. Open the **Email** room.
 3. Choose **Connect Gmail**.
 4. Approve the Google consent screen.
@@ -639,7 +641,7 @@ Checkpoint:
 Use this checklist after the static app and relay are deployed.
 
 1. Open https://kevinbigham.github.io/kevinos/
-2. Go to **Next -> Council queue -> Connect AI**.
+2. Go to **More → Plan & Review → Council queue → Connect AI**.
 3. Paste:
 
 ```text
@@ -648,12 +650,12 @@ https://kevinos-relay.kevinbigham.workers.dev
 
 4. Ask the Council a one-sentence test.
 5. In the footer, open **Cross-device sync**, connect, and enter the same passphrase on each device.
-6. Go to **Next -> Phone reminders -> Turn on -> Send test**.
+6. Go to **More → Plan & Review → Phone reminders → Turn on → Send test**.
 7. Go to **GitHub -> Connect with GitHub**.
 8. Go to **Email -> Connect Gmail**.
 9. Go to **Calendar -> Connect Google Calendar**.
 10. In **Calendar -> Smart add**, paste event text and extract a reviewed local event.
-11. In **Next**, refresh the daily brief.
+11. In **More → Plan & Review**, refresh the daily brief.
 12. In **Launch**, refresh the game plan.
 13. In **Email**, use **Draft all** or draft a selected reply.
 14. In **Stash**, add a URL and confirm it summarizes or falls back to manual note.
@@ -674,16 +676,16 @@ Checkpoint:
 | Static app | GitHub Pages or local HTTP | Open the app and confirm the footer version matches `index.html` | Hard refresh or clear stale service worker cache |
 | Service worker/PWA install | `manifest.json`, `sw.js`, HTTPS or local HTTP | Install to Home Screen or app shell opens offline | Use HTTPS/live URL, not `file://` |
 | Relay health | Worker deployed | `curl https://kevinos-relay.kevinbigham.workers.dev/` | Deploy from `relay/`; check Cloudflare account |
-| Council | Relay URL plus AI seats | Next -> Council queue -> ask a test | Set `GEMINI_API_KEY`, confirm `[ai]`, redeploy |
+| Council | Relay URL plus AI seats | More → Plan & Review → Council queue → ask a test | Set `GEMINI_API_KEY`, confirm `[ai]`, redeploy |
 | AI brief/Launch/Weekly | `GEMINI_API_KEY`, relay URL | Refresh brief, Launch, or Weekly Review | Add/rotate Gemini key; check relay health flags |
-| Web Push | `PUSH` KV, VAPID keys, cron, installed PWA | Next -> Phone reminders -> Send test | Install PWA, grant permission, set `VAPID_PRIVATE_KEY` |
+| Web Push | `PUSH` KV, VAPID keys, cron, installed PWA | More → Plan & Review → Phone reminders → Send test | Install PWA, grant permission, set `VAPID_PRIVATE_KEY` |
 | Sync | `SYNC` D1 binding and `docs` table | Same passphrase on two devices syncs a test task | Create D1 table; compare link codes |
 | GitHub | GitHub OAuth app, client id, client secret, `PUSH` KV | GitHub room connects and loads contribution data | Fix callback URL; set `GITHUB_CLIENT_SECRET` |
 | Gmail | Google OAuth app, Gmail API, client id/secret, `PUSH` KV | Email room loads inbox groups | Add test user; set `GOOGLE_CLIENT_SECRET`; reconnect |
 | Calendar | Google OAuth with Calendar API/scopes | Calendar room lists events and creates reviewed event | Enable Calendar API; reconnect account |
 | Stash summarize | `GEMINI_API_KEY` | Add URL in Stash | Some pages block fetch; use manual fallback |
 | People enrich | Gmail connected and contact emails | People -> Enrich from Gmail | Reconnect Gmail; check account/test user |
-| Spend scan | Gmail connected plus `GEMINI_API_KEY` | Next -> Spend Pulse -> Scan inbox | Gmail session expired; reconnect Email |
+| Spend scan | Gmail connected plus `GEMINI_API_KEY` | More → Plan & Review → Spend Pulse → Scan inbox | Gmail session expired; reconnect Email |
 
 ## Troubleshooting
 
@@ -709,7 +711,7 @@ Symptoms:
 Fix:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler logout
 npx wrangler login
 npx wrangler deploy
@@ -727,7 +729,7 @@ Symptoms:
 Fix:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler kv namespace create PUSH
 ```
 
@@ -744,7 +746,7 @@ Symptoms:
 Fix:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler d1 create kevinos-sync
 ```
 
@@ -759,7 +761,7 @@ Symptoms:
 Fix:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler d1 execute kevinos-sync --remote --command "CREATE TABLE IF NOT EXISTS docs (id TEXT PRIMARY KEY, doc TEXT NOT NULL, updated_at INTEGER NOT NULL, rev INTEGER NOT NULL DEFAULT 0, device_id TEXT);"
 npx wrangler deploy
 ```
@@ -784,11 +786,11 @@ Symptoms:
 - Council rows show a token-rejected error; the Today health chip goes red with "Relay token rejected".
 - `curl` against a protected route returns `401`.
 
-Cause: the `KEVINOS_TOKEN` secret on the Worker and the token saved in the app (Next → Connect AI → Relay token) don't match — usually after a token rotation, a fresh device, or a re-deploy to a new Worker.
+Cause: the `KEVINOS_TOKEN` secret on the Worker and the token saved in the app (More → Plan & Review → Connect AI → Relay token) don't match — usually after a token rotation, a fresh device, or a re-deploy to a new Worker.
 
 Fix:
 
-- Re-paste the current token in **Next → Connect AI → Relay token** and Save. The token is device-local, so each device needs it once.
+- Re-paste the current token in **More → Plan & Review → Connect AI → Relay token** and Save. The token is device-local, so each device needs it once.
 - If you rotated the secret, confirm the rotation actually deployed: `npx wrangler secret put KEVINOS_TOKEN`, then `npx wrangler deploy`.
 - To confirm which side is wrong, `curl` a protected route with the token you think is right (see Part 3.5's verify block).
 
@@ -887,7 +889,7 @@ The app stores a session handle; the relay stores the token. A missing, expired,
 Fix:
 
 - Reconnect from the GitHub or Email room.
-- Confirm the relay URL is still connected in Next.
+- Confirm the relay URL is still connected in More → Plan & Review.
 - Confirm KV is configured, because OAuth sessions live in the `PUSH` KV namespace.
 
 ### AI route returns missing key or provider error
@@ -921,24 +923,26 @@ OpenRouter free models can rotate or rate-limit. Update `OPENROUTER_MODEL` in `w
 Static app and docs:
 
 ```sh
-cd /Users/kevin/KevinOS/app
+cd /Users/tkevinbigham/Projects/kevinos
 git status
+git switch -c docs/<short-description>
 git add README.md GETTING_STARTED.md relay/RELAY_SETUP.md HANDOFF.md
 git commit -m "Update KevinOS docs"
-git push origin main
+git push -u origin docs/<short-description>
+# Open a pull request into main; merge only after its checks pass.
 ```
 
 Relay:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler deploy
 ```
 
 Secret rotation:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler secret put NAME
 npx wrangler deploy
 ```
@@ -981,20 +985,20 @@ https://kevinos-relay.kevinbigham.workers.dev
 Local app path:
 
 ```sh
-cd /Users/kevin/KevinOS/app
+cd /Users/tkevinbigham/Projects/kevinos
 ```
 
 Local preview:
 
 ```sh
-cd /Users/kevin/KevinOS/app
+cd /Users/tkevinbigham/Projects/kevinos
 python3 -m http.server 8128
 ```
 
 Relay deploy:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 npx wrangler deploy
 ```
 

@@ -54,7 +54,8 @@ node tools/doctor.js
 ## Authority and safety
 
 - Do not push, deploy, change Cloudflare secrets, cross the GATE-76 encryption gate, delete historical evidence, or perform destructive remote operations without Kevin's explicit approval.
-- Never overwrite unexplained work. This supplied archive has no `.git`; do not initialize Git or invent commit history.
+- Never overwrite unexplained work. Confirm the real Git checkout, branch, remote, and status before editing; do not initialize an extracted archive or invent commit history.
+- Use a focused branch and pull request for normal AI-authored changes. Direct pushes to `main` require explicit mission-specific approval.
 - Keep one writer for `index.html`. Read-only verification can run independently.
 - Prefer small reversible slices and focused tests before expanding scope.
 - Do not weaken a legitimate invariant to make a test pass.

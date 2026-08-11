@@ -36,7 +36,7 @@ Go to **https://dash.cloudflare.com/sign-up**, sign up, verify your email. That'
 Open **Terminal** and run these one at a time:
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 
 # Log in to Cloudflare (opens your browser → click "Allow")
 npx wrangler login
@@ -73,14 +73,14 @@ npx wrangler secret put KEVINOS_TOKEN
 npx wrangler deploy
 ```
 
-From then on, every route except health (`GET /`) and the OAuth login/callback/status routes requires the `X-KevinOS-Token` header. The app sends it automatically once you paste the token in **Next → Connect AI → Relay token** (Step 4). The token is device-local: it never travels in backups, snapshots, or sync, so paste it once on each device.
+From then on, every route except health (`GET /`) and the OAuth login/callback/status routes requires the `X-KevinOS-Token` header. The app sends it automatically once you paste the token in **More → Plan & Review → Connect AI → Relay token** (Step 4). The token is device-local: it never travels in backups, snapshots, or sync, so paste it once on each device.
 
 If the app ever toasts **"Relay token rejected — re-paste it in Settings"**, the token in the app and the secret on the Worker no longer match — re-paste (or re-rotate) it. Full walkthrough + verification curls: `GETTING_STARTED.md` Part 3.5.
 
 ---
 
 ## Step 4 — Connect it in KevinOS
-1. Open KevinOS → **Next** tab → scroll to **Council queue**.
+1. Open KevinOS → **More → Plan & Review** → scroll to **Council queue**.
 2. Tap **Connect AI** → paste the URL from Step 3 → **Save**.
 3. Paste your **Relay token** from Step 3.5 into the same card → **Save**.
 4. Type a question in **Ask the Council…** → it answers right there. 🎉
@@ -97,7 +97,7 @@ The Council asks **every seat that has a credential**, in parallel, then a "chai
 To add the others, make a free key and store it as a secret, then redeploy. Each new seat joins automatically — no app or code change.
 
 ```sh
-cd /Users/kevin/KevinOS/app/relay
+cd /Users/tkevinbigham/Projects/kevinos/relay
 
 # Groq — https://console.groq.com/keys
 npx wrangler secret put GROQ_API_KEY
@@ -150,8 +150,8 @@ KevinOS can push a **morning brief** and **per-task due reminders** to the insta
    ```sh
    npx wrangler kv namespace create PUSH
    ```
-4. The cron is already in `wrangler.toml` (`[triggers] crons = ["* * * * *"]`). **Deploy:** `npx wrangler deploy`.
-5. In KevinOS → **Next** → **Phone reminders** → **Turn on** (needs KevinOS added to your iPhone home screen, and the relay connected above). Tap **Send test** to confirm a notification lands.
+4. The cron is already in `wrangler.toml` (`[triggers] crons = ["*/2 * * * *"]`). **Deploy:** `npx wrangler deploy`.
+5. In KevinOS → **More → Plan & Review → Phone reminders** → **Turn on** (needs KevinOS added to your iPhone home screen, and the relay connected above). Tap **Send test** to confirm a notification lands.
 
 The keys never touch the app or the repo: the **private** key is a Cloudflare secret; the app fetches the **public** key from `GET /push/key`. There's **no `web-push` library** — the relay does VAPID signing + RFC-8291 payload encryption in WebCrypto (verified against the RFC test vector). Cost stays **$0** (KV + Cron free tier).
 
@@ -169,7 +169,7 @@ KevinOS connects to GitHub with **OAuth** so the token lives on the relay, never
 4. Copy the **Client ID** (public). Then click **Generate a new client secret** and copy the **secret** (shown once).
 5. Put the Client ID in `wrangler.toml` (`GITHUB_CLIENT_ID = "…"`), set the secret, redeploy:
    ```sh
-   cd /Users/kevin/KevinOS/app/relay
+   cd /Users/tkevinbigham/Projects/kevinos/relay
    npx wrangler secret put GITHUB_CLIENT_SECRET   # paste the secret at the prompt
    npx wrangler deploy
    ```
@@ -185,7 +185,7 @@ How it works, and how to reproduce it on a fresh relay:
 
 1. **Create the D1 database** (a tiny free SQL store on your Cloudflare account) and its one table:
    ```sh
-   cd /Users/kevin/KevinOS/app/relay
+   cd /Users/tkevinbigham/Projects/kevinos/relay
    npx wrangler d1 create kevinos-sync
    # paste the printed database_id into wrangler.toml under [[d1_databases]] binding = "SYNC"
    npx wrangler d1 execute kevinos-sync --remote --command "CREATE TABLE IF NOT EXISTS docs (id TEXT PRIMARY KEY, doc TEXT NOT NULL, updated_at INTEGER NOT NULL, rev INTEGER NOT NULL DEFAULT 0, device_id TEXT);"
@@ -197,7 +197,7 @@ The current sync model is **server-authoritative by revision**: the relay accept
 
 ## Calendar / File AI — already set up (v0.17)
 
-The calendar can turn a **photo, a PDF, or pasted text** into events. This rides on your existing Gemini key — **nothing to set up.** In KevinOS → **Calendar** → **✨ Smart add** → paste text or pick a photo/PDF → **Extract events** → approve each proposed event onto your calendar. The relay endpoint is `POST /extract` (Gemini multimodal); `GET /` shows `"extract":true` whenever a `GEMINI_API_KEY` is set. Cost stays **$0** (Gemini free tier). The **Council → action** feature (Next → Council → **✨ Make tasks**, which turns a verdict into a checklist of tasks) rides the same key via `POST /actions` — also nothing to set up. The **AI morning brief** atop the Next room uses the same key too (via `/ai`) — automatic, no setup.
+The calendar can turn a **photo, a PDF, or pasted text** into events. This rides on your existing Gemini key — **nothing to set up.** In KevinOS → **Calendar** → **✨ Smart add** → paste text or pick a photo/PDF → **Extract events** → approve each proposed event onto your calendar. The relay endpoint is `POST /extract` (Gemini multimodal); `GET /` shows `"extract":true` whenever a `GEMINI_API_KEY` is set. Cost stays **$0** (Gemini free tier). The **Council → action** feature (**More → Plan & Review → Council → ✨ Make tasks**) rides the same key via `POST /actions` — also nothing to set up. The **AI morning brief** in Plan & Review uses the same key too (via `/ai`) — automatic, no setup.
 
 ## Email Command Center (Gmail) — register a Google app once (v0.18)
 
@@ -217,7 +217,7 @@ KevinOS can read your Gmail and send AI-drafted replies you approve. The current
    - **Create.** A dialog shows your **Client ID** and **Client secret**.
 6. Put the **Client ID** in `wrangler.toml` as `GOOGLE_CLIENT_ID` (it's public). Set the secret yourself:
    ```sh
-   cd /Users/kevin/KevinOS/app/relay
+   cd /Users/tkevinbigham/Projects/kevinos/relay
    npx wrangler secret put GOOGLE_CLIENT_SECRET   # paste the client secret at the prompt
    npx wrangler deploy
    ```
@@ -252,7 +252,7 @@ If phone reminders and sync are on, KevinOS schedules a Sunday 6pm people nudge 
 
 ## Spend Pulse — already set up (v0.34)
 
-Spend Pulse lives in the Next room. It logs manual cash spends offline and, when Gmail is connected, can scan recent receipt/order-confirmation emails with `POST /spend/scan`. No new Cloudflare binding, OAuth scope, or secret is needed: it reuses the existing Gmail readonly token plus `GEMINI_API_KEY`. `GET /` shows `"spend":true` when Gemini is configured.
+Spend Pulse lives in Plan & Review. It logs manual cash spends offline and, when Gmail is connected, can scan recent receipt/order-confirmation emails with `POST /spend/scan`. No new Cloudflare binding, OAuth scope, or secret is needed: it reuses the existing Gmail readonly token plus `GEMINI_API_KEY`. `GET /` shows `"spend":true` when Gemini is configured.
 
 The relay fetches recent Gmail messages with full bodies, prefilters receipt-like messages, asks Gemini for forced JSON spend records, validates each record, and returns `{ok:true,records,scanned}`. KevinOS then dedupes by Gmail `msgId` and stores records in synced `state.spend[]`; `state.spendMeta` stays device-local. Spend amounts are intentionally not pushed: there is no spend notification type, and the app keeps dollar amounts off Home and static push bodies.
 
