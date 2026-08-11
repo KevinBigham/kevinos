@@ -554,6 +554,8 @@
   .now-outcome{font-family:var(--font-display);font-size:28px;line-height:1.18;margin:0;color:var(--ink);overflow-wrap:anywhere}
   .now-next{font-size:16px;color:var(--ink);margin:14px 0 0;padding:12px 14px;border-left:4px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0}
   .now-next strong{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:3px}
+  .now-why{font-size:12px;color:var(--ink-soft);margin:8px 2px 0}
+  .now-evidence{font-size:13px;color:var(--ink-soft);margin:10px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.35)}
   .now-support{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
   .now-support>div{background:rgba(255,255,255,.45);border:1px solid var(--line);border-radius:11px;padding:10px 12px}
   .now-label{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin-bottom:3px}
@@ -631,6 +633,8 @@
     .bottom-nav .plus:hover,.bottom-nav .plus:active{background:var(--accent);color:var(--on-accent)}
     .task-row{padding-left:0;padding-right:0}
     .task-menu{margin-left:0}
+    .council-capture-row{display:grid;grid-template-columns:minmax(0,1fr) auto}
+    .council-capture-row #councilInput{grid-column:1/-1;width:100%}
     [data-focus-move]{min-width:44px;min-height:44px}
   }
   @media (pointer:coarse){button,a.btn-soft,.stash-actions a{min-width:44px;min-height:44px}}
@@ -961,7 +965,7 @@
       </div>
       <div id="importConfirm"></div>
       <details class="hint" style="margin-top:12px"><summary>Storage, snapshots & sync</summary><div class="storage-stats" id="storageStats"></div><div id="snapshotPanel"></div><div class="sync-row" id="syncRow" style="margin-top:14px"></div><p>Corruption-blocked boot, verified portable backups, snapshots, tombstones, and lossless revisioned sync.</p></details>
-      <div style="margin-top:10px"><span id="appVersion">KevinOS v0.50</span> · Local-first · Connections never travel in backups.</div>
+      <div style="margin-top:10px"><span id="appVersion">KevinOS v0.51</span> · Local-first · Connections never travel in backups.</div>
     </footer>
   </main>
 
@@ -1037,7 +1041,7 @@
   var STORE_KEY="kevinos:v1";
   // Release checklist (three-bump rule, see README): APP_VERSION here + the
   // footer it stamps, CACHE in sw.js, and SCHEMA_VERSION only on shape change.
-  var APP_VERSION="0.50";
+  var APP_VERSION="0.51";
   var SCHEMA_VERSION=39;
   function makeStore(){
     if(typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function"){
@@ -1147,9 +1151,19 @@
   var COUNCIL_RENDER_MS=80;              // council stream repaints coalesce per burst (item 37)
   var FACT_STALE_DAYS=90;                // profile facts unreviewed this long get a "still true?" card (item 70)
   var PTR_PX=70;                         // pull distance that triggers Today's pull-to-refresh (item 55)
+  var ATTENTION_VERSION=1;
+  var ATTENTION_RETENTION_DAYS=30;
+  var ATTENTION_HARD_CAP=500;
+  var ATTENTION_DIGEST_DAYS=7;
+  var ATTENTION_MIN_RECEIPTS=3;
+  var ATTENTION_AI_MIN_SAMPLE=3;
+  var ATTENTION_EVENT_TYPES=["day-opened","capture-created","capture-undone","focus-confirmed","focus-moved","task-completed","task-reopened","task-deferred","close-completed"];
+  var ATTENTION_SOURCE_TYPES=["app","today","tasks","plan-review","capture","undo","close","calendar","projects","onboarding","council","life-sweep","share-target","test"];
+  var ATTENTION_ENTITY_TYPES=["task","event","note"];
+  var ATTENTION_ID_RE=/^[A-Za-z0-9-]{1,64}$/;
 
   var store=makeStore();
-  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",lanePins:{},seatStats:{},v:SCHEMA_VERSION};
+  var state={items:[],events:[],projects:[],builds:[],briefs:[],links:[],prompts:[],notes:[],stash:[],people:[],spend:[],goals:[],habits:[],pending:[],profile:[],sheets:[],github:{token:"",session:"",login:"",pendingOAuth:false},council:[],relay:{url:"",token:""},push:{enabled:false,endpoint:"",hour:8,syncedAt:0},sync:{on:false,key:"",deviceId:"",updatedAt:0,rev:0,lastSyncAt:0,err:""},email:{session:"",accounts:[],active:""},calendar:{connected:false,calId:"primary",calIds:["primary"],lastSyncAt:0},brief:{date:"",text:""},launch:{date:"",text:""},weekly:{weekKey:"",date:"",text:"",checkinWeek:""},peopleCfg:{lastEnrichAt:0},spendMeta:{lastScanAt:0},intake:{lastAskAt:0,q:""},weatherLoc:null,roomStats:{},sweepLog:{},devices:{},deleted:{},lastBackupAt:0,lastShutdown:"",closeHour:17,theme:"auto",lanePins:{},seatStats:{},attention:{version:ATTENTION_VERSION,enabled:false,retentionDays:ATTENTION_RETENTION_DAYS,receipts:[],lastPrunedAt:0},v:SCHEMA_VERSION};
   var loadFailed=false, loadFailedRaw=null, saveFailing=false, lastSaveBytes=0, relayAuthRejected=false, relayAuthToastShown=false, saveFailureToastShown=false;
   var relayHealth={status:"unknown",checkedAt:0,caps:null,err:""}, relayHealthOpen=false;
   var ghMem={cache:null,fetchedAt:0}, sheetsMem={at:0,text:""}, swimMem={at:0,items:[]};
@@ -1161,7 +1175,7 @@
   var onboardOpen=false,onboardStep=0,onboardOutcome="",onboardAction="",onboardHardStop="",onboardCaptureId="",demoMode=false;
   var aiCompose={open:false,kind:"",id:"",mode:"Draft",sharing:{profile:false,personEmail:false,personNotes:false,email:false,calendar:false,calendarDetails:false,history:false,library:false}},aiReturnFocus=null,aiReturnFocusSelector="";
   var projFilter="All", projView="status", editingProjId=null;
-  var editingBuildId=null,missionFilter="All",missionAgentFilter="All",missionRoleFilter="All";
+  var editingBuildId=null,missionFilter="All",missionAgentFilter="All",missionRoleFilter="All",attentionClearArm=false;
   var briefSearch="", briefKindFilter="All", editingBriefId=null;
   var editingLinkId=null;
   var projAddArea="Inbox", briefAddKind="Brief", linkAddGroup="Studio";
@@ -1192,6 +1206,82 @@
   function touch(it){if(it){it.u=Date.now();invalidateDayCache();}}
   function bury(id){if(id!=null){state.deleted[String(id)]=Date.now();invalidateDayCache();}}
   function cloneJSON(x){return JSON.parse(JSON.stringify(x));}
+  function attentionDayKey(ts){return dateKey(new Date(typeof ts==="number"?ts:Date.now()));}
+  function sanitizeAttention(raw){
+    var a=raw&&typeof raw==="object"?raw:{},out={version:ATTENTION_VERSION,enabled:a.enabled===true,retentionDays:ATTENTION_RETENTION_DAYS,receipts:[],lastPrunedAt:typeof a.lastPrunedAt==="number"?a.lastPrunedAt:0},r,i,t;
+    if(a.retentionDays===ATTENTION_RETENTION_DAYS&&isArr(a.receipts)){
+      for(i=0;i<a.receipts.length&&out.receipts.length<ATTENTION_HARD_CAP;i++){
+        r=a.receipts[i];if(!r||typeof r!=="object"||typeof r.id!=="string"||!ATTENTION_ID_RE.test(r.id)||typeof r.ts!=="number"||!isFinite(r.ts)||typeof r.day!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(r.day)||ATTENTION_EVENT_TYPES.indexOf(r.type)<0||typeof r.source!=="string"||ATTENTION_SOURCE_TYPES.indexOf(r.source)<0||r.entityType!=null&&ATTENTION_ENTITY_TYPES.indexOf(r.entityType)<0||r.entityId!=null&&(typeof r.entityId!=="string"||!ATTENTION_ID_RE.test(r.entityId)))continue;
+        t={id:r.id.slice(0,64),ts:r.ts,day:r.day.slice(0,10),type:r.type,source:r.source.slice(0,32)};
+        if(r.entityType!=null&&typeof r.entityType==="string")t.entityType=r.entityType.slice(0,32);
+        if(r.entityId!=null&&typeof r.entityId==="string")t.entityId=r.entityId.slice(0,64);
+        out.receipts.push(t);
+      }
+    }
+    return out;
+  }
+  function pruneAttention(raw,now){
+    var a=sanitizeAttention(raw),cut=(typeof now==="number"?now:Date.now())-ATTENTION_RETENTION_DAYS*86400000,i,out=[];
+    for(i=0;i<a.receipts.length;i++)if(a.receipts[i].ts>=cut)out.push(a.receipts[i]);
+    a.receipts=out.slice(Math.max(0,out.length-ATTENTION_HARD_CAP));a.lastPrunedAt=typeof now==="number"?now:Date.now();return a;
+  }
+  function recordAttentionReceipt(raw,type,opts,now){
+    var a=sanitizeAttention(raw),o=opts||{},ts=typeof now==="number"?now:Date.now(),src=typeof o.source==="string"&&ATTENTION_SOURCE_TYPES.indexOf(o.source)>=0?o.source:"app",r,i;
+    if(!a.enabled||ATTENTION_EVENT_TYPES.indexOf(type)<0)return a;
+    if(type==="day-opened")for(i=0;i<a.receipts.length;i++)if(a.receipts[i].type===type&&a.receipts[i].day===attentionDayKey(ts))return a;
+    r={id:(typeof o.id==="string"&&ATTENTION_ID_RE.test(o.id)?o.id:uid()),ts:ts,day:attentionDayKey(ts),type:type,source:src};
+    if(typeof o.entityType==="string"&&ATTENTION_ENTITY_TYPES.indexOf(o.entityType)>=0)r.entityType=o.entityType;if(typeof o.entityId==="string"&&ATTENTION_ID_RE.test(o.entityId))r.entityId=o.entityId;
+    a.receipts.push(r);return pruneAttention(a,ts);
+  }
+  function logAttention(type,opts){
+    if(!state.attention||state.attention.enabled!==true)return false;
+    state.attention=recordAttentionReceipt(state.attention,type,opts);return true;
+  }
+  function logTaskAttention(it,wasDone,source){
+    if(!it||it.done===wasDone)return false;
+    return logAttention(it.done?"task-completed":"task-reopened",{source:source||"tasks",entityType:"task",entityId:String(it.id||"")});
+  }
+  function handleAttentionControl(e,rerender){
+    var changed=false,focusSel=".attention-card summary";
+    if(e.target.closest("[data-attention-enable]")){state.attention=sanitizeAttention(state.attention);state.attention.enabled=true;logAttention("day-opened",{source:"plan-review"});attentionClearArm=false;changed=true;}
+    else if(e.target.closest("[data-attention-disable]")){state.attention=sanitizeAttention(state.attention);state.attention.enabled=false;attentionClearArm=false;changed=true;}
+    else if(e.target.closest("[data-attention-clear]")){attentionClearArm=true;rerender();setTimeout(function(){var b=document.querySelector("[data-attention-clear-yes]");if(b)b.focus();},20);return true;}
+    else if(e.target.closest("[data-attention-clear-no]")){attentionClearArm=false;rerender();setTimeout(function(){var b=document.querySelector(".attention-card summary");if(b)b.focus();},20);return true;}
+    else if(e.target.closest("[data-attention-clear-yes]")){state.attention=sanitizeAttention(state.attention);state.attention.receipts=[];state.attention.lastPrunedAt=Date.now();attentionClearArm=false;changed=true;}
+    if(!changed)return false;
+    persist();rerender();setTimeout(function(){var b=document.querySelector(focusSel);if(b)b.focus();},20);return true;
+  }
+  function attentionDigest(raw,now){
+    var at=typeof now==="number"?now:Date.now(),a=pruneAttention(raw,at),cut=at-ATTENTION_DIGEST_DAYS*86400000,prevCut=cut-ATTENTION_DIGEST_DAYS*86400000,by={},i,r,k,days=[],focus=0,focusToday=0,completions=0,reopens=0,closeDays={},opened={},firstFocus={},captures={},acted={},defers={},stale=0,actedN=0,firstMinutes=null,prevReceipts=0,prevCompletions=0,today=attentionDayKey(at);
+    for(i=0;i<a.receipts.length;i++){
+      r=a.receipts[i];if(r.ts<cut){if(r.ts>=prevCut){prevReceipts++;if(r.type==="task-completed")prevCompletions++;}continue;}k=r.day;by[k]=(by[k]||[]);by[k].push(r);if(days.indexOf(k)<0)days.push(k);
+      if(r.type==="day-opened"&&(opened[k]==null||r.ts<opened[k]))opened[k]=r.ts;
+      if(r.type==="focus-confirmed"){if(firstFocus[k]==null||r.ts<firstFocus[k])firstFocus[k]=r.ts;if(r.entityId)acted[r.entityId]=true;}
+      if(r.type==="focus-moved"){focus++;if(k===today)focusToday++;}
+      if(r.type==="capture-created"&&r.entityId)captures[r.entityId]=r.ts;
+      if(r.type==="task-completed"){completions++;if(r.entityId)acted[r.entityId]=true;}
+      if(r.type==="task-reopened")reopens++;
+      if(r.type==="task-deferred"&&r.entityId)defers[r.entityId]=(defers[r.entityId]||0)+1;
+      if(r.type==="close-completed")closeDays[k]=true;
+    }
+    if(opened[today]!=null&&firstFocus[today]!=null&&firstFocus[today]>=opened[today])firstMinutes=Math.round((firstFocus[today]-opened[today])/60000);
+    for(k in captures)if(captures.hasOwnProperty(k)){if(acted[k])actedN++;else if(at-captures[k]>=172800000)stale++;}
+    var repeated=0;for(k in defers)if(defers.hasOwnProperty(k)&&defers[k]>=2)repeated++;
+    var currentReceipts=a.receipts.filter(function(x){return x.ts>=cut;}).length;
+    days.sort();return {days:days,receipts:currentReceipts,focusChanges:focus,focusChangesToday:focusToday,captures:Object.keys(captures).length,capturesActed:actedN,staleCaptures:stale,completions:completions,reopenings:reopens,repeatedDeferrals:repeated,closeCompletions:Object.keys(closeDays).length,timeToFirstFocusMinutes:firstMinutes,comparison:{previousReceipts:prevReceipts,previousCompletions:prevCompletions,receiptDelta:currentReceipts-prevReceipts,completionDelta:completions-prevCompletions},byDay:by};
+  }
+  function attentionSignal(d){
+    d=d||{};if(!d.receipts||d.receipts<ATTENTION_MIN_RECEIPTS)return {kind:"insufficient",text:"Not enough local attention evidence yet."};
+    if(d.focusChangesToday>=4)return {kind:"friction",text:"Focus changed four times today. Consider freezing NOW for one work interval."};
+    if(d.staleCaptures>=5)return {kind:"friction",text:d.staleCaptures+" captures are still unprocessed after two days. Consider choosing one to clarify."};
+    if(d.repeatedDeferrals>=1)return {kind:"friction",text:"A task was deferred repeatedly. Consider choosing one smaller next action."};
+    if(d.closeCompletions>=3)return {kind:"healthy",text:"The close ritual was completed three times this week."};
+    return {kind:"healthy",text:"No single friction pattern is strong enough to call out."};
+  }
+  function missionCapsule(b){
+    b=b||{};var c={capsuleVersion:1,outcome:b.outcome||b.name||"",currentState:b.currentState||"",nextPhysicalAction:b.next||"",assignedAI:b.assignedAI||"",role:b.aiRole||"",repository:b.repo||"",branch:b.branch||"",worktree:b.worktree||"",allowedScope:b.allowedScope||"",forbiddenScope:b.forbiddenFiles||"",sourceEvidence:b.sourceEvidence||"",contextPolicy:b.contextPolicy||"KevinOS mission fields only",privacyBoundary:b.privacyBoundary||"No connections or credentials",dataClassification:b.dataClassification||"mission metadata",expectedArtifact:b.expectedArtifact||"",acceptanceCriteria:b.acceptance||"",verificationCommands:b.tests||"",evidence:b.evidence||"",rollbackPlan:b.rollbackPlan||"",blockers:b.blockers||"",lastHandoff:b.lastHandoff||""};
+    c.fingerprint=aiFingerprint(JSON.stringify(c));return c;
+  }
   function openExternal(url){try{var w=window.open(url,"_blank","noopener,noreferrer");if(w)w.opener=null;return !!w;}catch(e){return false;}}
   function clearEditingState(){editingId=editingProjId=editingBuildId=editingBriefId=editingLinkId=editingPromptId=editingNoteId=editingHabitId=null;editingGoalId="";editingPersonId="";spendEditId="";}
   function portableDoc(src){
@@ -1523,7 +1613,8 @@
     var due=dueId?($(dueId).value||null):null;
     var rep=repeatId?($(repeatId).value||""):"";
     var dt=dueTimeId?($(dueTimeId).value||""):"";
-    state.items.unshift({id:uid(),text:text,area:areaRef(),today:false,done:false,due:due,dueTime:dt,projectId:null,repeat:rep,createdAt:Date.now()});
+    var it={id:uid(),text:text,area:areaRef(),today:false,done:false,due:due,dueTime:dt,projectId:null,repeat:rep,createdAt:Date.now()};state.items.unshift(it);
+    logAttention("capture-created",{source:"tasks",entityType:"task",entityId:String(it.id)});
     input.value="";if(dueId)$(dueId).value="";if(repeatId)$(repeatId).value="";if(dueTimeId)$(dueTimeId).value="";
     renderTasks();renderHome();save();
   }
@@ -1546,7 +1637,7 @@
     var u=undoInfo;undoInfo=null;if(undoT){clearTimeout(undoT);undoT=null;}
     if(u.kind==="complete"){
       var it=findItem(u.id);
-      if(it){it.done=false;it.today=!!u.today;touch(it);}
+      if(it){var wasDone=it.done;it.done=false;it.today=!!u.today;touch(it);logTaskAttention(it,wasDone,"undo");}
       if(u.rolledId){bury(u.rolledId);state.items=state.items.filter(function(x){return x.id!==u.rolledId;});}
     }else if(u.kind==="delete"){
       var ni=cloneJSON(u.item);ni.id=uid();touch(ni);
@@ -1559,9 +1650,9 @@
     var id=btn.dataset.id,act=btn.dataset.action;
     if(act==="menu"){taskMenuId=taskMenuId===id?"":id;renderTasks();return;}
     var it=findItem(id);if(!it)return;taskMenuId="";
-    if(act==="done"){it.done=!it.done;touch(it);if(it.done){var wasToday=it.today;it.today=false;var rolled=rollRecurring(it);if(editingId===id)editingId=null;armUndo({kind:"complete",id:id,today:wasToday,rolledId:rolled},"Done ✓");}}
-    else if(act==="pin"){it.today=true;touch(it);}
-    else if(act==="unpin"){it.today=false;touch(it);}
+    if(act==="done"){var wasDone=it.done;it.done=!it.done;touch(it);logTaskAttention(it,wasDone,"tasks");if(it.done){var wasToday=it.today;it.today=false;var rolled=rollRecurring(it);if(editingId===id)editingId=null;armUndo({kind:"complete",id:id,today:wasToday,rolledId:rolled},"Done ✓");}}
+    else if(act==="pin"){it.today=true;touch(it);logAttention("focus-confirmed",{source:"tasks",entityType:"task",entityId:String(it.id||"")});}
+    else if(act==="unpin"){it.today=false;touch(it);logAttention("task-deferred",{source:"tasks",entityType:"task",entityId:String(it.id||"")});}
     else if(act==="delete"){var idx=state.items.indexOf(it);bury(id);state.items=state.items.filter(function(x){return x.id!==id;});if(editingId===id)editingId=null;armUndo({kind:"delete",item:cloneJSON(it),index:idx},"Task deleted");}
     else if(act==="edit"){editingId=(editingId===id)?null:id;renderTasks();return;}
     renderTasks();renderHome();save();
@@ -1800,6 +1891,7 @@
     var a=state.items.indexOf(list[pos]),b=state.items.indexOf(list[j]);
     if(a<0||b<0)return false;
     state.items[a]=list[j];state.items[b]=list[pos];
+    logAttention("focus-moved",{source:"today",entityType:"task",entityId:String(id||"")});
     return true;
   }
   function launchFocusCardHTML(){
@@ -2158,6 +2250,7 @@
       state.notes.unshift({id:id,title:(n.text||"Captured thought").toString(),para:"Resource",area:vcArea(n.area||"Inbox"),tags:"",body:"",createdAt:Date.now()});
       coll="notes";label="Note";
     }
+    logAttention("capture-created",{source:"capture",entityType:coll==="items"?"task":(coll==="events"?"event":"note"),entityId:String(id)});
     vcUndo={coll:coll,id:id,label:label};save();vcOpen=false;vcState="idle";renderVoiceCapture();vcRestoreFocus();renderNext();renderHome();
     if(coll==="items")renderTasks();else if(coll==="events")renderCalendar();else renderNotes();
     vcToast(j.fallback?"Saved as task":(label+" added"),label);
@@ -2174,6 +2267,7 @@
     if(!vcUndo)return;
     var c=vcUndo.coll,id=vcUndo.id;
     state[c]=state[c].filter(function(x){return x.id!==id;});
+    logAttention("capture-undone",{source:"capture",entityType:c==="items"?"task":(c==="events"?"event":"note"),entityId:String(id)});
     save();renderNext();renderHome();if(c==="items")renderTasks();else if(c==="events")renderCalendar();else renderNotes();
     clearTimeout(vcUndoT);vcUndo=null;toast("Removed");
   }
@@ -2222,6 +2316,7 @@
       weeklyCardHTML()+
       checkinCardHTML()+
       spendCardHTML()+
+      attentionCardHTML()+
       '<div class="capture-row"><input id="nextInput" class="capture-input" type="text" placeholder="Capture the next thing…" autocomplete="off" aria-label="Capture a task"><button class="add-btn" type="button" data-next-add="1">Add</button></div>'+
       '<div class="chips">'+nextChipsHTML()+'</div>'+
       '<hr class="surface-line">';
@@ -2245,7 +2340,7 @@
     if(relayOpen){
       cq+='<div class="edit-panel"><div class="field"><label for="relayUrl">Relay URL</label><input class="inp" id="relayUrl" type="text" placeholder="https://kevinos-relay.…workers.dev" value="'+escapeHtml((state.relay&&state.relay.url)||"")+'" autocomplete="off" spellcheck="false"></div><div class="field"><label for="relayToken">Relay token (optional)</label><input class="inp" id="relayToken" type="password" placeholder="X-KevinOS-Token" value="'+escapeHtml((state.relay&&state.relay.token)||"")+'" autocomplete="off" spellcheck="false"></div>'+(on?lanePinRowsHTML():'')+'<div class="edit-actions"><button class="add-btn" type="button" data-relay-save="1">Save</button>'+(on?'<button class="btn-ghost danger" type="button" data-relay-clear="1">Disconnect</button>':'')+'</div><p class="hint">Paste your Cloudflare Worker URL (see <code>relay/RELAY_SETUP.md</code>). If your relay has a token, it stays only on this device and is never exported in backups.</p></div>';
     }
-    cq+='<div class="capture-row"><input id="councilInput" class="capture-input" type="text" placeholder="Ask the Council something…" autocomplete="off" aria-label="Council question"><select class="inp" id="councilLength" style="width:auto" aria-label="Answer length"><option value=""'+(councilLength===""?" selected":"")+'>Standard</option><option value="brief"'+(councilLength==="brief"?" selected":"")+'>Brief</option><option value="deep"'+(councilLength==="deep"?" selected":"")+'>Deep</option></select><button class="add-btn" type="button" data-council-add="1">'+(on?"Ask":"Queue")+'</button></div>';
+    cq+='<div class="capture-row council-capture-row"><input id="councilInput" class="capture-input" type="text" placeholder="Ask the Council something…" autocomplete="off" aria-label="Council question"><select class="inp" id="councilLength" style="width:auto" aria-label="Answer length"><option value=""'+(councilLength===""?" selected":"")+'>Standard</option><option value="brief"'+(councilLength==="brief"?" selected":"")+'>Brief</option><option value="deep"'+(councilLength==="deep"?" selected":"")+'>Deep</option></select><button class="add-btn" type="button" data-council-add="1">'+(on?"Ask":"Queue")+'</button></div>';
     cq+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
     COUNCIL_PRESETS.forEach(function(p){var act=councilPreset===p[0];cq+='<button class="chip'+(act?' active" style="background:var(--accent);color:var(--on-accent)':'')+'" type="button" data-council-preset="'+p[0]+'">'+p[1]+'</button>';});
     cq+='</div>';
@@ -2279,7 +2374,8 @@
   function addNextTask(){
     var inp=$("nextInput");if(!inp)return;var t=(inp.value||"").trim();if(!t)return;
     var ar=(nextArea==="All")?"Inbox":nextArea;
-    state.items.unshift({id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});
+    var it={id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()};state.items.unshift(it);
+    logAttention("capture-created",{source:"plan-review",entityType:"task",entityId:String(it.id)});
     inp.value="";renderNext();renderHome();save();
   }
   function relayBase(){var u=safeHttpUrl((state.relay&&state.relay.url)||"");return u?u.replace(/\/+$/,""):"";}
@@ -2444,7 +2540,7 @@
   }
   /* ---------- cross-device sync (v0.16) ---------- */
   // Content syncs; device connections (relay/push/github) and sync itself never do.
-  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,theme:1,lanePins:1,seatStats:1,v:1};
+  var SYNC_SKIP={github:1,relay:1,push:1,sync:1,email:1,calendar:1,brief:1,launch:1,weekly:1,peopleCfg:1,spendMeta:1,intake:1,swim:1,sheetsCache:1,weatherLoc:1,closeHour:1,theme:1,lanePins:1,seatStats:1,attention:1,v:1};
   var _syncPushT=null,_syncBusy=false,_lastPushedDoc=null;
   // Sync activity log (item 71): last 20 pull/push events, device-local and
   // memory-only — debuggability, not data.
@@ -3029,7 +3125,7 @@
       if(keep&&!keep.checked)continue;
       var text=(rows[i].value||"").trim();if(!text)continue;
       var areaSel=box.querySelector('[data-ctf="area"][data-i="'+idx+'"]');
-      state.items.unshift({id:uid(),text:text,area:(areaSel?areaSel.value:"Inbox"),today:true,done:false,due:null,dueTime:"",projectId:null,repeat:"",createdAt:Date.now()});
+      var it={id:uid(),text:text,area:(areaSel?areaSel.value:"Inbox"),today:true,done:false,due:null,dueTime:"",projectId:null,repeat:"",createdAt:Date.now()};state.items.unshift(it);logAttention("capture-created",{source:"council",entityType:"task",entityId:String(it.id)});
       n++;
     }
     delete councilTasks[id];save();renderNext();renderHome();toast(n?("Added "+n+" task"+(n===1?"":"s")+" to today."):"No tasks selected.");
@@ -3045,6 +3141,7 @@
     if(relayOn())runCouncil(id);
   }
   function handleNextClick(e){
+    if(handleAttentionControl(e,renderNext))return;
     var ca=e.target.closest("[data-next-area]");if(ca){nextArea=ca.getAttribute("data-next-area");renderNext();return;}
     if(e.target.closest("[data-openwind]")){openWind();return;}
     if(e.target.closest("[data-next-add]")){addNextTask();return;}
@@ -3077,7 +3174,7 @@
     var ccnt=e.target.closest("[data-council-canceltasks]");if(ccnt){delete councilTasks[ccnt.getAttribute("data-council-canceltasks")];renderNext();return;}
     var cdel=e.target.closest("[data-council-del]");if(cdel){var id=cdel.getAttribute("data-council-del");bury(id);state.council=state.council.filter(function(x){return x.id!==id;});renderNext();save();return;}
     var gob=e.target.closest("[data-go]");if(gob){go(gob.getAttribute("data-go"));return;}
-    var act=e.target.closest("[data-action]");if(act){var it=findItem(act.dataset.id);if(it&&act.dataset.action==="done"){it.done=!it.done;touch(it);if(it.done){it.today=false;rollRecurring(it);}renderNext();renderHome();save();}return;}
+    var act=e.target.closest("[data-action]");if(act){var it=findItem(act.dataset.id);if(it&&act.dataset.action==="done"){var wasDone=it.done;it.done=!it.done;touch(it);logTaskAttention(it,wasDone,"plan-review");if(it.done){it.today=false;rollRecurring(it);}renderNext();renderHome();save();}return;}
   }
   function renderGithubNudge(){
     var box=$("ghNudge");if(!box)return;
@@ -3183,13 +3280,13 @@
   function handleWind(e){
     var c=e.target.closest("[data-wind],[data-wind-done],[data-wind-tom],[data-wind-clear],[data-wind-focus]");if(!c)return;
     var tk=todayKey(),tm=addDaysKey(tk,1);
-    if(c.dataset.windDone!==undefined){var i1=findItem(c.dataset.windDone);if(i1){i1.done=true;i1.today=false;rollRecurring(i1);touch(i1);}save();renderWind();return;}
-    if(c.dataset.windTom!==undefined){var i2=findItem(c.dataset.windTom);if(i2){i2.due=tm;i2.today=false;touch(i2);}save();renderWind();return;}
-    if(c.dataset.windClear!==undefined){var i3=findItem(c.dataset.windClear);if(i3){i3.today=false;if(i3.due&&i3.due<=tk)i3.due=null;touch(i3);}save();renderWind();return;}
+    if(c.dataset.windDone!==undefined){var i1=findItem(c.dataset.windDone);if(i1){var wasDone=i1.done;i1.done=true;i1.today=false;rollRecurring(i1);touch(i1);logTaskAttention(i1,wasDone,"close");}save();renderWind();return;}
+    if(c.dataset.windTom!==undefined){var i2=findItem(c.dataset.windTom);if(i2){i2.due=tm;i2.today=false;touch(i2);logAttention("task-deferred",{source:"close",entityType:"task",entityId:String(i2.id||"")});}save();renderWind();return;}
+    if(c.dataset.windClear!==undefined){var i3=findItem(c.dataset.windClear);if(i3){i3.today=false;if(i3.due&&i3.due<=tk)i3.due=null;touch(i3);logAttention("task-deferred",{source:"close",entityType:"task",entityId:String(i3.id||"")});}save();renderWind();return;}
     var a=c.dataset.wind;
-    if(c.dataset.windFocus!==undefined){var i4=findItem(c.dataset.windFocus);if(i4){i4.due=tm;i4.today=true;i4.focusTomorrow=true;touch(i4);updateTomorrowFocus();}save();renderWind();return;}
-    if(a==="close"){updateTomorrowFocus();closeWind();}
-    else if(a==="rollall"){windItems().forEach(function(it,idx){it.due=tm;it.today=false;if(idx<3)it.focusTomorrow=true;touch(it);});updateTomorrowFocus();save();renderWind();}
+    if(c.dataset.windFocus!==undefined){var i4=findItem(c.dataset.windFocus);if(i4){i4.due=tm;i4.today=true;i4.focusTomorrow=true;touch(i4);logAttention("task-deferred",{source:"close",entityType:"task",entityId:String(i4.id||"")});updateTomorrowFocus();}save();renderWind();return;}
+    if(a==="close"){updateTomorrowFocus();logAttention("close-completed",{source:"close"});persist();closeWind();}
+    else if(a==="rollall"){windItems().forEach(function(it,idx){it.due=tm;it.today=false;if(idx<3)it.focusTomorrow=true;touch(it);logAttention("task-deferred",{source:"close",entityType:"task",entityId:String(it.id||"")});});updateTomorrowFocus();save();renderWind();}
   }
 
   function calCfg(){if(!state.calendar)state.calendar={connected:false,calId:"primary",lastSyncAt:0};if(!state.calendar.calId)state.calendar.calId="primary";if(!isArr(state.calendar.calIds)||!state.calendar.calIds.length)state.calendar.calIds=[state.calendar.calId];return state.calendar;}
@@ -3696,7 +3793,7 @@
     }
   }
   function sweepAdd(){var step=SWEEP_STEPS[sweep.step];if(step.type!=="area")return;var inp=$("sweepInput");var v=(inp.value||"").trim();if(!v)return;sweep.data[step.area].push(v);inp.value="";renderSweep();}
-  function sweepCommit(){AREAS.forEach(function(a){(sweep.data[a.key]||[]).forEach(function(t){state.items.unshift({id:uid(),text:t,area:a.key,today:false,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});});});if(!state.sweepLog||typeof state.sweepLog!=="object")state.sweepLog={};state.sweepLog[weekStartKey(todayKey())]=Date.now();exitSweep();save();taskFilter="All";taskView="due";go("tasks");var sk=sweepStreak();toast(sk>1?"Sweep complete — "+sk+"-week streak":"Sweep complete");}
+  function sweepCommit(){AREAS.forEach(function(a){(sweep.data[a.key]||[]).forEach(function(t){var it={id:uid(),text:t,area:a.key,today:false,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()};state.items.unshift(it);logAttention("capture-created",{source:"life-sweep",entityType:"task",entityId:String(it.id)});});});if(!state.sweepLog||typeof state.sweepLog!=="object")state.sweepLog={};state.sweepLog[weekStartKey(todayKey())]=Date.now();exitSweep();save();taskFilter="All";taskView="due";go("tasks");var sk=sweepStreak();toast(sk>1?"Sweep complete — "+sk+"-week streak":"Sweep complete");}
   function handleSweep(e){
     var t=e.target.closest("[data-sw],[data-sw-del]");if(!t)return;
     if(t.dataset.swDel!==undefined){var step=SWEEP_STEPS[sweep.step];sweep.data[step.area].splice(+t.dataset.swDel,1);renderSweep();return;}
@@ -4055,13 +4152,13 @@
     var sv=e.target.closest("[data-proj-save]");if(sv){var p=findProject(sv.dataset.projSave);if(p){var t=(pf(sv,"pTitle").value||"").trim();if(t)p.title=t;p.area=pf(sv,"pArea").value;p.status=pf(sv,"pStatus").value;p.outcome=pf(sv,"pOutcome").value;p.nextAction=pf(sv,"pNext").value;p.notes=pf(sv,"pNotes").value;touch(p);}editingProjId=null;renderProjList();renderTasks();renderHome();save();return;}
     var cn=e.target.closest("[data-proj-cancel]");if(cn){editingProjId=null;renderProjList();return;}
     var dl=e.target.closest("[data-proj-delete]");if(dl){var id=dl.dataset.projDelete;state.items.forEach(function(i){if(i.projectId===id){i.projectId=null;touch(i);}});bury(id);state.projects=state.projects.filter(function(x){return x.id!==id;});editingProjId=null;renderProjList();renderTasks();renderHome();save();return;}
-    var da=e.target.closest("[data-action]");if(da){var it=findItem(da.dataset.id);if(it&&da.dataset.action==="done"){it.done=true;it.today=false;rollRecurring(it);touch(it);}renderProjList();renderTasks();renderHome();save();return;}
+    var da=e.target.closest("[data-action]");if(da){var it=findItem(da.dataset.id);if(it&&da.dataset.action==="done"){var wasDone=it.done;it.done=true;it.today=false;rollRecurring(it);touch(it);logTaskAttention(it,wasDone,"projects");}renderProjList();renderTasks();renderHome();save();return;}
   }
 
   /* ---------- STUDIO ---------- */
   var AI_ROLES=[{key:"Architect"},{key:"Builder"},{key:"Verifier"},{key:"Release"},{key:"Auditor"},{key:"Writer"}];
   var VERIFY_STATUS=[{key:"unverified",label:"Unverified"},{key:"manual",label:"Manually verified"},{key:"machine",label:"Machine verified"},{key:"blocked",label:"Blocked"}];
-  function addBuild(){var t=($("buildInput").value||"").trim();if(!t)return;state.builds.unshift({id:uid(),name:t,outcome:t,stage:"Idea",currentState:"Not started",next:"Define the first physical action",assignedAI:"",aiRole:"Builder",repo:"",branch:"",worktree:"",allowedScope:"",forbiddenFiles:"",acceptance:"",tests:"",verificationStatus:"unverified",evidence:"",commitRef:"",blockers:"",lastHandoff:"",notes:"",createdAt:Date.now()});$("buildInput").value="";renderBuilds();save();}
+  function addBuild(){var t=($("buildInput").value||"").trim();if(!t)return;state.builds.unshift({id:uid(),name:t,outcome:t,stage:"Idea",currentState:"Not started",next:"Define the first physical action",assignedAI:"",aiRole:"Builder",repo:"",branch:"",worktree:"",allowedScope:"",forbiddenFiles:"",sourceEvidence:"",contextPolicy:"KevinOS mission fields only",privacyBoundary:"No connections or credentials",dataClassification:"mission metadata",expectedArtifact:"",acceptance:"",tests:"",verificationStatus:"unverified",evidence:"",rollbackPlan:"",commitRef:"",blockers:"",lastHandoff:"",notes:"",createdAt:Date.now()});$("buildInput").value="";renderBuilds();save();}
   function buildBuildEditor(b){
     var w=document.createElement("div");w.className="edit-panel";
     var f1=field("Name");f1.appendChild(inpEl("bName","text",b.name));w.appendChild(f1);
@@ -4076,21 +4173,27 @@
     var f10=field("Worktree / local checkout");f10.appendChild(inpEl("bWorktree","text",b.worktree||""));w.appendChild(f10);
     var f11=field("Allowed scope / files");f11.appendChild(taEl("bScope",b.allowedScope||""));w.appendChild(f11);
     var f12=field("Forbidden files / actions");f12.appendChild(taEl("bForbidden",b.forbiddenFiles||""));w.appendChild(f12);
-    var f13=field("Acceptance criteria");f13.appendChild(taEl("bAcceptance",b.acceptance||""));w.appendChild(f13);
-    var f14=field("Verification commands");f14.appendChild(taEl("bTests",b.tests||""));w.appendChild(f14);
-    var f15=field("Verification status");f15.appendChild(selEl("bVerify",VERIFY_STATUS,b.verificationStatus||"unverified"));w.appendChild(f15);
-    var f16=field("Evidence / receipts");f16.appendChild(taEl("bEvidence",b.evidence||""));w.appendChild(f16);
-    var f17=field("Commit / checkpoint reference");f17.appendChild(inpEl("bCommit","text",b.commitRef||""));w.appendChild(f17);
-    var f18=field("Blockers");f18.appendChild(taEl("bBlockers",b.blockers||""));w.appendChild(f18);
-    var f19=field("Last handoff");f19.appendChild(taEl("bHandoff",b.lastHandoff||""));w.appendChild(f19);
-    var f20=field("Notes");f20.appendChild(taEl("bNotes",b.notes||""));w.appendChild(f20);
+    var f13=field("Source evidence");f13.appendChild(taEl("bSourceEvidence",b.sourceEvidence||""));w.appendChild(f13);
+    var f14=field("Context-sharing policy");f14.appendChild(taEl("bContextPolicy",b.contextPolicy||"KevinOS mission fields only"));w.appendChild(f14);
+    var f15=field("Privacy boundary");f15.appendChild(taEl("bPrivacyBoundary",b.privacyBoundary||"No connections or credentials"));w.appendChild(f15);
+    var f16=field("Data / schema classification");f16.appendChild(inpEl("bDataClassification","text",b.dataClassification||"mission metadata"));w.appendChild(f16);
+    var f17=field("Expected artifact");f17.appendChild(taEl("bExpectedArtifact",b.expectedArtifact||""));w.appendChild(f17);
+    var f18=field("Acceptance criteria");f18.appendChild(taEl("bAcceptance",b.acceptance||""));w.appendChild(f18);
+    var f19=field("Verification commands");f19.appendChild(taEl("bTests",b.tests||""));w.appendChild(f19);
+    var f20=field("Verification status");f20.appendChild(selEl("bVerify",VERIFY_STATUS,b.verificationStatus||"unverified"));w.appendChild(f20);
+    var f21=field("Evidence / receipts");f21.appendChild(taEl("bEvidence",b.evidence||""));w.appendChild(f21);
+    var f22=field("Rollback plan");f22.appendChild(taEl("bRollbackPlan",b.rollbackPlan||""));w.appendChild(f22);
+    var f23=field("Commit / checkpoint reference");f23.appendChild(inpEl("bCommit","text",b.commitRef||""));w.appendChild(f23);
+    var f24=field("Blockers");f24.appendChild(taEl("bBlockers",b.blockers||""));w.appendChild(f24);
+    var f25=field("Last handoff");f25.appendChild(taEl("bHandoff",b.lastHandoff||""));w.appendChild(f25);
+    var f26=field("Notes");f26.appendChild(taEl("bNotes",b.notes||""));w.appendChild(f26);
     w.appendChild(editActions("build",b.id));
     return w;
   }
   function missionVerified(b){return !!(b&&((b.verificationStatus==="manual"||b.verificationStatus==="machine")&&(b.evidence||"").trim()));}
   function missionPacket(b,kind){
     b=b||{};kind=kind||"work";var head=kind==="audit"?"AUDIT PACKET":kind==="verify"?"VERIFICATION PACKET":kind==="handoff"?"HANDOFF":"IMPLEMENTATION WORK PACKET";
-    var s="# "+head+" — "+(b.name||"Mission")+"\n\nOutcome\n"+(b.outcome||b.name||"Not set")+"\n\nCurrent state\n"+(b.currentState||"Not set")+"\n\nNext physical action\n"+(b.next||"Not set")+"\n\nAssigned AI / role\n"+(b.assignedAI||"Unassigned")+" / "+(b.aiRole||"Builder")+"\n\nRepository / branch / worktree\n"+(b.repo||"Not set")+" / "+(b.branch||"Not set")+" / "+(b.worktree||"Not set")+"\n\nAllowed scope\n"+(b.allowedScope||"Not set")+"\n\nForbidden files / actions\n"+(b.forbiddenFiles||"None recorded")+"\n\nCanonical constraints\nPreserve KevinOS state, approval, sync, backup, and accessibility contracts. Do not expose secrets or overwrite unrelated work.\n\nAcceptance criteria\n"+(b.acceptance||"Not set")+"\n\nVerification commands\n"+(b.tests||"Not set")+"\n\nVerification status\n"+(b.verificationStatus||"unverified")+"\n\nEvidence\n"+(b.evidence||"None yet")+"\n\nCommit / checkpoint\n"+(b.commitRef||"Not recorded")+"\n\nBlockers\n"+(b.blockers||"None recorded");
+    var s="# "+head+" — "+(b.name||"Mission")+"\n\nOutcome\n"+(b.outcome||b.name||"Not set")+"\n\nCurrent state\n"+(b.currentState||"Not set")+"\n\nNext physical action\n"+(b.next||"Not set")+"\n\nAssigned AI / role\n"+(b.assignedAI||"Unassigned")+" / "+(b.aiRole||"Builder")+"\n\nRepository / branch / worktree\n"+(b.repo||"Not set")+" / "+(b.branch||"Not set")+" / "+(b.worktree||"Not set")+"\n\nAllowed scope\n"+(b.allowedScope||"Not set")+"\n\nForbidden files / actions\n"+(b.forbiddenFiles||"None recorded")+"\n\nSource evidence\n"+(b.sourceEvidence||"None recorded")+"\n\nContext-sharing policy\n"+(b.contextPolicy||"KevinOS mission fields only")+"\n\nPrivacy boundary\n"+(b.privacyBoundary||"No connections or credentials")+"\n\nData / schema classification\n"+(b.dataClassification||"mission metadata")+"\n\nExpected artifact\n"+(b.expectedArtifact||"Not set")+"\n\nCanonical constraints\nPreserve KevinOS state, approval, sync, backup, and accessibility contracts. Do not expose secrets or overwrite unrelated work.\n\nAcceptance criteria\n"+(b.acceptance||"Not set")+"\n\nVerification commands\n"+(b.tests||"Not set")+"\n\nVerification status\n"+(b.verificationStatus||"unverified")+"\n\nEvidence\n"+(b.evidence||"None yet")+"\n\nRollback plan\n"+(b.rollbackPlan||"Not recorded")+"\n\nCommit / checkpoint\n"+(b.commitRef||"Not recorded")+"\n\nBlockers\n"+(b.blockers||"None recorded");
     if(kind==="handoff")s+="\n\nLast handoff\n"+(b.lastHandoff||"None recorded");
     return s;
   }
@@ -4107,7 +4210,7 @@
     if(b.assignedAI){var a=document.createElement("span");a.className="metatag";a.textContent=(b.aiRole||"AI")+": "+b.assignedAI;meta.appendChild(a);has=true;}
     if(has)el.appendChild(meta);
     if(b.outcome){var sn=document.createElement("div");sn.className="snip";sn.textContent=b.outcome;el.appendChild(sn);}
-    var actions=document.createElement("div");actions.className="library-actions";actions.innerHTML='<button class="linklike" type="button" data-mission-copy="work" data-id="'+escapeHtml(b.id)+'">Work packet</button><button class="linklike" type="button" data-mission-copy="audit" data-id="'+escapeHtml(b.id)+'">Audit packet</button><button class="linklike" type="button" data-mission-copy="verify" data-id="'+escapeHtml(b.id)+'">Verify packet</button><button class="linklike" type="button" data-mission-copy="handoff" data-id="'+escapeHtml(b.id)+'">Handoff</button>';el.appendChild(actions);
+    var actions=document.createElement("div");actions.className="library-actions";actions.innerHTML='<button class="linklike" type="button" data-mission-copy="work" data-id="'+escapeHtml(b.id)+'">Work packet</button><button class="linklike" type="button" data-mission-copy="audit" data-id="'+escapeHtml(b.id)+'">Audit packet</button><button class="linklike" type="button" data-mission-copy="verify" data-id="'+escapeHtml(b.id)+'">Verify packet</button><button class="linklike" type="button" data-mission-copy="handoff" data-id="'+escapeHtml(b.id)+'">Handoff</button><button class="linklike" type="button" data-mission-capsule="1" data-id="'+escapeHtml(b.id)+'">Copy JSON capsule</button>';el.appendChild(actions);
     wrap.appendChild(el);
     if(editingBuildId===b.id)wrap.appendChild(buildBuildEditor(b));
     return wrap;
@@ -4120,9 +4223,10 @@
     var af=e.target.closest("[data-mission-agent-filter]");if(af){missionAgentFilter=af.value;renderBuilds();return;}
     var rf=e.target.closest("[data-mission-role-filter]");if(rf){missionRoleFilter=rf.value;renderBuilds();return;}
     var cp=e.target.closest("[data-mission-copy]");if(cp){var bm=findBuild(cp.getAttribute("data-id"));if(bm){copyText(missionPacket(bm,cp.getAttribute("data-mission-copy")));flashCopied(cp,"Copied");}return;}
+    var cap=e.target.closest("[data-mission-capsule]");if(cap){var cb=findBuild(cap.getAttribute("data-id"));if(cb){copyText(JSON.stringify(missionCapsule(cb),null,2));flashCopied(cap,"Copied");}return;}
     var cy=e.target.closest("[data-build-cycle]");if(cy){var b=findBuild(cy.dataset.buildCycle);if(b){var idx=0;for(var i=0;i<BUILD_STAGES.length;i++)if(BUILD_STAGES[i].key===b.stage)idx=i;var next=BUILD_STAGES[(idx+1)%BUILD_STAGES.length].key;if(next==="Shipped"&&!missionVerified(b)){editingBuildId=b.id;toast("Add verification evidence before marking this mission Shipped.");renderBuilds();return;}b.stage=next;touch(b);}renderBuilds();save();return;}
     var op=e.target.closest("[data-build-open]");if(op){editingBuildId=(editingBuildId===op.dataset.buildOpen)?null:op.dataset.buildOpen;renderBuilds();return;}
-    var sv=e.target.closest("[data-build-save]");if(sv){var b2=findBuild(sv.dataset.buildSave);if(b2){var t=(pf(sv,"bName").value||"").trim();if(t)b2.name=t;b2.stage=pf(sv,"bStage").value;b2.outcome=pf(sv,"bOutcome").value;b2.currentState=pf(sv,"bCurrent").value;b2.next=pf(sv,"bNext").value;b2.assignedAI=pf(sv,"bAI").value;b2.aiRole=pf(sv,"bRole").value;b2.repo=pf(sv,"bRepo").value;b2.branch=pf(sv,"bBranch").value;b2.worktree=pf(sv,"bWorktree").value;b2.allowedScope=pf(sv,"bScope").value;b2.forbiddenFiles=pf(sv,"bForbidden").value;b2.acceptance=pf(sv,"bAcceptance").value;b2.tests=pf(sv,"bTests").value;b2.verificationStatus=pf(sv,"bVerify").value;b2.evidence=pf(sv,"bEvidence").value;b2.commitRef=pf(sv,"bCommit").value;b2.blockers=pf(sv,"bBlockers").value;b2.lastHandoff=pf(sv,"bHandoff").value;b2.notes=pf(sv,"bNotes").value;if(b2.stage==="Shipped"&&!missionVerified(b2)){b2.stage="Testing";toast("Mission kept in Testing until evidence is recorded.");}touch(b2);}editingBuildId=null;renderBuilds();save();return;}
+    var sv=e.target.closest("[data-build-save]");if(sv){var b2=findBuild(sv.dataset.buildSave);if(b2){var t=(pf(sv,"bName").value||"").trim();if(t)b2.name=t;b2.stage=pf(sv,"bStage").value;b2.outcome=pf(sv,"bOutcome").value;b2.currentState=pf(sv,"bCurrent").value;b2.next=pf(sv,"bNext").value;b2.assignedAI=pf(sv,"bAI").value;b2.aiRole=pf(sv,"bRole").value;b2.repo=pf(sv,"bRepo").value;b2.branch=pf(sv,"bBranch").value;b2.worktree=pf(sv,"bWorktree").value;b2.allowedScope=pf(sv,"bScope").value;b2.forbiddenFiles=pf(sv,"bForbidden").value;b2.sourceEvidence=pf(sv,"bSourceEvidence").value;b2.contextPolicy=pf(sv,"bContextPolicy").value;b2.privacyBoundary=pf(sv,"bPrivacyBoundary").value;b2.dataClassification=pf(sv,"bDataClassification").value;b2.expectedArtifact=pf(sv,"bExpectedArtifact").value;b2.acceptance=pf(sv,"bAcceptance").value;b2.tests=pf(sv,"bTests").value;b2.verificationStatus=pf(sv,"bVerify").value;b2.evidence=pf(sv,"bEvidence").value;b2.rollbackPlan=pf(sv,"bRollbackPlan").value;b2.commitRef=pf(sv,"bCommit").value;b2.blockers=pf(sv,"bBlockers").value;b2.lastHandoff=pf(sv,"bHandoff").value;b2.notes=pf(sv,"bNotes").value;if(b2.stage==="Shipped"&&!missionVerified(b2)){b2.stage="Testing";toast("Mission kept in Testing until evidence is recorded.");}touch(b2);}editingBuildId=null;renderBuilds();save();return;}
     var cn=e.target.closest("[data-build-cancel]");if(cn){editingBuildId=null;renderBuilds();return;}
     var dl=e.target.closest("[data-build-delete]");if(dl){bury(dl.dataset.buildDelete);state.builds=state.builds.filter(function(x){return x.id!==dl.dataset.buildDelete;});editingBuildId=null;renderBuilds();save();return;}
   }
@@ -4799,15 +4903,15 @@
     var out=($("obOutcome").value||"").trim(),act=($("obAction").value||"").trim(),stop=$("obStop").value||"";
     if(!out||!act){toast("Add the outcome and first physical action.");return;}
     var pid=uid(),task=uid(),p={id:pid,title:out,area:"Inbox",status:"Active",outcome:out,nextAction:act,notes:"",createdAt:Date.now()},t={id:task,text:out,area:"Inbox",today:true,done:false,due:todayKey(),dueTime:"",projectId:pid,repeat:"",createdAt:Date.now()};
-    touch(p);touch(t);state.projects.unshift(p);state.items.unshift(t);
+    touch(p);touch(t);state.projects.unshift(p);state.items.unshift(t);logAttention("focus-confirmed",{source:"onboarding",entityType:"task",entityId:String(t.id)});
     if(stop){var ev={id:uid(),title:"Hard stop · "+out,date:todayKey(),time:stop,allDay:false,area:"Inbox",source:"app"};touch(ev);state.events.push(ev);}
     onboardOutcome=out;onboardAction=act;onboardHardStop=stop;save();onboardStep=2;renderOnboarding();
   }
   function saveOnboardCapture(){
     var inp=$("obCapture"),text=(inp?(inp.value||""):"").trim();if(!text)return;
-    var it={id:uid(),text:text,area:"Inbox",today:false,done:false,due:null,dueTime:"",projectId:null,repeat:"",createdAt:Date.now()};touch(it);state.items.unshift(it);onboardCaptureId=it.id;save();onboardStep=3;renderOnboarding();
+    var it={id:uid(),text:text,area:"Inbox",today:false,done:false,due:null,dueTime:"",projectId:null,repeat:"",createdAt:Date.now()};touch(it);state.items.unshift(it);logAttention("capture-created",{source:"onboarding",entityType:"task",entityId:String(it.id)});onboardCaptureId=it.id;save();onboardStep=3;renderOnboarding();
   }
-  function undoOnboardCapture(){if(!onboardCaptureId)return;bury(onboardCaptureId);state.items=state.items.filter(function(x){return x.id!==onboardCaptureId;});onboardCaptureId="";save();onboardStep=2;renderOnboarding();}
+  function undoOnboardCapture(){if(!onboardCaptureId)return;logAttention("capture-undone",{source:"onboarding",entityType:"task",entityId:String(onboardCaptureId)});bury(onboardCaptureId);state.items=state.items.filter(function(x){return x.id!==onboardCaptureId;});onboardCaptureId="";save();onboardStep=2;renderOnboarding();}
   function renderOnboarding(){
     var ov=$("onboardOverlay"),box=$("onboardCard");if(!ov||!box)return;
     ov.classList.toggle("open",!!onboardOpen);if(!onboardOpen){box.innerHTML="";return;}
@@ -4833,6 +4937,16 @@
     else if(a==="later"){sideSet("kevinos:backup-reminder","1");finishOnboarding();}
   }
   function backupReminderHTML(){return sideGet("kevinos:backup-reminder")==="1"&&!state.lastBackupAt?'<button class="gh-nudge" type="button" data-backup="1" style="background:var(--gold-soft);margin-top:12px"><span class="nu-txt"><strong>Protect today.</strong> Export your first portable backup.</span><span class="nu-arrow">'+chevSvg()+'</span></button>':"";}
+  function attentionCardHTML(){
+    var a=sanitizeAttention(state.attention),d=attentionDigest(a),s=attentionSignal(d),h='<details class="launch-card attention-card"'+(attentionClearArm?' open':'')+'><summary class="support-summary"><span class="section-label">Attention evidence</span><span>'+(a.enabled?"Recording on":"Recording off")+'</span></summary><div style="margin-top:10px"><p class="hint">Only timestamps, day keys, allowlisted event types, opaque IDs, and source surfaces are recorded. Never titles, notes, URLs, people, prompts, responses, credentials, connections, keystrokes, window titles, or browser history. Receipts stay only on this device, are pruned after 30 days, capped at '+ATTENTION_HARD_CAP+', and can be cleared.</p>';
+    if(!a.enabled&&!d.receipts)h+='<p class="empty">Recording is off. KevinOS has no attention evidence on this device.</p>';
+    else if(!d.receipts)h+='<p class="empty">Recording is on. Use KevinOS normally and a seven-day summary will appear here.</p>';
+    else h+='<p class="hint">Seven-day evidence: '+d.receipts+' receipt'+(d.receipts===1?'':'s')+' · '+d.focusChanges+' focus change'+(d.focusChanges===1?'':'s')+' · '+d.capturesActed+' capture'+(d.capturesActed===1?'':'s')+' later focused or completed · '+d.completions+' completion'+(d.completions===1?'':'s')+' ('+(d.comparison.completionDelta>=0?'+':'')+d.comparison.completionDelta+' vs prior 7 days) · '+d.reopenings+' reopening'+(d.reopenings===1?'':'s')+' · '+d.repeatedDeferrals+' repeated deferral'+(d.repeatedDeferrals===1?'':'s')+' · '+d.closeCompletions+' close day'+(d.closeCompletions===1?'':'s')+(d.timeToFirstFocusMinutes!=null?' · '+d.timeToFirstFocusMinutes+'m to first focus today':'')+'.</p><p class="hint">'+escapeHtml(s.text)+'</p>';
+    h+='<div class="today-actions">';
+    if(a.enabled)h+='<button class="btn-soft" type="button" data-attention-disable="1">Disable</button>';else h+='<button class="add-btn" type="button" data-attention-enable="1">Enable local recording</button>';
+    h+=attentionClearArm?'<span class="hint" role="alert">Clear all local attention receipts?</span><button class="add-btn" type="button" data-attention-clear-yes="1">Yes, clear</button><button class="btn-soft" type="button" data-attention-clear-no="1">Cancel</button>':'<button class="btn-soft" type="button" data-attention-clear="1">Clear receipts</button>';
+    h+='</div></div></details>';return h;
+  }
   function nowModel(key,time){
     key=key||todayKey();time=time||pad((new Date()).getHours())+":"+pad((new Date()).getMinutes());
     var plate=windItems().slice(0,3),all=windItems(),top=plate[0]||null,overdue=0,i,e,stops=[],seenG={},project=null,next="";
@@ -4842,10 +4956,12 @@
     stops.sort(function(a,b){return a.time<b.time?-1:(a.time>b.time?1:0);});
     if(top&&top.projectId)project=findProject(top.projectId);
     next=project&&project.nextAction?project.nextAction:(top?top.text:"");
-    return {taskId:top?top.id:"",outcome:top?top.text:"Choose the one thing that matters today",nextAction:next||"Capture or choose a commitment",hardStop:stops[0]||null,commitments:plate,overdue:overdue,total:all.length};
+    var why=top?(top.due&&top.due<key?"This is the first overdue commitment in Kevin's chosen order.":(top.due===key?"This is the first commitment due today in Kevin's chosen order.":(top.today?"Kevin explicitly placed this first on today's plate.":"This is first in Kevin's chosen commitment order."))):"No commitment is selected yet; KevinOS will not invent one.";
+    return {taskId:top?top.id:"",outcome:top?top.text:"Choose the one thing that matters today",nextAction:next||"Capture or choose a commitment",why:why,hardStop:stops[0]||null,commitments:plate,overdue:overdue,total:all.length};
   }
+  function attentionTodaySignalHTML(){var a=sanitizeAttention(state.attention);if(!a.enabled)return "";var s=attentionSignal(attentionDigest(a));return s.kind==="friction"?'<p class="now-evidence" role="status">'+escapeHtml(s.text)+'</p>':"";}
   function nowCardHTML(){
-    var n=nowModel(),h='<section class="now-card" aria-labelledby="nowTitle"><p class="now-eyebrow">Now</p><h1 class="now-outcome" id="nowTitle">'+escapeHtml(n.outcome)+'</h1><div class="now-next"><strong>Do next</strong>'+escapeHtml(n.nextAction)+'</div><div class="now-support"><div><span class="now-label">Next hard stop</span>'+(n.hardStop?escapeHtml(fmtTime(n.hardStop.time)+" · "+n.hardStop.title):'None set — add one in Calendar')+'</div><div'+(n.overdue?' class="now-risk"':'')+'><span class="now-label">Risk</span>'+(n.overdue?escapeHtml(n.overdue+" overdue commitment"+(n.overdue===1?"":"s")):'No overdue commitments')+'</div></div>';
+    var n=nowModel(),h='<section class="now-card" aria-labelledby="nowTitle"><p class="now-eyebrow">Now</p><h1 class="now-outcome" id="nowTitle">'+escapeHtml(n.outcome)+'</h1><div class="now-next"><strong>Do next</strong>'+escapeHtml(n.nextAction)+'</div><p class="now-why"><strong>Why this is NOW:</strong> '+escapeHtml(n.why)+'</p>'+attentionTodaySignalHTML()+'<div class="now-support"><div><span class="now-label">Next hard stop</span>'+(n.hardStop?escapeHtml(fmtTime(n.hardStop.time)+" · "+n.hardStop.title):'None set — add one in Calendar')+'</div><div'+(n.overdue?' class="now-risk"':'')+'><span class="now-label">Risk</span>'+(n.overdue?escapeHtml(n.overdue+" overdue commitment"+(n.overdue===1?"":"s")):'No overdue commitments')+'</div></div>';
     if(n.commitments.length){h+='<ol class="now-commitments" aria-label="Today commitments">';for(var i=0;i<n.commitments.length;i++){var t=n.commitments[i];h+='<li><span class="dot" style="background:'+areaColor(t.area)+'"></span><span class="commit-text">'+escapeHtml(t.text)+'</span>'+(i>0?'<button class="btn-soft icon-sq" type="button" data-focus-move="up" data-id="'+escapeHtml(t.id)+'" aria-label="Move '+escapeHtml(t.text)+' up">↑</button>':'')+(i<n.commitments.length-1?'<button class="btn-soft icon-sq" type="button" data-focus-move="down" data-id="'+escapeHtml(t.id)+'" aria-label="Move '+escapeHtml(t.text)+' down">↓</button>':'')+'</li>';}h+='</ol>';}
     h+='<div class="now-actions">'+(n.taskId?'<button class="add-btn" type="button" data-now-task="'+escapeHtml(n.taskId)+'">Open next action</button>':'<button class="add-btn" type="button" data-go="tasks">Choose focus</button>')+'<button class="btn-soft" type="button" data-openwind="1">Close the loop</button></div></section>';
     return h;
@@ -4861,7 +4977,7 @@
     var rows=(state.pending||[]).filter(function(p){return p&&p.kind==="ai";}).map(normalizeAiProposal);
     if(!rows.length)return "";
     var active=rows.filter(function(p){return p.status==="working"||p.status==="review"||p.status==="edited"||p.status==="error";}).length,stats=aiFeedbackSummary(rows);
-    var h='<details class="launch-card"><summary class="support-summary"><span class="section-label">AI Proposal Inbox</span><span>'+active+' need review · '+rows.length+' total</span></summary><p class="hint">Local outcomes: '+stats.accepted+' accepted · '+stats.edited+' edited first · '+stats.rejected+' rejected · '+stats.escalated+' escalated · '+stats.errors+' failed'+(stats.medianMinutes!=null?' · median '+stats.medianMinutes+'m to resolve':'')+(stats.stale?' · '+stats.stale+' stale':'')+'. Provider reliability: '+stats.reliability+'%.</p><div class="ai-review-list">';
+    var h='<details class="launch-card"><summary class="support-summary"><span class="section-label">AI Proposal Inbox</span><span>'+active+' need review · '+rows.length+' total</span></summary><p class="hint">Local outcomes: '+stats.accepted+' accepted · '+stats.edited+' edited first · '+stats.rejected+' rejected · '+stats.escalated+' escalated · '+stats.errors+' failed'+(stats.medianMinutes!=null?' · median '+stats.medianMinutes+'m to resolve':'')+(stats.stale?' · '+stats.stale+' stale':'')+'. Provider reliability: '+stats.reliability+'%.</p>'+aiWorkflowEvidenceHTML(rows)+'<div class="ai-review-list">';
     rows.forEach(function(p){
       var editable=p.status!=="working",cats=(p.contextCategories||[]).join(", ");
       h+='<article class="ai-review-row"><div class="ai-review-main"><div class="proposal-status">'+escapeHtml(p.status)+'</div><strong>'+escapeHtml(p.title||"AI proposal")+'</strong><div class="proposal-meta"><span>'+escapeHtml(p.mode)+'</span><span>'+escapeHtml(p.seat)+'</span><span>'+escapeHtml(p.provider)+' · '+escapeHtml(p.model)+'</span><span>Prompt '+escapeHtml(p.promptId)+' v'+escapeHtml(p.promptVersion)+'</span></div><p class="hint">Shared: '+escapeHtml(cats||"source item")+' · Created '+escapeHtml(ghAgo(new Date(p.createdAt||Date.now()).toISOString()))+'</p>'+(editable?'<textarea class="inp proposal-body" data-ai-body="'+escapeHtml(p.id)+'" aria-label="Edit '+escapeHtml(p.title||"AI proposal")+'">'+escapeHtml(p.body||p.text||"")+'</textarea>':'<p class="hint">Working…</p>')+'</div>';
@@ -4874,6 +4990,19 @@
     rows=rows||[];var a=0,ed=0,r=0,es=0,er=0,stale=0,done=0,total=0,times=[],now=Date.now(),i,p,end;
     for(i=0;i<rows.length;i++){p=rows[i]||{};if(p.feedback==="accepted"||p.feedback==="edited-accepted"){a++;if(p.feedback==="edited-accepted")ed++;}if(p.feedback==="rejected")r++;if(p.feedback==="escalated")es++;if(p.status==="error")er++;if(p.status!=="error"&&p.status!=="working"){done++;}if(p.status!=="working")total++;if((p.status==="review"||p.status==="edited")&&now-(p.createdAt||now)>604800000)stale++;end=p.resolvedAt||p.appliedAt||p.undoneAt;if(end&&p.createdAt&&end>=p.createdAt)times.push(Math.round((end-p.createdAt)/60000));}
     times.sort(function(x,y){return x-y;});return {accepted:a,edited:ed,rejected:r,escalated:es,errors:er,stale:stale,medianMinutes:times.length?times[Math.floor(times.length/2)]:null,reliability:total?Math.round(done*100/total):100};
+  }
+  function aiWorkflowSummary(rows,minSample){
+    rows=rows||[];minSample=typeof minSample==="number"?minSample:ATTENTION_AI_MIN_SAMPLE;
+    var sets={modes:{},seats:{},models:{},prompts:{}},i,p,end;
+    function add(set,key,p,end){var g=set[key]||(set[key]={label:key,count:0,accepted:0,edited:0,rejected:0,escalated:0,failed:0,times:[]});g.count++;if(p.feedback==="accepted"||p.feedback==="edited-accepted")g.accepted++;if(p.feedback==="edited-accepted")g.edited++;if(p.feedback==="rejected")g.rejected++;if(p.feedback==="escalated")g.escalated++;if(p.status==="error")g.failed++;if(typeof end==="number"&&typeof p.createdAt==="number"&&end>=p.createdAt)g.times.push(Math.round((end-p.createdAt)/60000));}
+    function finish(set){var out=[],k,g;for(k in set)if(set.hasOwnProperty(k)){g=set[k];g.times.sort(function(a,b){return a-b;});out.push({label:g.label,sampleSize:g.count,enough:g.count>=minSample,accepted:g.accepted,edited:g.edited,rejected:g.rejected,escalated:g.escalated,failed:g.failed,medianReviewMinutes:g.times.length?g.times[Math.floor(g.times.length/2)]:null});}out.sort(function(a,b){return a.label<b.label?-1:(a.label>b.label?1:0);});return out;}
+    for(i=0;i<rows.length;i++){p=normalizeAiProposal(rows[i]||{});if(!p||!(p.feedback==="accepted"||p.feedback==="edited-accepted"||p.feedback==="rejected"||p.feedback==="escalated"||p.status==="error"))continue;end=p.resolvedAt||p.completedAt||p.appliedAt||p.undoneAt;add(sets.modes,p.mode||"Unrecorded",p,end);add(sets.seats,p.seat||"Unrecorded",p,end);add(sets.models,(p.provider||"unrecorded")+" · "+(p.model||"unrecorded"),p,end);add(sets.prompts,(p.promptId||"unrecorded")+" v"+(p.promptVersion||1),p,end);}
+    return {minimumSample:minSample,modes:finish(sets.modes),seats:finish(sets.seats),models:finish(sets.models),prompts:finish(sets.prompts)};
+  }
+  function aiWorkflowEvidenceHTML(rows){
+    var s=aiWorkflowSummary(rows),groups=[["Mode",s.modes],["AI seat",s.seats],["Provider / model",s.models],["Prompt",s.prompts]],h='<details class="edit-panel"><summary class="support-summary"><span>Workflow evidence</span><span>Local outcomes only</span></summary><p class="hint">Patterns require at least '+s.minimumSample+' resolved proposals. KevinOS never reroutes providers or calls a model “best” from this evidence.</p>',i,j,g,r;
+    for(i=0;i<groups.length;i++){g=groups[i];h+='<div class="heat-list"><strong>'+g[0]+'</strong>';if(!g[1].length)h+='<p class="empty">Insufficient local evidence.</p>';for(j=0;j<g[1].length;j++){r=g[1][j];h+='<div class="heat-row"><span>'+escapeHtml(r.label)+'</span><span>'+(r.enough?(r.accepted+' accepted · '+r.edited+' edited · '+r.rejected+' rejected · '+r.escalated+' escalated · '+r.failed+' failed'+(r.medianReviewMinutes!=null?' · '+r.medianReviewMinutes+'m median':'')):(r.sampleSize+' sample'+(r.sampleSize===1?'':'s')+' · insufficient'))+'</span></div>';}h+='</div>';}
+    return h+'</details>';
   }
   function workPulseHTML(){
     var h="";
@@ -4903,14 +5032,15 @@
   }
   function addTodayCapture(){
     var inp=$("todayCaptureInput"),t=(inp?(inp.value||""):"").trim();if(!t)return;
-    var parsed=parseCaptureText(t);
+    var parsed=parseCaptureText(t),created=null,kind="";
     if(parsed&&parsed.type==="task"){
-      var k=parsed.task||{};state.items.unshift({id:uid(),text:k.text||t,area:vcArea(k.area||"Inbox"),today:!!k.today,done:false,due:k.due||null,dueTime:k.dueTime||"",projectId:k.projectId||null,personId:k.personId||null,repeat:"",createdAt:Date.now()});
+      var k=parsed.task||{};created={id:uid(),text:k.text||t,area:vcArea(k.area||"Inbox"),today:!!k.today,done:false,due:k.due||null,dueTime:k.dueTime||"",projectId:k.projectId||null,personId:k.personId||null,repeat:"",createdAt:Date.now()};state.items.unshift(created);kind="task";
     }else if(parsed&&parsed.type==="event"){
-      var ev=parsed.event||{};state.events.push({id:uid(),title:ev.title||t,date:ev.date||todayKey(),time:ev.time||null,allDay:!ev.time,area:vcArea(ev.area||"Inbox"),source:"app"});
+      var ev=parsed.event||{};created={id:uid(),title:ev.title||t,date:ev.date||todayKey(),time:ev.time||null,allDay:!ev.time,area:vcArea(ev.area||"Inbox"),source:"app"};state.events.push(created);kind="event";
     }else if(parsed&&parsed.type==="note"){
-      var n=parsed.note||{};state.notes.unshift({id:uid(),title:n.text||t,para:"Resource",area:vcArea(n.area||"Inbox"),tags:"",body:"",createdAt:Date.now()});
+      var n=parsed.note||{};created={id:uid(),title:n.text||t,para:"Resource",area:vcArea(n.area||"Inbox"),tags:"",body:"",createdAt:Date.now()};state.notes.unshift(created);kind="note";
     }
+    if(created)logAttention("capture-created",{source:"today",entityType:kind,entityId:String(created.id)});
     // W6 item 34 — only the visible room re-renders; hidden rooms rebuild on
     // entry (go() calls their renderer), so painting them here was pure waste.
     inp.value="";save();renderCurrentRoom();
@@ -4931,7 +5061,7 @@
     if(e.target.closest("[data-start-sweep]")){startSweep();return;}
     if(e.target.closest("[data-start-intake]")){startIntake();return;}
     if(e.target.closest("[data-openwind]")){openWind();return;}
-    var nt=e.target.closest("[data-now-task]");if(nt){taskMenuId=nt.getAttribute("data-now-task");go("tasks");renderTasks();return;}
+    var nt=e.target.closest("[data-now-task]");if(nt){logAttention("focus-confirmed",{source:"today",entityType:"task",entityId:String(nt.getAttribute("data-now-task")||"")});persist();taskMenuId=nt.getAttribute("data-now-task");go("tasks");renderTasks();return;}
     var fm=e.target.closest("[data-focus-move]");
     if(fm){if(moveFocusTask(fm.getAttribute("data-id"),fm.getAttribute("data-focus-move"))){save();renderToday();}return;}
     var g=e.target.closest("[data-go]");if(g){go(g.getAttribute("data-go"));return;}
@@ -5323,7 +5453,7 @@
   $("evAddBtn").addEventListener("click",addEvent);
   $("evTitle").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();addEvent();}});
   $("agendaList").addEventListener("click",function(e){
-    var td=e.target.closest("[data-taskdone]");if(td){var it=findItem(td.dataset.taskdone);if(it){var wasTd=it.today;it.done=true;it.today=false;var rl=rollRecurring(it);touch(it);armUndo({kind:"complete",id:it.id,today:wasTd,rolledId:rl},"Done ✓");}renderCalendar();renderHome();save();return;}
+    var td=e.target.closest("[data-taskdone]");if(td){var it=findItem(td.dataset.taskdone);if(it){var wasDone=it.done,wasTd=it.today;it.done=true;it.today=false;var rl=rollRecurring(it);touch(it);logTaskAttention(it,wasDone,"calendar");armUndo({kind:"complete",id:it.id,today:wasTd,rolledId:rl},"Done ✓");}renderCalendar();renderHome();save();return;}
     var btn=e.target.closest("[data-del]");if(btn){bury(btn.dataset.del);state.events=state.events.filter(function(x){return x.id!==btn.dataset.del;});renderCalendar();renderHome();save();}
   });
   $("sweepInner").addEventListener("click",handleSweep);
@@ -5967,7 +6097,7 @@
     if(!t){var parts=[];if(title)parts.push(title);if(text)parts.push(text);t=parts.join(" ");if(url)t=(t?t+" ":"")+url;}
     t=(t||"").trim();if(!t)return null;
     var areaQ=qs.get("area"),ar="Inbox";for(var i=0;i<AREAS.length;i++)if(AREAS[i].key===areaQ)ar=areaQ;
-    state.items.unshift({id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()});
+    var it={id:uid(),text:t,area:ar,today:true,done:false,due:null,projectId:null,repeat:"",createdAt:Date.now()};state.items.unshift(it);logAttention("capture-created",{source:"share-target",entityType:"task",entityId:String(it.id)});
     try{history.replaceState({},document.title,location.pathname+location.hash);}catch(e){}
     return "Captured to today";
   }
@@ -6048,6 +6178,7 @@
       if(saved.theme==="dark"||saved.theme==="light")state.theme=saved.theme;
       if(saved.lanePins&&typeof saved.lanePins==="object")state.lanePins=saved.lanePins;
       if(saved.seatStats&&typeof saved.seatStats==="object")state.seatStats=saved.seatStats;
+      if(saved.attention&&typeof saved.attention==="object")state.attention=sanitizeAttention(saved.attention);
     }
     // Fresh normal mode stays clean. Historic installs keep any old seeded
     // rows, but KevinOS never injects sample content into an empty device now.
@@ -6070,6 +6201,8 @@
     if(!state.roomStats||typeof state.roomStats!=="object")state.roomStats={};
     state.v=SCHEMA_VERSION;
     sanitizeIds(); // storage written before this version may hold pre-sanitizer ids
+    state.attention=sanitizeAttention(state.attention);
+    state.attention=recordAttentionReceipt(state.attention,"day-opened",{source:"today"});
     // W7 item 60 — ?room= deep link (manifest shortcuts + push URLs use it).
     // Read before ingestShared, whose replaceState strips the query string.
     var roomQ=null;try{roomQ=new URLSearchParams(location.search).get("room");}catch(e){}

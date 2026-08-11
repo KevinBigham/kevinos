@@ -6,10 +6,11 @@
 - Synced/portable collections: the 17 names in `CONTENT_ARRAYS`.
 - Portable metadata: `PORTABLE_OBJS` plus explicitly copied scalar settings.
 - Device-local/connection state: relay token, sync key/revision, push subscription, GitHub/Google sessions, calendar connection, and caches.
+- `attention` is device-local evidence: `{version, enabled, retentionDays, receipts, lastPrunedAt}`. Receipts contain only an opaque ID, timestamp, day key, allowlisted event type, optional entity type/opaque ID, and source surface. They are sanitized, retained for 30 days, and capped at 500. The field is restored by the boot whitelist but excluded from `CONTENT_ARRAYS`, `PORTABLE_OBJS`, backups/imports, sync documents, relay requests, AI context, and Mission Capsules.
 
 Nested records are intentionally tolerant of missing optional fields. Read old records defensively and normalize at use sites. A new top-level field is stricter: initialize it, restore it in the boot whitelist, classify it, and add round-trip coverage in one change.
 
-Convergence intentionally keeps schema v39. `pending[kind=ai]` carries text-proposal provenance, sharing categories/fingerprint, lifecycle feedback, and an application Undo receipt. `pending[kind=event]` carries newly extracted calendar proposals; legacy calendar proposals without `kind` remain readable. Calendar bulk actions operate only on event proposals and the AI Inbox operates only on AI proposals. `builds` may carry mission-control fields. These are optional nested fields; old records remain valid and portable/synced documents preserve unknown nested keys.
+Convergence intentionally keeps schema v39. `pending[kind=ai]` carries text-proposal provenance, sharing categories/fingerprint, lifecycle feedback, and an application Undo receipt. `pending[kind=event]` carries newly extracted calendar proposals; legacy calendar proposals without `kind` remain readable. Calendar bulk actions operate only on event proposals and the AI Inbox operates only on AI proposals. `builds` may carry mission-control and Mission Capsule policy fields. These are optional nested fields; old records remain valid and portable/synced documents preserve unknown nested keys.
 
 ## Mutation rules
 
@@ -28,6 +29,8 @@ Convergence intentionally keeps schema v39. `pending[kind=ai]` carries text-prop
 Boot parses `kevinos:v1`, blocks all writes on corruption, captures the previous version, restores through a whitelist, runs ordered migration gates, stamps the current schema, sanitizes IDs, and records last-good-boot evidence. Imports from newer schemas warn and still apply only known allowlisted fields.
 
 Schema changes require one deterministic previous-version gate and tests for old/malformed fixtures, boot round trip, backup/import, merge, and convergence.
+
+The Attention Proof Loop is a compatible top-level extension; `SCHEMA_VERSION` remains 39 because no incompatible persisted-shape migration was required. Rollback is the normal prior app build; old builds ignore the optional field and retain their existing content state.
 
 ## Sync
 

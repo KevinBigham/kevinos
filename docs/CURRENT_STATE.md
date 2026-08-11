@@ -12,6 +12,16 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 - Browser baseline: real Chromium at 390x844 reproduced crushed mobile task text, duplicate navigation, missing Tasks bottom-nav entry, and microphone overlap; console had zero warnings/errors.
 - Governing mission: KevinOS Convergence. Historical marathon documents are evidence, not current plans.
 
+## v0.51 candidate — Attention Proof Loop
+
+- Status: `VERIFIED` on branch `agent/attention-proof-loop`; app v0.51 candidate, service-worker cache `kevinos-v0_51`, schema v39. Publication/merge/deployment are separate authority steps.
+- Added: opt-in content-minimized attention receipts across capture, focus, completion/reopen, deferral, and close paths; deterministic 30-day/500 bounds; current/prior seven-day evidence; one fixed-precedence signal; a subordinate “Why this is NOW”; and Plan & Review privacy controls with inline confirmation and focus restoration.
+- AI/Studio: Proposal Inbox groups resolved local outcomes by mode, seat, provider/model, and prompt version with a three-sample minimum. Studio persists the optional source/context/privacy/classification/artifact/rollback fields and copies stable, fingerprinted JSON Mission Capsules alongside all existing Markdown packets.
+- State: compatible device-local top-level `attention`; schema remains v39. Local boot preserves valid receipts. Portable backup/import, sync, relay/AI context, and capsule generation exclude raw receipts and connection data.
+- Tests: `node test/attention-proof.test.js` — `attention proof loop contracts ok`; `node tools/doctor.js` — doctor ok; `sh test/run.sh` — `ALL GREEN`, with the focused attention suite now inside the full runner.
+- Browser: Chromium `MACHINE-VERIFIED` at 320x568, 390x844, 430x932, 768x1024, and 1440x900 across Today, Tasks, Plan & Review, and Studio; onboarding, Capture, Attention Enable/Disable/Clear, task focus/complete/reopen, Proposal Inbox workflow evidence, Mission Capsule copy, focus trap/return, and service-worker offline reload checked. The 20-surface viewport matrix has zero horizontal overflow after the mobile Council-row fix; final console has zero warnings/errors.
+- Remaining boundary: physical iOS/Android hardware, authenticated provider/OAuth flows, and elapsed 30-day adoption evidence remain outside this browser/machine receipt. No known P0/P1 regression remains.
+
 ## Status ledger
 
 | Wave | Status | Current result |

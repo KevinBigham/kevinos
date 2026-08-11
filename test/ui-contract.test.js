@@ -24,6 +24,7 @@ assert.match(html, /captureMode="quick"/, "capture defaults to quick text");
 assert.match(html, /<summary>Power syntax<\/summary>/, "capture grammar is progressively disclosed");
 assert.match(html, /\.vc-mic\{display:none\}/, "floating capture control does not overlap mobile content");
 assert.match(html, /@media \(pointer:coarse\)\{button,a\.btn-soft,\.stash-actions a\{min-width:44px;min-height:44px\}\}/, "coarse-pointer controls keep touch targets on tablets");
+assert.match(html, /\.council-capture-row\{display:grid;grid-template-columns:minmax\(0,1fr\) auto\}/, "Plan & Review Council capture wraps without mobile overflow");
 assert.match(html, /@media \(prefers-reduced-motion:reduce\)[\s\S]*?animation-duration:\.01ms !important[\s\S]*?scroll-behavior:auto !important/, "reduced-motion mode suppresses all recurring animation and smooth scrolling");
 
 console.log("responsive UI contracts ok");

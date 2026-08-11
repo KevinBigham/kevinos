@@ -33,7 +33,13 @@ See `STATE_CONTRACT.md` before edits.
 
 AI requests use a small deterministic proposal layer: a selected role and versioned prompt, explicit context categories, a context fingerprint, provider/model receipt, and a persisted review state. Returned text has no mutation authority. Approved proposal actions call the same local state/touch/bury/save contracts as direct UI actions and retain an Undo receipt.
 
-Studio stores missions inside the existing open `builds` records. Optional fields describe outcome, current state, next action, assigned AI/role, repo/branch/worktree, allowed and forbidden scope, acceptance criteria, verification commands/status/evidence, commit reference, blockers, and handoff. No agent runtime exists inside the product.
+Attention evidence is an explicitly enabled device-local recorder. Its allowlisted receipts are bounded and sanitized, are restored on local boot, and are deliberately absent from portable documents, sync documents, relay requests, and AI context. Pure digest/signal functions compute current/prior seven-day evidence and provide at most one calm, fixed-precedence intervention without participating in `nowModel()`. Today only renders the deterministic NOW explanation and a qualifying friction signal; status, privacy, summaries, and controls live under collapsed Plan & Review disclosure.
+
+Proposal workflow evidence reuses the existing proposal provenance and explicit feedback. A pure grouper summarizes resolved outcomes by mode, AI seat, provider/model, and prompt ID/version. Groups below the named minimum sample remain explicitly insufficient; evidence never selects or reroutes a provider.
+
+Studio stores missions inside the existing open `builds` records. Optional fields describe outcome, current state, next action, assigned AI/role, repo/branch/worktree, allowed and forbidden scope, source evidence, context policy, privacy boundary, data/schema classification, expected artifact, acceptance criteria, verification commands/status/evidence, rollback plan, commit reference, blockers, and handoff. No agent runtime exists inside the product.
+
+Studio can copy a versioned JSON Mission Capsule with stable field order and a deterministic fingerprint. Capsules contain mission metadata only and exclude connections, tokens, credentials, and unrelated content.
 
 ## Testing
 

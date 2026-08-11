@@ -1,8 +1,10 @@
 # KevinOS 30-day local adoption soak
 
-Start this scorecard on the first day v0.50 becomes Kevin's daily driver. It is local evidence for pruning and promotion—not external analytics and not a reason to add more rooms.
+Continue this scorecard when v0.51 becomes Kevin's daily driver. It is local evidence for pruning and promotion—not external analytics and not a reason to add more rooms.
 
 ## Daily check (days 1–30)
+
+Attention evidence is optional. If enabled, inspect the local current/prior seven-day summary only when useful; it is not a required daily ritual. Record whether the single signal was useful, noisy, or absent. Disable or clear it at any time without changing NOW.
 
 Copy one row per day. Use `yes`, `no`, a duration, or a short friction note.
 

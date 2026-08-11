@@ -365,6 +365,8 @@ const { loadApp } = require("./harness");
       };
     } else if (k === "theme") {
       sentinels[k] = { plant(d) { d.theme = "dark"; }, check(s) { return s.theme === "dark"; } };
+    } else if (k === "attention") {
+      sentinels[k] = { plant(d) { d.attention = { version: 1, enabled: true, retentionDays: 30, lastPrunedAt: 7, receipts: [{ id: "rt-attention", ts: Date.now(), day: new Date().toISOString().slice(0, 10), type: "task-completed", source: "test" }] }; }, check(s) { return !!(s.attention && s.attention.enabled && s.attention.receipts && s.attention.receipts.some((r) => r && r.id === "rt-attention")); } };
     } else if (k === "weatherLoc") {
       sentinels[k] = {
         plant(d) { d.weatherLoc = { lat: 1, lon: 2, __rt: "rt-w" }; },
