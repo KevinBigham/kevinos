@@ -7,14 +7,14 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 - Repository: Git-backed `KevinBigham/kevinos`, branch `main`. The v0.50 work was reconciled from a verified extracted archive into a fresh authenticated checkout without rewriting history.
 - Runtime: dependency-free static PWA plus plain Node test scripts; no package install required.
 - Baseline version: app v0.49, service-worker cache `kevinos-v0_49`, schema v39.
-- Current release: app v0.50, service-worker cache `kevinos-v0_50`, schema v39.
+- Current release: app v0.51, service-worker cache `kevinos-v0_51`, schema v39.
 - Baseline gate on 2026-08-09: `sh test/run.sh` — ALL GREEN.
 - Browser baseline: real Chromium at 390x844 reproduced crushed mobile task text, duplicate navigation, missing Tasks bottom-nav entry, and microphone overlap; console had zero warnings/errors.
 - Governing mission: KevinOS Convergence. Historical marathon documents are evidence, not current plans.
 
-## v0.51 candidate — Attention Proof Loop
+## v0.51 release — Attention Proof Loop
 
-- Status: `VERIFIED` on branch `agent/attention-proof-loop`; app v0.51 candidate, service-worker cache `kevinos-v0_51`, schema v39. Publication/merge/deployment are separate authority steps.
+- Status: `VERIFIED` and live. PR #4 merged as `0e725ba97d2cf3d3aeafddeec373288edca7a272`; post-merge CI and GitHub Pages passed; annotated tag/GitHub Release `v0.51.0` is published. App/cache/schema are v0.51 / `kevinos-v0_51` / v39.
 - Added: opt-in content-minimized attention receipts across capture, focus, completion/reopen, deferral, and close paths; deterministic 30-day/500 bounds; current/prior seven-day evidence; one fixed-precedence signal; a subordinate “Why this is NOW”; and Plan & Review privacy controls with inline confirmation and focus restoration.
 - AI/Studio: Proposal Inbox groups resolved local outcomes by mode, seat, provider/model, and prompt version with a three-sample minimum. Studio persists the optional source/context/privacy/classification/artifact/rollback fields and copies stable, fingerprinted JSON Mission Capsules alongside all existing Markdown packets.
 - State: compatible device-local top-level `attention`; schema remains v39. Local boot preserves valid receipts. Portable backup/import, sync, relay/AI context, and capsule generation exclude raw receipts and connection data.
@@ -66,13 +66,11 @@ Keep for evidence, but do not treat as current instructions: `MISSION.md`, `HAND
 
 ## Production activation
 
-- Static v0.50 at commit `9813dbb87d174125b08cc6f1cca1a556a6673996` is live on GitHub Pages with green CI and Pages runs.
-- Production browser checks at 390x844 and 1440x900 are green, including offline reload and zero significant console messages.
-- Lighthouse 13.4.1: mobile 99/100/100 and desktop 100/100/100 for Performance/Accessibility/Best Practices; SEO 90 is informational for the personal PWA.
-- Canonical setup/navigation drift and direct-to-`main` examples are repaired on `agent/v050-production-activation`; `tools/doctor.js` protects the contract.
-- `docs/RELEASE_v0.50.md` is the activation/rollback ledger and `docs/REAL_DEVICE_VALIDATION_v0.50.md` is the honest physical-device handoff.
-- Relay version `583e5905-f97a-4c6a-9391-54db89f53ada` was promoted from the clean static release commit on 2026-08-10 at 22:53 CDT and now receives 100% traffic. Health, missing-token boundaries, and OAuth replay are green. Exact rollback target: `4fb64ad8-a5c7-4b75-8f59-66a45cbff242`.
-- Activation status is YELLOW only because the available production browser has no device-local relay token and physical-device/OAuth/provider checks remain honestly unverified; no P0/P1 defect is known.
+- Static v0.51 at merge commit `0e725ba97d2cf3d3aeafddeec373288edca7a272` is live on GitHub Pages. Post-merge CI run `31497149732` and Pages run `31497148430` passed.
+- Live browser checks at 390x844 and 1440x900 show v0.51 with zero horizontal overflow, successful service-worker offline reload, and zero console warnings/errors.
+- Annotated tag and GitHub Release `v0.51.0` are published. `docs/RELEASE_v0.51.md` is the canonical static activation and rollback receipt.
+- Relay code and Cloudflare state were unchanged. The v0.50 relay version `583e5905-f97a-4c6a-9391-54db89f53ada` remains active; its prior health/security receipt and rollback target stay in `docs/RELEASE_v0.50.md`.
+- Activation status is YELLOW only because physical-device, authenticated provider/OAuth, push, and elapsed adoption checks remain honestly unverified; no P0/P1 defect is known.
 
 ## Residual risks
 
@@ -81,4 +79,4 @@ Keep for evidence, but do not treat as current instructions: `MISSION.md`, `HAND
 
 ## Cold resume
 
-Read `AGENTS.md`, this file, `docs/RELEASE_v0.50.md`, and `docs/REAL_DEVICE_VALIDATION_v0.50.md`. Run `node tools/doctor.js` and `sh test/run.sh`. Treat all Convergence waves as complete and the core static/relay stack as activated. Remaining work is the explicit physical-device/authenticated checklist and 30-day adoption soak; never infer a schema or encryption gate.
+Read `AGENTS.md`, this file, `docs/RELEASE_v0.51.md`, and `docs/REAL_DEVICE_VALIDATION_v0.50.md` (the unchanged device checklist). Run `node tools/doctor.js` and `sh test/run.sh`. Treat v0.51 static and the unchanged v0.50 relay as activated. Remaining work is the explicit physical-device/authenticated checklist and 30-day adoption soak; never infer a schema or encryption gate.
