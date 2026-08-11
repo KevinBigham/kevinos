@@ -90,9 +90,11 @@ Use a normal auditable Git revert or forward-fix pull request from `main`; never
 
 ## Release seal
 
-- Release-record pull request: `https://github.com/KevinBigham/kevinos/pull/2`
-- Final release-seal commit: pending
-- Annotated tag `v0.50.0`: pending
-- GitHub Release `KevinOS v0.50 — Convergence`: pending
+- Release-record pull request: `https://github.com/KevinBigham/kevinos/pull/2` — merged with green checks
+- Final release-seal commit: `05111a0e2e71807c8bea93801e9d789b72964b10`
+- Release-seal CI: `https://github.com/KevinBigham/kevinos/actions/runs/31457013620` — `MACHINE-PASS`
+- Release-seal Pages deployment: `https://github.com/KevinBigham/kevinos/actions/runs/31457012672` — `MACHINE-PASS`
+- Annotated tag: `https://github.com/KevinBigham/kevinos/releases/tag/v0.50.0`
+- GitHub Release: `KevinOS v0.50 — Convergence`, published 2026-08-10 at 22:59 CDT
 
-The release seal may proceed with YELLOW status because the static app and relay are healthy, rollback is exact, and no P0/P1 defect is known. Authenticated provider, push, real OAuth consent, and physical-device checks remain explicitly unclaimed.
+The release is formally sealed with YELLOW operational status because the static app and relay are healthy, rollback is exact, and no P0/P1 defect is known. Authenticated provider, push, real OAuth consent, and physical-device checks remain explicitly unclaimed.
