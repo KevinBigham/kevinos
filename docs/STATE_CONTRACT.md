@@ -6,11 +6,11 @@
 - Synced/portable collections: the 17 names in `CONTENT_ARRAYS`.
 - Portable metadata: `PORTABLE_OBJS` plus explicitly copied scalar settings.
 - Device-local/connection state: relay token, sync key/revision, push subscription, GitHub/Google sessions, calendar connection, and caches.
-- `attention` is device-local evidence: `{version, enabled, retentionDays, receipts, lastPrunedAt}`. Receipts are sanitized, retained for 30 days, and capped at 500. It is restored by the boot whitelist but excluded from `CONTENT_ARRAYS`, `PORTABLE_OBJS`, backups, sync documents, relay requests, and AI context.
+- `attention` is device-local evidence: `{version, enabled, retentionDays, receipts, lastPrunedAt}`. Receipts contain only an opaque ID, timestamp, day key, allowlisted event type, optional entity type/opaque ID, and source surface. They are sanitized, retained for 30 days, and capped at 500. The field is restored by the boot whitelist but excluded from `CONTENT_ARRAYS`, `PORTABLE_OBJS`, backups/imports, sync documents, relay requests, AI context, and Mission Capsules.
 
 Nested records are intentionally tolerant of missing optional fields. Read old records defensively and normalize at use sites. A new top-level field is stricter: initialize it, restore it in the boot whitelist, classify it, and add round-trip coverage in one change.
 
-Convergence intentionally keeps schema v39. `pending[kind=ai]` carries text-proposal provenance, sharing categories/fingerprint, lifecycle feedback, and an application Undo receipt. `pending[kind=event]` carries newly extracted calendar proposals; legacy calendar proposals without `kind` remain readable. Calendar bulk actions operate only on event proposals and the AI Inbox operates only on AI proposals. `builds` may carry mission-control fields. These are optional nested fields; old records remain valid and portable/synced documents preserve unknown nested keys.
+Convergence intentionally keeps schema v39. `pending[kind=ai]` carries text-proposal provenance, sharing categories/fingerprint, lifecycle feedback, and an application Undo receipt. `pending[kind=event]` carries newly extracted calendar proposals; legacy calendar proposals without `kind` remain readable. Calendar bulk actions operate only on event proposals and the AI Inbox operates only on AI proposals. `builds` may carry mission-control and Mission Capsule policy fields. These are optional nested fields; old records remain valid and portable/synced documents preserve unknown nested keys.
 
 ## Mutation rules
 

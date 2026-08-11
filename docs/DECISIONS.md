@@ -11,8 +11,9 @@
 7. **No external telemetry.** Adoption and AI feedback remain local.
 8. **Relay boundaries fail closed before work.** Bounded bodies are read before provider/KV/D1 calls; OAuth provider state is random, expiring, and single-use; unexpected failures expose only a correlation ID; server-side URL fetches reject private/local targets and unsafe redirects.
 9. **Stable installed-app identity.** The manifest uses `id: "./"`, matching the existing scope and start URL, so future path/query changes do not create a second installed KevinOS identity.
-10. **Attention evidence stays quiet and local.** Recording is opt-in, content-minimized, bounded, removable, and never participates in deterministic priority. Signals use fixed precedence and return at most one intervention.
-11. **Mission Capsules are safe handoffs.** JSON capsules use stable field order and a deterministic fingerprint; sensitive connection data is never inferred into a capsule.
+10. **Attention evidence stays quiet and local.** Recording is opt-in, content-minimized, bounded, removable, and never participates in deterministic priority. Current/prior seven-day evidence uses fixed policy constants; signals use fixed precedence and return at most one intervention.
+11. **Mission Capsules are safe handoffs.** JSON capsules use stable field order and a deterministic fingerprint; sensitive connection data is never inferred into a capsule. Sensitive context appears only when Kevin intentionally writes it into mission fields.
+12. **AI workflow claims require local evidence.** Workflow summaries group explicit proposal outcomes, require at least three resolved samples before describing a pattern, and never silently select or reroute a provider.
 
 ## GATE-76 — deferred
 

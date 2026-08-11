@@ -14,11 +14,13 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 
 ## v0.51 candidate — Attention Proof Loop
 
-- Status: `MACHINE-VERIFIED` for the recorder, deterministic evidence functions, local state classification, and Mission Capsule JSON generation. Browser verification is `NOT ATTEMPTED` in this checkout.
-- Added: opt-in content-minimized attention receipts, 30-day/500 receipt bounds, malformed-state rejection, idempotent daily-open receipts, seven-day digest, one-signal precedence, Today progressive disclosure controls, and Studio JSON capsules with stable ordering/fingerprint.
-- State: compatible top-level `attention` field; schema remains v39. It is restored locally and excluded from backup/portable and sync allowlists. No version bump.
-- Tests: `node test/attention-proof.test.js` — `attention-proof harness ok`; `node tools/doctor.js` — doctor ok; `sh test/run.sh` — green, including syntax/ES5 scans and app logic.
-- Manual/browser: `NOT ATTEMPTED` for required viewports, accessibility interaction, offline reload, and console inspection. No known P0/P1 regression from automated coverage.
+- Status: `VERIFIED` on branch `agent/attention-proof-loop`; app v0.51 candidate, service-worker cache `kevinos-v0_51`, schema v39. Publication/merge/deployment are separate authority steps.
+- Added: opt-in content-minimized attention receipts across capture, focus, completion/reopen, deferral, and close paths; deterministic 30-day/500 bounds; current/prior seven-day evidence; one fixed-precedence signal; a subordinate “Why this is NOW”; and Plan & Review privacy controls with inline confirmation and focus restoration.
+- AI/Studio: Proposal Inbox groups resolved local outcomes by mode, seat, provider/model, and prompt version with a three-sample minimum. Studio persists the optional source/context/privacy/classification/artifact/rollback fields and copies stable, fingerprinted JSON Mission Capsules alongside all existing Markdown packets.
+- State: compatible device-local top-level `attention`; schema remains v39. Local boot preserves valid receipts. Portable backup/import, sync, relay/AI context, and capsule generation exclude raw receipts and connection data.
+- Tests: `node test/attention-proof.test.js` — `attention proof loop contracts ok`; `node tools/doctor.js` — doctor ok; `sh test/run.sh` — `ALL GREEN`, with the focused attention suite now inside the full runner.
+- Browser: Chromium `MACHINE-VERIFIED` at 320x568, 390x844, 430x932, 768x1024, and 1440x900 across Today, Tasks, Plan & Review, and Studio; onboarding, Capture, Attention Enable/Disable/Clear, task focus/complete/reopen, Proposal Inbox workflow evidence, Mission Capsule copy, focus trap/return, and service-worker offline reload checked. The 20-surface viewport matrix has zero horizontal overflow after the mobile Council-row fix; final console has zero warnings/errors.
+- Remaining boundary: physical iOS/Android hardware, authenticated provider/OAuth flows, and elapsed 30-day adoption evidence remain outside this browser/machine receipt. No known P0/P1 regression remains.
 
 ## Status ledger
 

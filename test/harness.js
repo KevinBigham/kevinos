@@ -113,13 +113,13 @@ const EXPORT_NAMES = [
   "recordSeatResult", "seatReliability", "seatDotHTML",
   "COUNCIL_PRESETS", "councilPresetSystem", "councilPresetLabel",
   "councilLengthOk", "aiContext", "AI_PROMPTS", "aiFingerprint", "buildAiSharedContext",
-  "normalizeAiProposal", "renderAiReviewHTML", "aiFeedbackSummary", "applyAIProposal", "rejectAIProposal", "undoAIProposal", "calendarPendings", "approveAllPending", "dismissAllPending",
+  "normalizeAiProposal", "renderAiReviewHTML", "aiFeedbackSummary", "aiWorkflowSummary", "aiWorkflowEvidenceHTML", "applyAIProposal", "rejectAIProposal", "undoAIProposal", "calendarPendings", "approveAllPending", "dismissAllPending",
   "systemHealthHTML",
   "AI_ROLES", "VERIFY_STATUS", "missionVerified", "missionPacket", "missionMatches",
   "relay401IsAccount", "emailConnectionError", "emailIntelDraftFrom", "emailIntelHTML",
   "weeklyContextText", "councilRetroAsk",
   "factNorm", "profileDupeIds", "dedupeProfileFacts", "staleFact", "FACT_STALE_DAYS",
-  "ATTENTION_VERSION", "ATTENTION_RETENTION_DAYS", "ATTENTION_HARD_CAP", "ATTENTION_EVENT_TYPES", "sanitizeAttention", "recordAttentionReceipt", "pruneAttention", "attentionDigest", "attentionSignal", "missionCapsule",
+  "ATTENTION_VERSION", "ATTENTION_RETENTION_DAYS", "ATTENTION_HARD_CAP", "ATTENTION_DIGEST_DAYS", "ATTENTION_MIN_RECEIPTS", "ATTENTION_AI_MIN_SAMPLE", "ATTENTION_EVENT_TYPES", "ATTENTION_SOURCE_TYPES", "ATTENTION_ENTITY_TYPES", "sanitizeAttention", "recordAttentionReceipt", "pruneAttention", "attentionDigest", "attentionSignal", "attentionCardHTML", "attentionTodaySignalHTML", "missionCapsule",
 ];
 
 // Load the app. opts.storedState: object persisted at kevinos:v1 before boot.

@@ -27,6 +27,7 @@ echo "es5 clean"
 
 echo "── app suites ─────────────────────────────────"
 node test/app-logic.test.js
+node test/attention-proof.test.js
 node test/ui-contract.test.js
 node test/xss-corpus.test.js
 node test/capture.test.js
