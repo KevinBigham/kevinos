@@ -90,7 +90,7 @@ Use a normal auditable Git revert or forward-fix pull request from `main`; never
 
 ## Release seal
 
-- Release-record pull request: pending
+- Release-record pull request: `https://github.com/KevinBigham/kevinos/pull/2`
 - Final release-seal commit: pending
 - Annotated tag `v0.50.0`: pending
 - GitHub Release `KevinOS v0.50 — Convergence`: pending
