@@ -8,6 +8,7 @@ Status: **YELLOW — STATIC GITHUB RELEASE GREEN; AUTHENTICATED APP/DEVICE CHECK
 |---|---|
 | Repository | `KevinBigham/kevinos` |
 | Release pull request | `https://github.com/KevinBigham/kevinos/pull/4` |
+| Release receipt pull request | `https://github.com/KevinBigham/kevinos/pull/5` |
 | Static release commit | `0e725ba97d2cf3d3aeafddeec373288edca7a272` |
 | App / cache / schema | `0.51` / `kevinos-v0_51` / `39` |
 | Static production | `https://kevinbigham.github.io/kevinos/` |
