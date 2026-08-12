@@ -73,7 +73,7 @@ Keep for evidence, but do not treat as current instructions: `MISSION.md`, `HAND
 
 - Product/runtime: `index.html`, `sw.js`, `relay/worker.js`.
 - Verification: `test/app-logic.test.js`, `test/ui-contract.test.js`, `test/xss-corpus.test.js`, `test/operations.test.js`, `test/friction.test.js`, `test/conflicts.test.js`, `test/sync-reference.test.js`, `relay/test/security-boundaries.test.js`, `test/run.sh`, `tools/doctor.js`.
-- Operating layer: `AGENTS.md`, `relay/AGENTS.md`, `docs/*` including `docs/LOCAL_EVIDENCE_VOCABULARY.md`, `.agents/skills/*`, `CLAUDE.md`, `.github/copilot-instructions.md`, `GETTING_STARTED.md`, `README.md`.
+- Operating layer: `AGENTS.md`, `relay/AGENTS.md`, `docs/*` including `docs/LOCAL_EVIDENCE_VOCABULARY.md` and the verbatim source report at `docs/history/KevinOS_Hardcore_Open_Source_Research_Report.md`, `.agents/skills/*`, `CLAUDE.md`, `.github/copilot-instructions.md`, `GETTING_STARTED.md`, `README.md`.
 - Install/release: `manifest.json` now has stable `id: "./"`; `docs/ADOPTION_SOAK.md` is the local 30-day scorecard.
 
 ## Production activation

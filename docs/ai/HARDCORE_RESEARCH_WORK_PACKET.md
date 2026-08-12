@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Implement every recommendation in `KevinOS_Hardcore_Open_Source_Research_Report.md` that is currently authorized and whose evidence gate is open, while preserving KevinOS's calm local-first trust model.
+Implement every recommendation in `docs/history/KevinOS_Hardcore_Open_Source_Research_Report.md` that is currently authorized and whose evidence gate is open, while preserving KevinOS's calm local-first trust model.
 
 ## Current evidence
 
@@ -38,3 +38,4 @@ No push, deploy, remote mutation, secret change, GATE-76 work, schema migration,
 - Completed the safe test-only phases for material conflict diagnostics and the operation-based sync reference harness. Production merge behavior is unchanged.
 - `sh test/run.sh`: ALL GREEN. Chromium manual pass at 320, 390, 430, 768, and 1440 widths; zero horizontal overflow and zero final console warnings/errors. Offline reload passed.
 - Closed gates are documented in `docs/CURRENT_STATE.md`; no gated feature was inferred into scope.
+- The source report is preserved verbatim under `docs/history/` with SHA-256 `83f099c8279449b530bbd04a78ec08760edabe41d51580012a11934175081e47`.

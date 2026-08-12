@@ -2,7 +2,9 @@
 
 ## Status
 
-`MACHINE-VERIFIED` and `MANUAL-PASS` locally. No deploy or remote mutation was performed.
+`MACHINE-VERIFIED` and `MANUAL-PASS`. The reconciled candidate is published on GitHub branch `agent/v057-research-recommendations` in draft PR #6; no merge, deploy, secret/binding change, or other remote mutation was performed.
+
+Source report: `docs/history/KevinOS_Hardcore_Open_Source_Research_Report.md`
 
 Source report SHA-256: `83f099c8279449b530bbd04a78ec08760edabe41d51580012a11934175081e47`
 
@@ -27,7 +29,7 @@ Product/release: `index.html`, `sw.js`.
 
 Tests: `test/harness.js`, `test/app-logic.test.js`, `test/ui-contract.test.js`, `test/xss-corpus.test.js`, `test/portable.test.js`, `test/merge.test.js`, `test/convergence.test.js`, `test/operations.test.js`, `test/friction.test.js`, `test/conflicts.test.js`, `test/sync-reference.test.js`, `test/run.sh`.
 
-Contracts/operations: `CONTRIBUTING-AI.md`, `docs/CURRENT_STATE.md`, `docs/DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/STATE_CONTRACT.md`, `docs/ADOPTION_SOAK.md`, `docs/LOCAL_EVIDENCE_VOCABULARY.md`, `docs/ai/WORK_PACKET_TEMPLATE.md`, `docs/ai/HANDOFF_TEMPLATE.md`, and the hardcore research packet/handoff.
+Contracts/operations: `CONTRIBUTING-AI.md`, `docs/CURRENT_STATE.md`, `docs/DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/STATE_CONTRACT.md`, `docs/ADOPTION_SOAK.md`, `docs/LOCAL_EVIDENCE_VOCABULARY.md`, `docs/history/KevinOS_Hardcore_Open_Source_Research_Report.md`, `docs/ai/WORK_PACKET_TEMPLATE.md`, `docs/ai/HANDOFF_TEMPLATE.md`, and the hardcore research packet/handoff.
 
 Schema remains v39. Focus, AI receipt, and proof data are compatible optional nested fields. Device-local sidecars are `kevinos:recoveryDrill`, `kevinos:operations`, `kevinos:friction:enabled`, and `kevinos:friction`; none enter backup or sync. Legacy operation/friction names normalize on read.
 
