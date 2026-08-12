@@ -106,12 +106,12 @@ const { loadApp } = require("./harness");
   assert.strictEqual(st.items.find((i) => i.text === "fine").id, "ok-id-123", "safe ids untouched");
 
   // ── full round-trip: export → apply reproduces content ────────────────
-  st.items = [{ id: "rt1", text: "round trip", u: 3 }];
+  st.items = [{ id: "rt1", text: "round trip", u: 3, focusDate: "2026-08-11", focusRank: 1, focusSetAt: 99, focusSource: "manual" }];
   st.habits = [{ id: "h1", name: "swim", done: {} }];
   const snap = app.portableDoc(st);
   st.items = []; st.habits = [];
   app.applyPortableDoc(snap, { reason: "snapshot" });
-  assert.deepStrictEqual(st.items, [{ id: "rt1", text: "round trip", u: 3 }]);
+  assert.deepStrictEqual(st.items, [{ id: "rt1", text: "round trip", u: 3, focusDate: "2026-08-11", focusRank: 1, focusSetAt: 99, focusSource: "manual" }]);
   assert.deepStrictEqual(st.habits, [{ id: "h1", name: "swim", done: {} }]);
 
   console.log("portable-doc round-trips ok");

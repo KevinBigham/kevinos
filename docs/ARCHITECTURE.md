@@ -33,8 +33,16 @@ See `STATE_CONTRACT.md` before edits.
 
 AI requests use a small deterministic proposal layer: a selected role and versioned prompt, explicit context categories, a context fingerprint, provider/model receipt, and a persisted review state. Returned text has no mutation authority. Approved proposal actions call the same local state/touch/bury/save contracts as direct UI actions and retain an Undo receipt.
 
+The evidence flow is `context preview -> fingerprinted request -> bounded attempt -> fingerprinted response -> local contract checks -> Kevin review/edit -> explicit application -> optional Undo`. Receipt v2 is provider-neutral and stores metadata rather than duplicate context or raw provider envelopes. A local validation pass means only that the output meets the named text contract.
+
+A bounded device-local flight-recorder sidecar observes only allowlisted consequential operations. It is recovery/debug evidence, never canonical state or sync authority. The pilot covers AI apply/Undo and import/restore; snapshots remain the whole-state checkpoint and operation corruption is ignored.
+
+A second bounded sidecar supports the opt-in Calm Friction pilot. It accepts only explicit fixed-category marks from NOW and Capture, carries no content, and feeds one local seven-day aggregate. It is independent of canonical state, backups, sync, relay, and notifications; deletion or corruption simply returns the pilot to an empty view.
+
 Studio stores missions inside the existing open `builds` records. Optional fields describe outcome, current state, next action, assigned AI/role, repo/branch/worktree, allowed and forbidden scope, acceptance criteria, verification commands/status/evidence, commit reference, blockers, and handoff. No agent runtime exists inside the product.
+
+Structured Studio missions add a nested proof bundle: stable acceptance identities, a fingerprint of the current packet, append-only bounded attempts, and verification receipts that separate collaborator report from KevinOS-local/manual proof. Sync unions acceptance and attempt identities inside a shared mission; ordinary mission fields retain the established whole-record newer-wins policy. KevinOS copies packets and records evidence but never executes repository commands.
 
 ## Testing
 
-`test/harness.js` extracts the app IIFE and provides a tiny DOM/localStorage stub. App suites characterize parsing, mutation, portability, migrations, recurrence, and convergence. Relay suites import the real Worker with fake bindings. Browser checks cover layout, focus, and interaction behavior that the stub cannot prove.
+`test/harness.js` extracts the app IIFE and provides a tiny DOM/localStorage stub. App suites characterize parsing, mutation, portability, migrations, recurrence, and convergence. Test-only material-conflict fixtures inspect narrow same-stamp ambiguity without changing production behavior. The operation-stream reference harness compares 50 fixed seeds across every three-device merge order. Relay suites import the real Worker with fake bindings. Browser checks cover layout, focus, and interaction behavior that the stub cannot prove.

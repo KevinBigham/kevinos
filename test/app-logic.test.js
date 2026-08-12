@@ -47,6 +47,33 @@ const { loadApp } = require("./harness");
   assert.strictEqual(app.normalizeUrl("javascript://alert(1)"), "", "active URL schemes are rejected");
   assert.strictEqual(app.safeHttpUrl("data:text/html,bad"), "", "non-web provider URLs are inert");
   assert.strictEqual(app.safeHttpUrl("https://user:pass@example.com/"), "", "credential-bearing URLs are rejected");
+  const highRisk = app.highStakesCardHTML("replace-test", "Replace local data?", "Checked", "Current content changes.", 'data-yes="1"', "Replace", 'data-no="1"');
+  assert.match(highRisk, /role="alertdialog"/);
+  assert.match(highRisk, /aria-modal="true"/);
+  assert.match(highRisk, /Consequence:/);
+  assert.match(highRisk, /data-no="1"/, "high-stakes card always has an explicit cancel action");
+  const errorSummary = app.errorSummaryHTML("errors", "Fix these", [{ href: "field-one", text: "Review field one" }]);
+  assert.match(errorSummary, /role="alert"/);
+  assert.match(errorSummary, /href="#field-one"/, "error summaries navigate directly to invalid fields");
+  const drillStateBefore = JSON.stringify(app.getState());
+  const drillDoc = app.portableDoc(app.getState());
+  const drillRaw = JSON.stringify(drillDoc);
+  const drillPass = app.recoveryDrillDocument(drillRaw, drillDoc);
+  assert.strictEqual(drillPass.ok, true, "portable backup passes the read-only drill");
+  assert.strictEqual(drillPass.collectionsPresent, 17);
+  assert.strictEqual(drillPass.connectionsExcluded, true);
+  assert.strictEqual(drillPass.differences, 0);
+  assert.ok(drillPass.fingerprint, "drill records a content fingerprint, not titles");
+  assert.strictEqual(JSON.stringify(app.getState()), drillStateBefore, "drill parsing is byte-identical for canonical state");
+  assert.strictEqual(app.recoveryDrillDocument("{bad", drillDoc).status, "malformed", "malformed backup fails closed");
+  assert.strictEqual(app.recoveryDrillDocument(JSON.stringify({ v: app.SCHEMA_VERSION + 1, items: [] }), drillDoc).warnings[0].includes("newer"), true, "newer schema is reported safely");
+  assert.strictEqual(app.recoveryDrillDocument(JSON.stringify({ v: app.SCHEMA_VERSION - 1, items: [] }), drillDoc).warnings[0].includes("older"), true, "older schema remains inspectable");
+  assert.strictEqual(app.recoveryDrillDocument("x".repeat(app.RECOVERY_DRILL_MAX_BYTES + 1), drillDoc).status, "too-large", "oversized drill input is rejected before parse");
+  const connectionBackup = Object.assign({}, drillDoc, { sync: { key: "must-not-travel" } });
+  assert.strictEqual(app.recoveryDrillDocument(JSON.stringify(connectionBackup), drillDoc).connectionsExcluded, false, "unexpected connection fields are surfaced, not imported");
+  app.recordRecoveryDrill(drillPass);
+  assert.strictEqual(app.recoveryDrillMeta().status, "pass", "only bounded device-local drill metadata is retained");
+  assert.strictEqual(JSON.stringify(app.getState()), drillStateBefore, "recording drill metadata does not touch portable/synced state");
 
   // Date helpers round-trip.
   const tk = app.todayKey();
@@ -122,8 +149,7 @@ const { loadApp } = require("./harness");
   st43.items = [];
   app.invalidateDayCache();
 
-  // W6 item 45 — focus reorder: windItems lists today's plate in ARRAY
-  // order; moveFocusTask swaps adjacent displayed rows in state.items.
+  // v0.51 — focus reorder is a daily metadata overlay, never storage order.
   const st45 = app.getState();
   st45.items = [
     { id: "f1", text: "pinned A", area: "Work", done: false, today: true },
@@ -131,10 +157,11 @@ const { loadApp } = require("./harness");
     { id: "f2", text: "due today", area: "Work", done: false, due: tk },
     { id: "f3", text: "pinned B", area: "Work", done: false, today: true },
   ];
+  const storageBeforeFocusMove = st45.items.map((i) => i.id);
   assert.deepStrictEqual(app.windItems().map((i) => i.id), ["f1", "f2", "f3"], "plate = pinned + due-today, array order");
   assert.strictEqual(app.moveFocusTask("f2", "up"), true);
-  assert.deepStrictEqual(app.windItems().map((i) => i.id), ["f2", "f1", "f3"], "f2 moved above f1");
-  assert.deepStrictEqual(st45.items.map((i) => i.id), ["f2", "skip", "f1", "f3"], "swap happened in state.items; bystander untouched");
+  assert.deepStrictEqual(app.focusItems(tk).map((i) => i.id), ["f2", "f1", "f3"], "f2 moved above f1 in focus only");
+  assert.deepStrictEqual(st45.items.map((i) => i.id), storageBeforeFocusMove, "canonical item order and bystander stay untouched");
   assert.strictEqual(app.moveFocusTask("f2", "up"), false, "top row can't move up");
   assert.strictEqual(app.moveFocusTask("f3", "down"), false, "bottom row can't move down");
   assert.strictEqual(app.moveFocusTask("skip", "up"), false, "off-plate tasks don't move");
@@ -461,6 +488,17 @@ const { loadApp } = require("./harness");
   assert.match(sharedPerson.text, /secret@example.com/);
   assert.match(sharedPerson.text, /private note/);
   assert.strictEqual(app.aiFingerprint("same"), app.aiFingerprint("same"), "context receipt is deterministic");
+  assert.strictEqual(app.AI_RECEIPT_VERSION, 2, "AI receipt policy is explicitly versioned");
+  assert.strictEqual(app.canonicalAiString({ b: 2, a: 1 }), app.canonicalAiString({ a: 1, b: 2 }), "canonical request serialization ignores property order");
+  assert.strictEqual(app.utf8ByteCount("A😀"), 5, "context budget counts exact UTF-8 bytes");
+  const planDef = app.AI_PROMPTS.Plan;
+  const manifest = app.buildAiContextManifest(safePerson, { profile: true }, app.buildAiSharedContext(safePerson, { profile: true }));
+  assert.ok(manifest.recordCount >= 1 && manifest.approximateBytes > 0, "context manifest records count and bytes");
+  const reorderedManifest = Object.assign({}, manifest, { categories: manifest.categories.slice().reverse() });
+  assert.strictEqual(app.aiRequestFingerprint("Plan", planDef, manifest), app.aiRequestFingerprint("Plan", planDef, reorderedManifest), "set-like context categories normalize before request hashing");
+  assert.strictEqual(app.runAiValidators("Do next: run the focused gate", "Plan").status, "pass", "valid Plan text passes named local checks");
+  assert.strictEqual(app.runAiValidators("", "Plan").status, "needs-review", "empty output remains reviewable but does not pass");
+  assert.strictEqual(app.runAiValidators("x".repeat(app.AI_MODE_REGISTRY.Plan.maxOutputCharacters + 1), "Plan").status, "needs-review", "oversized output fails the bounded contract");
   aiState.pending.unshift({
     id: "aip1", kind: "ai", mode: "Plan", status: "review", title: '<img src=x onerror="bad">',
     body: '<script>alert("bad")</script> Run the gate', sourceKind: "task", sourceId: "none",
@@ -476,15 +514,17 @@ const { loadApp } = require("./harness");
   const proposalHTML = app.renderAiReviewHTML();
   assert.doesNotMatch(proposalHTML, /<script>|<img src=/, "proposal inbox escapes hostile provider output");
   assert.match(proposalHTML, /&lt;script&gt;/, "escaped output remains reviewable");
+  assert.match(proposalHTML, /legacy \/ unrecorded/, "legacy proposals do not fabricate receipt facts");
   app.applyAIProposal("aip1", "note");
   const applied = aiState.pending.find((p) => p.id === "aip1");
   assert.strictEqual(applied.status, "applied");
   assert.ok(aiState.notes.some((n) => n.id === applied.undo.id), "approved proposal uses canonical note state");
   app.undoAIProposal("aip1");
-  assert.strictEqual(applied.status, "review");
+  assert.strictEqual(applied.status, "undone");
+  assert.strictEqual(applied.application.state, "undone", "Undo updates application state without rewriting response identity");
   assert.ok(!aiState.notes.some((n) => n.id === applied.undo?.id), "undo removes the created record");
   app.rejectAIProposal("aip1");
-  assert.strictEqual(applied.feedback, "rejected", "local workflow feedback is retained");
+  assert.strictEqual(applied.feedback, "undone", "a terminal Undo cannot be rejected or reapplied without a new review transition");
   aiState.pending.unshift({
     id: "aip-event", kind: "ai", mode: "Plan", status: "review", title: "Protect the hard stop",
     body: "Call the dentist\nConfirm the new appointment", sourceKind: "event", sourceId: "ev-66",
@@ -497,6 +537,27 @@ const { loadApp } = require("./harness");
   assert.ok(aiState.events.some((event) => event.id === eventProposal.targetId && event.source === "ai-approved"), "approved proposal creates a canonical event");
   app.undoAIProposal("aip-event");
   assert.ok(!aiState.events.some((event) => event.id === eventProposal.targetId), "event application has an exact undo receipt");
+  const receiptFixture = {
+    id: "receipt-v2", kind: "ai", mode: "Plan", status: "review", title: "Receipt", body: "Do next: verify",
+    sourceKind: "task", sourceId: "f-a", provider: "test", model: "fixture", seat: "Planner", promptId: "plan", promptVersion: 1,
+    contextCategories: manifest.categories, contextFingerprint: manifest.fingerprint, createdAt: 10,
+    receipt: { version: 2, jobId: "receipt-v2", mode: "Plan", createdAt: 10, startedAt: 10, completedAt: 20, latencyMs: 10, prompt: { id: "plan", version: 1, fingerprint: "p" }, provider: { id: "test", model: "fixture", seat: "Planner" }, context: manifest, requestFingerprint: "req", responseFingerprint: "resp", output: { kind: "text", schemaVersion: 1, parseStatus: "text" }, validation: app.runAiValidators("Do next: verify", "Plan"), attempts: [{ id: "attempt-1", startedAt: 10, completedAt: 20, status: "complete", responseFingerprint: "resp" }] },
+    review: { action: "pending" }, application: { state: "not-applied", undoAvailable: false },
+  };
+  aiState.pending.unshift(receiptFixture);
+  const rv = app.aiReceiptView(receiptFixture);
+  assert.deepStrictEqual({ version: rv.version, passed: rv.passed, total: rv.total, legacy: rv.legacy }, { version: 2, passed: 4, total: 4, legacy: false }, "receipt view summarizes only recorded facts");
+  assert.strictEqual(app.aiReceiptView({ kind: "ai", receipt: { version: 99, attempts: "bad" } }).legacy, true, "malformed or future receipts fall back safely");
+  const receiptBytes = JSON.stringify(receiptFixture.receipt);
+  for (const forbidden of ["relayToken", "providerKey", "oauthToken", "hiddenReasoning", "secret@example.com", "private note"]) assert.ok(!receiptBytes.includes(forbidden), "receipt excludes private field/content: " + forbidden);
+  app.rejectAIProposal("receipt-v2");
+  assert.strictEqual(receiptFixture.review.action, "rejected", "review decision is recorded separately from provider output");
+  assert.strictEqual(receiptFixture.application.state, "rejected", "rejection cannot create an application target");
+  const invalidTarget = { id: "invalid-target", kind: "ai", mode: "Draft", status: "review", title: "Target", body: "Text", sourceKind: "task", sourceId: "f-a" };
+  aiState.pending.unshift(invalidTarget);
+  const itemCountBeforeInvalidTarget = aiState.items.length;
+  assert.strictEqual(app.applyAIProposal("invalid-target", "unknown"), false, "unsupported AI application targets fail closed");
+  assert.strictEqual(aiState.items.length, itemCountBeforeInvalidTarget, "invalid target creates no record");
   const feedback = app.aiFeedbackSummary([
     { feedback: "accepted", status: "applied", createdAt: 1000, resolvedAt: 61000 },
     { feedback: "edited-accepted", status: "applied", createdAt: 1000, resolvedAt: 121000 },
@@ -507,6 +568,29 @@ const { loadApp } = require("./harness");
   aiState.pending = aiState.pending.filter((p) => p.id !== "aip1");
   aiState.people = [];
 
+  // v0.51 Focus Rail: explicit daily focus overlays legacy storage order.
+  const focusDay = app.todayKey();
+  aiState.items = [
+    { id: "f-a", text: "Legacy first", today: true, done: false },
+    { id: "f-b", text: "Due today", today: false, due: focusDay, done: false },
+    { id: "f-c", text: "Overdue", today: true, due: app.addDaysKey(focusDay, -1), done: false },
+    { id: "f-d", text: "Later fallback", today: true, done: false },
+  ];
+  const legacyOrder = aiState.items.map((t) => t.id);
+  assert.deepStrictEqual(app.focusItems(focusDay).map((t) => t.id), legacyOrder, "legacy focus order is byte-for-byte compatible");
+  assert.strictEqual(app.moveFocusTask("f-c", "up"), true, "explicit move succeeds");
+  assert.deepStrictEqual(aiState.items.map((t) => t.id), legacyOrder, "focus move never reorders canonical task storage");
+  assert.deepStrictEqual(app.focusItems(focusDay).slice(0, 3).map((t) => t.id), ["f-a", "f-c", "f-b"], "daily ranks drive the visible rail");
+  assert.deepStrictEqual(app.attentionReasons(aiState.items[2], focusDay).slice(0, 2), ["manual-focus", "overdue"], "reason order is stable");
+  aiState.items[3].focusDate = app.addDaysKey(focusDay, -1); aiState.items[3].focusRank = 1;
+  assert.strictEqual(app.validFocusRank(aiState.items[3], focusDay), false, "stale daily focus is ignored");
+  aiState.items[1].focusRank = 1; aiState.items[1].focusSetAt = 20;
+  aiState.items[0].focusRank = 1; aiState.items[0].focusSetAt = 10;
+  assert.deepStrictEqual(app.focusItems(focusDay).slice(0, 2).map((t) => t.id), ["f-a", "f-b"], "same-rank ties use timestamp then id");
+  assert.deepStrictEqual(app.duplicateFocusRanks(focusDay), [1], "duplicate focus ranks are diagnostic, not a render-time mutation");
+  assert.strictEqual(app.resetFocus(focusDay), true, "explicit focus can be cleared");
+  assert.deepStrictEqual(app.focusItems(focusDay).map((t) => t.id), legacyOrder, "reset restores legacy fallback order");
+
   // Studio mission packets are complete enough to hand to another AI cold,
   // while the shipped state remains evidence-gated.
   const mission = {
@@ -516,21 +600,54 @@ const { loadApp } = require("./harness");
     tests: "node test/app-logic.test.js", verificationStatus: "machine", evidence: "All route assertions passed",
     commitRef: "checkpoint-42", blockers: "", lastHandoff: "Registry and renderers now share one source",
   };
-  assert.strictEqual(app.missionVerified(mission), true);
+  assert.strictEqual(app.missionVerified(mission), false, "legacy evidence is never silently treated as structured proof");
+  assert.match(app.missionProofStatus(mission).label, /Legacy evidence/);
+  assert.strictEqual(app.convertMissionProof(mission), true, "reviewed acceptance lines convert to stable checklist items");
+  assert.strictEqual(mission.proofBundle.version, 1);
+  assert.match(mission.proofBundle.acceptanceItems[0].id, /^ac-[a-f0-9]+$/);
+  const firstFingerprint = app.missionPacketFingerprint(mission);
+  assert.strictEqual(firstFingerprint, app.missionPacketFingerprint(Object.assign({}, mission, { notes: "irrelevant UI note" })), "irrelevant mission notes do not change packet identity");
+  const reorderedSets = Object.assign({}, mission, { allowedScope: "route tests\nindex.html", forbiddenFiles: "unrelated rooms\n.env" });
+  mission.allowedScope = "index.html\nroute tests"; mission.forbiddenFiles = ".env\nunrelated rooms"; app.refreshProofFingerprint(mission);
+  assert.strictEqual(app.missionPacketFingerprint(mission), app.missionPacketFingerprint(reorderedSets), "set-like scope lists normalize before hashing");
+  assert.strictEqual(app.missionVerified(mission), false, "pending acceptance blocks shipping");
+  mission.proofBundle.acceptanceItems[0].status = "pass";
+  mission.verificationStatus = "machine";
+  app.refreshProofFingerprint(mission);
+  assert.strictEqual(app.recordMissionAttempt(mission), true);
+  assert.strictEqual(app.missionVerified(mission), true, "all acceptance pass plus current local proof verifies");
   const workPacket = app.missionPacket(mission, "work");
-  for (const requiredText of ["One canonical room path", "Verifier", "/repo", "mission/nav", "/repo-wt", "Allowed scope", "Forbidden files", "Canonical constraints", "Acceptance criteria", "Verification commands", "Evidence", "checkpoint-42"]) {
+  for (const requiredText of ["One canonical room path", "Verifier", "/repo", "mission/nav", "/repo-wt", "Allowed scope", "Forbidden files", "Canonical constraints", "Acceptance criteria", "Verification commands", "Packet fingerprint", "checkpoint-42", mission.proofBundle.acceptanceItems[0].id]) {
     assert.match(workPacket, new RegExp(requiredText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "packet includes " + requiredText);
   }
   assert.match(app.missionPacket(mission, "handoff"), /Last handoff/);
   assert.strictEqual(app.missionVerified({ verificationStatus: "machine", evidence: "" }), false, "status without receipt is not proof");
+  mission.allowedScope += "\nnew-file.js";
+  assert.strictEqual(app.missionVerified(mission), false, "scope changes make the latest attempt stale");
+  app.refreshProofFingerprint(mission); app.recordMissionAttempt(mission);
+  assert.strictEqual(app.missionVerified(mission), true, "a current-packet attempt restores verification");
+  mission.proofBundle.acceptanceItems[0].status = "waived"; mission.proofBundle.acceptanceItems[0].waiverReason = "";
+  assert.strictEqual(app.missionVerified(mission), false, "waiver without reason blocks proof");
+  mission.proofBundle.acceptanceItems[0].waiverReason = "Not applicable on this archive"; app.refreshProofFingerprint(mission); app.recordMissionAttempt(mission);
+  assert.strictEqual(app.missionVerified(mission), true, "reasoned waiver plus local proof is shippable");
+  mission.proofBundle.attempts[mission.proofBundle.attempts.length - 1].verificationReceipts[0].localStatus = "fail";
+  assert.strictEqual(app.missionVerified(mission), false, "any current local failure blocks proof");
+  mission.proofBundle.override = { reason: "Explicitly accepted known limitation", at: Date.now() };
+  assert.strictEqual(app.missionVerified(mission), false, "override never masquerades as verification");
+  assert.strictEqual(app.missionCanShip(mission), true, "visible reasoned override can authorize Shipped");
+  const malformedProof = app.normalizeProofBundle({ proofBundle: { acceptanceItems: [{ id: "dup", text: "A" }, { id: "dup", text: "B", status: "bogus" }], attempts: "bad" } });
+  assert.strictEqual(new Set(malformedProof.acceptanceItems.map((x) => x.id)).size, 2, "duplicate proof IDs normalize safely");
+  assert.strictEqual(malformedProof.acceptanceItems[1].status, "pending", "malformed statuses fail closed");
 
   const checkpoint = app.getState();
-  checkpoint.pending = [{ id: "checkpoint-ai", kind: "ai", mode: "Review", status: "review", provider: "relay", model: "model", seat: "Reviewer", promptId: "review", promptVersion: 1, contextCategories: ["source item"], contextFingerprint: "abc", applicationState: "not-applied", title: "Check", body: "Evidence" }];
+  checkpoint.pending = [{ id: "checkpoint-ai", kind: "ai", mode: "Review", status: "review", provider: "relay", model: "model", seat: "Reviewer", promptId: "review", promptVersion: 1, contextCategories: ["source item"], contextFingerprint: "abc", applicationState: "not-applied", title: "Check", body: "Evidence", receipt: receiptFixture.receipt, review: { action: "pending" }, application: { state: "not-applied", undoAvailable: false } }];
   checkpoint.builds = [Object.assign({ id: "checkpoint-mission", stage: "Testing" }, mission)];
   const checkpointDoc = app.portableDoc(checkpoint);
   const checkpointLoad = await loadApp({ storedState: checkpointDoc });
   assert.strictEqual(checkpointLoad.app.getState().pending[0].contextFingerprint, "abc", "AI provenance survives backup/boot round trip");
+  assert.strictEqual(checkpointLoad.app.getState().pending[0].receipt.version, 2, "AI receipt v2 survives backup/boot round trip");
   assert.strictEqual(checkpointLoad.app.getState().builds[0].acceptance, mission.acceptance, "mission contract survives backup/boot round trip");
+  assert.strictEqual(checkpointLoad.app.getState().builds[0].proofBundle.version, 1, "proof bundle identity survives backup/boot round trip");
   assert.strictEqual(checkpointLoad.app.getState().v, app.SCHEMA_VERSION, "compatible nested extensions do not churn the schema");
 
   console.log("app-logic harness ok");

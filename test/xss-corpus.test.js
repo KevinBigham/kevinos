@@ -55,6 +55,9 @@ function rawMarkupInNode(node, payload) {
   state.pending = [{ id: "ai-xss", kind: "ai", mode: "Review", status: "review", title: attack, body: attack, provider: attack, model: attack, seat: attack, promptId: attack, promptVersion: 1, contextCategories: [attack], createdAt: Date.now() }];
   assert.doesNotMatch(app.renderAiReviewHTML(), /<img src=x|<script>window/i, "AI proposal renderer escapes provider output and provenance");
 
+  const proofMission = { id: "proof-xss", name: attack, outcome: attack, stage: "Testing", acceptance: attack, proofBundle: { version: 1, acceptanceItems: [{ id: "ac-xss", text: attack, status: "waived", waiverReason: attack, evidenceRefs: [] }], attempts: [{ id: "attempt-xss", collaborator: attack, role: attack, packetFingerprint: "stale", summary: attack, verificationReceipts: [{ id: "receipt-xss", actionType: "command", action: attack, reportedStatus: attack, localStatus: "unverified", evidence: attack }] }] } };
+  assert.doesNotMatch(app.missionProofEditorHTML(proofMission), /<img src=x|<script>window/i, "mission acceptance, attempt, waiver, command, and evidence fields render inertly");
+
   assert.strictEqual(app.safeHttpUrl("javascript:alert(1)"), "", "active URL labels cannot create executable links");
   assert.strictEqual(app.safeHttpUrl("https://user:pass@example.com/"), "", "credential-bearing URLs are rejected");
 

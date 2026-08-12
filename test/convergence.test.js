@@ -137,5 +137,28 @@ const KEY = "v2:" + "ab".repeat(32); // prove convergence under the new key form
   assert.deepStrictEqual(A.items(), B.items());
   assert.deepStrictEqual(B.items(), C.items());
 
+  // v0.51: separately focused tasks converge as records, while the derived
+  // rail resolves a duplicate rank by focusSetAt and id without a write.
+  const focusDay = A.app.todayKey();
+  A.app.getState().items.push({ id: "fa", text: "Focus A", today: true, focusDate: focusDay, focusRank: 1, focusSetAt: 200, focusSource: "manual", u: 500 });
+  B.app.getState().items.push({ id: "fb", text: "Focus B", today: true, focusDate: focusDay, focusRank: 1, focusSetAt: 100, focusSource: "manual", u: 500 });
+  await A.push(); await B.push(); await C.pull(); await A.pull();
+  const rails = [A, B, C].map((d) => d.app.focusItems(focusDay).filter((x) => x.id === "fa" || x.id === "fb").map((x) => x.id));
+  assert.deepStrictEqual(rails[0], ["fb", "fa"]);
+  assert.deepStrictEqual(rails[0], rails[1], "two-device focus conflict converges");
+  assert.deepStrictEqual(rails[1], rails[2], "three-device focus conflict converges");
+
+  // v0.53: concurrent proof items and attempts on the same mission are a
+  // nested identity union, so whole-record merging cannot erase either side.
+  const missionBase = { id: "mission-proof", name: "Proof convergence", outcome: "Keep both sides", currentState: "Testing", next: "Converge", aiRole: "Verifier", allowedScope: "index.html", forbiddenFiles: "", tests: "sh test/run.sh" };
+  A.app.getState().builds = [Object.assign({}, missionBase, { u: 600, proofBundle: { version: 1, acceptanceItems: [{ id: "ac-a", text: "A proof", status: "pass", checkedAt: 600, evidenceRefs: [] }], attempts: [{ id: "attempt-a", packetFingerprint: "a", startedAt: 600, completedAt: 600, verificationReceipts: [{ id: "receipt-a", actionType: "command", action: "A", reportedStatus: "reported-pass", localStatus: "pass", evidence: "A ok" }] }] } })];
+  B.app.getState().builds = [Object.assign({}, missionBase, { u: 700, proofBundle: { version: 1, acceptanceItems: [{ id: "ac-b", text: "B proof", status: "pending", checkedAt: 700, evidenceRefs: [] }], attempts: [{ id: "attempt-b", packetFingerprint: "b", startedAt: 700, completedAt: 700, verificationReceipts: [{ id: "receipt-b", actionType: "command", action: "B", reportedStatus: "reported-pass", localStatus: "unverified", evidence: "B reported" }] }] } })];
+  await A.push(); await B.push(); await C.pull(); await A.pull();
+  const proofIds = [A, B, C].map((d) => d.app.getState().builds[0].proofBundle.acceptanceItems.map((x) => x.id));
+  assert.deepStrictEqual(proofIds[0], ["ac-a", "ac-b"]);
+  assert.deepStrictEqual(proofIds[0], proofIds[1], "two-device structured acceptance converges");
+  assert.deepStrictEqual(proofIds[1], proofIds[2], "three-device structured acceptance converges");
+  assert.deepStrictEqual(C.app.getState().builds[0].proofBundle.attempts.map((x) => x.id), ["attempt-a", "attempt-b"], "attempt receipts survive convergence");
+
   console.log("three-device convergence ok");
 })().catch((err) => { console.error(err); process.exit(1); });
