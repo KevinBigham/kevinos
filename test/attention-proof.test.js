@@ -59,7 +59,10 @@ const { loadApp } = require("./harness");
   const bootDoc = JSON.parse(JSON.stringify(st));
   bootDoc.attention = a;
   const reboot = await loadApp({ storedState: bootDoc });
-  assert.strictEqual(reboot.app.getState().attention.receipts.length, a.receipts.length, "valid device-local receipts survive ordinary boot");
+  const rebootReceipts = reboot.app.getState().attention.receipts;
+  const bootIds = new Set(rebootReceipts.map((r) => r.id));
+  assert.ok(a.receipts.every((r) => bootIds.has(r.id)), "valid device-local receipts survive ordinary boot");
+  assert.ok(rebootReceipts.length === a.receipts.length || rebootReceipts.length === a.receipts.length + 1, "boot adds at most today's idempotent day-opened receipt");
 
   let evidence = { enabled: true, retentionDays: 30, receipts: [] };
   evidence = app.recordAttentionReceipt(evidence, "day-opened", { source: "today" }, now - 600000);

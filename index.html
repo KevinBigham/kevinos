@@ -636,6 +636,15 @@
     .council-capture-row{display:grid;grid-template-columns:minmax(0,1fr) auto}
     .council-capture-row #councilInput{grid-column:1/-1;width:100%}
     [data-focus-move]{min-width:44px;min-height:44px}
+    .focus-reason{display:block;margin-top:3px;font-size:12px;color:var(--muted);font-weight:500}
+    .attention-explain{margin:8px 0 0 28px}.attention-explain summary{cursor:pointer;color:var(--muted);font-size:13px}
+    .context-budget{margin:10px 0;color:var(--muted);font-size:13px}.ai-receipt{margin-top:10px}.ai-receipt summary{cursor:pointer;color:var(--muted);font-size:13px}.receipt-grid{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin-top:8px;font-size:12px}.receipt-grid span:nth-child(odd){font-weight:700;color:var(--muted)}
+    .proof-editor{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:12px}.proof-item{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;padding:10px 0;border-bottom:1px solid var(--line)}.proof-item label{font-size:12px}.proof-item .inp{margin-top:4px}.proof-attempts{margin:10px 0}
+    .high-stakes-card{border:2px solid var(--danger);outline:none}.high-stakes-card:focus{box-shadow:0 0 0 4px var(--accent-soft)}.error-summary{margin:10px 0;padding:12px;border:2px solid var(--danger);border-radius:10px}.error-summary h3{margin:0 0 8px}.error-summary ul{margin:0;padding-left:22px}
+    .recovery-drill{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:10px}.recovery-drill.pass{border-color:var(--success)}.recovery-drill.fail{border-color:var(--danger)}.recovery-drill h3{margin:0 0 8px}
+    .operation-log{margin-top:12px}.operation-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+    .friction-entry{margin-top:8px}.friction-prompt{margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}.friction-prompt p{margin:0 0 8px}.friction-choices{display:flex;gap:6px;flex-wrap:wrap}.friction-week{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+    @media(max-width:560px){.proof-item{grid-template-columns:1fr}.proof-item code{overflow-wrap:anywhere}}
   }
   @media (pointer:coarse){button,a.btn-soft,.stash-actions a{min-width:44px;min-height:44px}}
   @media (prefers-reduced-motion:reduce){.fade-up{opacity:1;transform:none}*,*:before,*:after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition:none !important;scroll-behavior:auto !important}}
@@ -960,12 +969,15 @@
       <div class="foot-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn-soft" id="backupBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>Export backup</button>
         <button class="btn-soft" id="restoreBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg>Import backup</button>
+        <button class="btn-soft" id="drillBtn" type="button">Test backup</button>
         <button class="btn-soft" type="button" id="themeToggle" aria-label="Switch theme">Theme: Auto</button>
         <input type="file" id="restoreInput" accept="application/json,.json" hidden />
+        <input type="file" id="drillInput" accept="application/json,.json" hidden />
       </div>
       <div id="importConfirm"></div>
+      <div id="recoveryDrillResult"></div>
       <details class="hint" style="margin-top:12px"><summary>Storage, snapshots & sync</summary><div class="storage-stats" id="storageStats"></div><div id="snapshotPanel"></div><div class="sync-row" id="syncRow" style="margin-top:14px"></div><p>Corruption-blocked boot, verified portable backups, snapshots, tombstones, and lossless revisioned sync.</p></details>
-      <div style="margin-top:10px"><span id="appVersion">KevinOS v0.51</span> · Local-first · Connections never travel in backups.</div>
+      <div style="margin-top:10px"><span id="appVersion">KevinOS v0.57</span> · Local-first · Connections never travel in backups.</div>
     </footer>
   </main>
 
@@ -1041,7 +1053,7 @@
   var STORE_KEY="kevinos:v1";
   // Release checklist (three-bump rule, see README): APP_VERSION here + the
   // footer it stamps, CACHE in sw.js, and SCHEMA_VERSION only on shape change.
-  var APP_VERSION="0.51";
+  var APP_VERSION="0.57";
   var SCHEMA_VERSION=39;
   function makeStore(){
     if(typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function"){
@@ -1173,6 +1185,7 @@
   var nextArea="All", relayOpen=false, syncOpen=false, councilSeatsOpen={}, councilTasks={}, briefBusy=false, launchBusy=false, weeklyBusy=false, spendBusy=false, spendEditId="";
   var vcOpen=false, vcState="idle", vcTranscript="", vcInterim="", vcRec=null, vcSupported=false, vcUndo=null, vcUndoT=0, captureMode="quick",vcReturnFocus=null;
   var onboardOpen=false,onboardStep=0,onboardOutcome="",onboardAction="",onboardHardStop="",onboardCaptureId="",demoMode=false;
+  var frictionPrompt={surface:"",targetKind:"",targetId:""};
   var aiCompose={open:false,kind:"",id:"",mode:"Draft",sharing:{profile:false,personEmail:false,personNotes:false,email:false,calendar:false,calendarDetails:false,history:false,library:false}},aiReturnFocus=null,aiReturnFocusSelector="";
   var projFilter="All", projView="status", editingProjId=null;
   var editingBuildId=null,missionFilter="All",missionAgentFilter="All",missionRoleFilter="All",attentionClearArm=false;
@@ -1198,7 +1211,20 @@
   function confirmCardHTML(msg,yesAttr,yesLabel,noAttr){
     return '<div class="edit-panel" style="margin-top:8px"><p class="hint" style="margin:0 0 8px">'+msg+'</p><div class="draft-confirm"><button class="add-btn" type="button" '+yesAttr+'>'+yesLabel+'</button><button class="btn-soft" type="button" '+noAttr+'>Cancel</button></div></div>';
   }
-  var calDiscArm=false, ghDiscArm=false, emailDiscArm=false, snapConfirmAt=0, pendingImport=null;
+  function highStakesCardHTML(id,title,msg,consequence,yesAttr,yesLabel,noAttr){
+    return '<section class="edit-panel high-stakes-card" role="alertdialog" aria-modal="true" tabindex="-1" data-high-stakes-id="'+escapeHtml(id)+'" aria-labelledby="'+escapeHtml(id)+'-title" aria-describedby="'+escapeHtml(id)+'-desc"><h2 id="'+escapeHtml(id)+'-title">'+escapeHtml(title)+'</h2><div id="'+escapeHtml(id)+'-desc" class="hint">'+msg+'<p><strong>Consequence:</strong> '+consequence+'</p></div><div class="draft-confirm"><button class="add-btn danger" type="button" '+yesAttr+'>'+escapeHtml(yesLabel)+'</button><button class="btn-soft" type="button" '+noAttr+'>Cancel</button></div></section>';
+  }
+  function errorSummaryHTML(id,title,errors){
+    if(!isArr(errors)||!errors.length)return "";var h='<section class="error-summary" role="alert" aria-live="assertive" tabindex="-1" id="'+escapeHtml(id)+'"><h3>'+escapeHtml(title)+'</h3><ul>',i,e;
+    for(i=0;i<errors.length;i++){e=errors[i]||{};h+='<li>'+(e.href?'<a href="#'+escapeHtml(e.href)+'">'+escapeHtml(e.text||"Review this field")+'</a>':escapeHtml(e.text||"Review this action"))+'</li>';}
+    return h+'</ul></section>';
+  }
+  var highStakesReturnFocus=null,highStakesReturnSelector="";
+  function highStakesFocusSelector(el){var a,v;if(!el||!el.getAttribute)return "";a="data-proof-override";v=el.getAttribute(a);if(v!=null)return '['+a+'="'+String(v).replace(/\\/g,"\\\\").replace(/"/g,'\\"')+'"]';a="data-snap-restore";v=el.getAttribute(a);if(v!=null)return '['+a+'="'+String(v).replace(/\\/g,"\\\\").replace(/"/g,'\\"')+'"]';if(el.getAttribute("data-import-continue")!=null)return "#restoreBtn";return "";}
+  function rememberHighStakesFocus(el){highStakesReturnFocus=el&&el.focus?el:(document.activeElement&&document.activeElement.focus?document.activeElement:null);highStakesReturnSelector=highStakesFocusSelector(el);}
+  function focusHighStakes(id){setTimeout(function(){var el=document.querySelector('[data-high-stakes-id="'+id+'"]');if(el&&el.focus)el.focus();},20);}
+  function restoreHighStakesFocus(){var el=highStakesReturnFocus,sel=highStakesReturnSelector;highStakesReturnFocus=null;highStakesReturnSelector="";setTimeout(function(){var target=(sel&&document.querySelector(sel))||el;if(target&&target.isConnected&&target.focus)target.focus();},20);}
+  var calDiscArm=false, ghDiscArm=false, emailDiscArm=false, snapConfirmAt=0, snapshotError="", pendingImport=null;
 
   var $=function(id){return document.getElementById(id);};
   function pf(b,id){var p=(b&&b.closest)?b.closest(".edit-panel"):null;return (p&&p.querySelector("#"+id))||$(id);}
@@ -1879,25 +1905,77 @@
     else h+='<p class="empty">Nothing needs a reply right now.</p>';
     return '<div class="launch-card">'+launchHeadHTML("Inbox","email","")+h+'</div>';
   }
-  // W6 item 45 — the focus card lists today's plate (windItems: pinned, due
-  // today, overdue) in state.items ARRAY order, not due-sorted: the ↑↓
-  // buttons swap array positions, so what you see is exactly what you
-  // reorder. dayDigest keeps its due-sorted order for briefs and AI context.
+  function validFocusRank(task,dayKey){
+    var r=task&&task.focusRank;
+    return !!(task&&task.focusDate===dayKey&&typeof r==="number"&&r===Math.floor(r)&&r>=1&&r<=3);
+  }
+  function focusItems(dayKey){
+    dayKey=dayKey||todayKey();
+    var eligible=windItems(dayKey),explicit=[],fallback=[],i,t;
+    for(i=0;i<eligible.length;i++){t=eligible[i];if(validFocusRank(t,dayKey))explicit.push(t);else fallback.push(t);}
+    explicit.sort(function(a,b){
+      if(a.focusRank!==b.focusRank)return a.focusRank-b.focusRank;
+      var aa=typeof a.focusSetAt==="number"?a.focusSetAt:0,bb=typeof b.focusSetAt==="number"?b.focusSetAt:0;
+      if(aa!==bb)return aa-bb;
+      return String(a.id||"")<String(b.id||"")?-1:(String(a.id||"")>String(b.id||"")?1:0);
+    });
+    return explicit.concat(fallback);
+  }
+  function attentionReasons(task,dayKey,context){
+    dayKey=dayKey||todayKey();context=context||{};var out=[],p=null;
+    if(validFocusRank(task,dayKey))out.push("manual-focus");
+    if(task&&task.due&&task.due<dayKey)out.push("overdue");
+    if(task&&task.due===dayKey)out.push("due-today");
+    if(task&&task.today)out.push("marked-today");
+    if(task&&task.projectId){p=context.project||findProject(task.projectId);if(p&&p.nextAction&&String(p.nextAction).trim().toLowerCase()===String(task.text||"").trim().toLowerCase())out.push("project-next-action");}
+    if(!out.length)out.push("fallback-order");
+    return out;
+  }
+  function attentionReasonLabel(code){
+    var labels={"manual-focus":"Chosen for today","overdue":"Overdue","due-today":"Due today","marked-today":"Marked for today","project-next-action":"Project next action","fallback-order":"Current task order"};
+    return labels[code]||"Current task order";
+  }
+  function compactFocusRanks(dayKey){
+    dayKey=dayKey||todayKey();var ordered=focusItems(dayKey),active=[],i,t,changed=[];
+    for(i=0;i<ordered.length;i++)if(validFocusRank(ordered[i],dayKey))active.push(ordered[i]);
+    for(i=0;i<active.length;i++){t=active[i];var rank=i+1;if(rank>3){delete t.focusDate;delete t.focusRank;delete t.focusSetAt;delete t.focusSource;touch(t);changed.push(t);continue;}if(t.focusRank!==rank){t.focusRank=rank;touch(t);changed.push(t);}}
+    return changed;
+  }
+  function resetFocus(dayKey){
+    dayKey=dayKey||todayKey();var changed=false,i,t;
+    for(i=0;i<state.items.length;i++){t=state.items[i];if(t.focusDate===dayKey){delete t.focusDate;delete t.focusRank;delete t.focusSetAt;delete t.focusSource;touch(t);changed=true;}}
+    return changed;
+  }
+  function duplicateFocusRanks(dayKey){
+    dayKey=dayKey||todayKey();var seen={},dupes=[],rows=windItems(dayKey),i,r;
+    for(i=0;i<rows.length;i++){if(!validFocusRank(rows[i],dayKey))continue;r=rows[i].focusRank;if(seen[r]&&!seen[r].reported){dupes.push(r);seen[r].reported=true;}else if(!seen[r])seen[r]={reported:false};}
+    return dupes;
+  }
+  // Explicit daily focus is an overlay on eligible tasks. It never mutates
+  // storage order; legacy tasks retain the v0.50 array-order fallback.
   function moveFocusTask(id,dir){
-    var list=windItems(),pos=-1,i;
+    var dayKey=todayKey();compactFocusRanks(dayKey);
+    var list=focusItems(dayKey),pos=-1,i;
     for(i=0;i<list.length;i++){if(list[i].id===id){pos=i;break;}}
     var j=pos+(dir==="up"?-1:1);
     if(pos<0||j<0||j>=list.length)return false;
-    var a=state.items.indexOf(list[pos]),b=state.items.indexOf(list[j]);
-    if(a<0||b<0)return false;
-    state.items[a]=list[j];state.items[b]=list[pos];
+    var tmp=list[pos];list[pos]=list[j];list[j]=tmp;
+    var chosen=list.slice(0,3),chosenIds={},stamp=Date.now(),t,rank,changed=false;
+    for(i=0;i<chosen.length;i++)chosenIds[chosen[i].id]=true;
+    for(i=0;i<state.items.length;i++){
+      t=state.items[i];rank=-1;
+      for(var k=0;k<chosen.length;k++)if(chosen[k].id===t.id){rank=k+1;break;}
+      if(rank>0){if(t.focusDate!==dayKey||t.focusRank!==rank||t.focusSource!=="manual"){t.focusDate=dayKey;t.focusRank=rank;t.focusSetAt=stamp+rank;t.focusSource="manual";touch(t);changed=true;}}
+      else if(t.focusDate===dayKey){delete t.focusDate;delete t.focusRank;delete t.focusSetAt;delete t.focusSource;touch(t);changed=true;}
+    }
+    if(!changed)return false;
     logAttention("focus-moved",{source:"today",entityType:"task",entityId:String(id||"")});
     return true;
   }
   function launchFocusCardHTML(){
-    var tasks=windItems(),h="",i,t,n=Math.min(tasks.length,3);
+    var tasks=focusItems(),h="",i,t,n=Math.min(tasks.length,3),reasons;
     if(!tasks.length)h='<p class="empty">No focus tasks set for today.</p>';
-    else{for(i=0;i<n;i++){t=tasks[i];h+='<div class="lc-row" data-id="'+escapeHtml(t.id)+'"><span class="dot" style="background:'+areaColor(t.area)+'"></span><span style="flex:1">'+escapeHtml(t.text)+'</span>'+(i>0?'<button class="linklike" type="button" data-focus-move="up" data-id="'+escapeHtml(t.id)+'" aria-label="Move up">↑</button>':"")+(i<tasks.length-1?'<button class="linklike" type="button" data-focus-move="down" data-id="'+escapeHtml(t.id)+'" aria-label="Move down">↓</button>':"")+'</div>';}}
+    else{for(i=0;i<n;i++){t=tasks[i];reasons=attentionReasons(t,todayKey());h+='<div class="lc-row" data-id="'+escapeHtml(t.id)+'"><span class="dot" style="background:'+areaColor(t.area)+'"></span><span style="flex:1">'+escapeHtml(t.text)+'<span class="focus-reason">'+escapeHtml(attentionReasonLabel(reasons[0]))+'</span></span>'+(i>0?'<button class="linklike" type="button" data-focus-move="up" data-id="'+escapeHtml(t.id)+'" aria-label="Move up">↑</button>':"")+(i<tasks.length-1?'<button class="linklike" type="button" data-focus-move="down" data-id="'+escapeHtml(t.id)+'" aria-label="Move down">↓</button>':"")+'</div>';}}
     return '<div class="launch-card">'+launchHeadHTML("Top focus","next","")+h+'</div>';
   }
   function launchHabitsCardHTML(){
@@ -2117,14 +2195,15 @@
     if(relayOn())generateWeekly(true);
   }
   function weeklyCardHTML(){
-    var wkText=(state.weekly&&state.weekly.text)||"";
-    if(!wkText&&!weeklyBusy&&!relayOn())return"";
+    var wkText=(state.weekly&&state.weekly.text)||"",friction=frictionWeeklyHTML();
+    if(!wkText&&!weeklyBusy&&!relayOn()&&!friction)return"";
     var inner;
     if(weeklyBusy)inner='<span class="cq-prov">writing your weekly review…</span>';
     else if(wkText)inner='<div>'+escapeHtml(wkText)+'</div>';
-    else inner='<div>'+escapeHtml(weeklyBodyShort(todayKey()))+'</div>';
+    else if(relayOn())inner='<div>'+escapeHtml(weeklyBodyShort(todayKey()))+'</div>';
+    else inner="";
     var retro=relayOn()?'<div style="margin-top:8px"><button class="linklike" type="button" data-weekly-retro="1">Ask the Council what to change next week →</button></div>':'';
-    return '<div class="brief-card" style="background:linear-gradient(135deg,rgba(184,144,31,.13),rgba(58,44,89,.10));border-radius:14px;padding:14px;margin:2px 0 14px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><strong>🗓️ Your week</strong>'+(relayOn()?'<button class="linklike" type="button" data-weekly-refresh="1">↻</button>':'')+'</div>'+inner+retro+'</div>';
+    return '<div class="brief-card" style="background:linear-gradient(135deg,rgba(184,144,31,.13),rgba(58,44,89,.10));border-radius:14px;padding:14px;margin:2px 0 14px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><strong>🗓️ Your week</strong>'+(relayOn()?'<button class="linklike" type="button" data-weekly-refresh="1">↻</button>':'')+'</div>'+inner+friction+retro+'</div>';
   }
   // Weekly Council retro (item 65) — the week digest is composed CLIENT-side
   // from state (weeklyContextText) and rides the question as q.ctx; the relay
@@ -2610,6 +2689,29 @@
     for(i=0;i<local.length;i++){it=local[i];if(it&&it.id!=null&&!seen[it.id]){out.push(by[it.id]);seen[it.id]=1;}}
     return out;
   }
+  function proofEntryWinner(a,b,timeField){
+    var at=a&&a[timeField]||0,bt=b&&b[timeField]||0;if(at!==bt)return at>bt?a:b;
+    return canonicalAiString(a||{})>canonicalAiString(b||{})?a:b;
+  }
+  function mergeProofBundles(localBuild,remoteBuild,winner){
+    var l=normalizeProofBundle(localBuild),r=normalizeProofBundle(remoteBuild),out={version:PROOF_BUNDLE_VERSION,packetFingerprint:"",acceptanceItems:[],attempts:[]},by={},ids=[],i,x,id;
+    for(i=0;i<l.acceptanceItems.length;i++){x=l.acceptanceItems[i];by[x.id]=x;ids.push(x.id);}
+    for(i=0;i<r.acceptanceItems.length;i++){x=r.acceptanceItems[i];id=x.id;if(!by[id])ids.push(id);by[id]=by[id]?proofEntryWinner(by[id],x,"checkedAt"):x;}
+    ids.sort();for(i=0;i<ids.length;i++)out.acceptanceItems.push(by[ids[i]]);
+    by={};ids=[];
+    for(i=0;i<l.attempts.length;i++){x=l.attempts[i];by[x.id]=x;ids.push(x.id);}
+    for(i=0;i<r.attempts.length;i++){x=r.attempts[i];id=x.id;if(!by[id])ids.push(id);by[id]=by[id]?proofEntryWinner(by[id],x,"completedAt"):x;}
+    ids.sort(function(a,b){var aa=by[a].completedAt||by[a].startedAt||0,bb=by[b].completedAt||by[b].startedAt||0;if(aa!==bb)return aa-bb;return a<b?-1:1;});ids=ids.slice(-PROOF_ATTEMPT_KEEP);for(i=0;i<ids.length;i++)out.attempts.push(by[ids[i]]);
+    var lo=l.override,ro=r.override;if(lo||ro)out.override=lo&&ro?proofEntryWinner(lo,ro,"at"):(lo||ro);
+    out.packetFingerprint=missionPacketFingerprint(winner,out);return out;
+  }
+  function mergeBuildsById(local,remote){
+    local=isArr(local)?local:[];remote=isArr(remote)?remote:[];var merged=mergeById(local,remote),lm={},rm={},i,b,base;
+    for(i=0;i<local.length;i++)if(local[i]&&local[i].id!=null)lm[local[i].id]=local[i];
+    for(i=0;i<remote.length;i++)if(remote[i]&&remote[i].id!=null)rm[remote[i].id]=remote[i];
+    for(i=0;i<merged.length;i++){base=merged[i];if(base&&lm[base.id]&&rm[base.id]&&(lm[base.id].proofBundle||rm[base.id].proofBundle)){b=cloneJSON(base);b.proofBundle=mergeProofBundles(lm[base.id],rm[base.id],b);merged[i]=b;}}
+    return merged;
+  }
   // Device presence (item 72): deviceId -> {label,lastSeen} rides the sync doc
   // (state.devices is not in SYNC_SKIP). Newest lastSeen wins per device; own
   // entry is stamped only at push time so presence never causes push storms.
@@ -2630,7 +2732,7 @@
       var localBy={},i,it,arr=isArr(state[k])?state[k]:[],rem=isArr(doc[k])?doc[k]:[];
       for(i=0;i<arr.length;i++){it=arr[i];if(it&&it.id!=null)localBy[it.id]=it;}
       for(i=0;i<rem.length;i++){it=rem[i];if(!it||it.id==null)continue;if(state.deleted[String(it.id)])continue;var cur=localBy[it.id];if(!cur||((it.u||0)>(cur.u||0)))merged++;}
-      state[k]=mergeById(state[k],doc[k]).filter(function(x){return !(x&&x.id!=null&&state.deleted[String(x.id)]);});
+      state[k]=(k==="builds"?mergeBuildsById(state[k],doc[k]):mergeById(state[k],doc[k])).filter(function(x){return !(x&&x.id!=null&&state.deleted[String(x.id)]);});
     });
     mergeDevices(doc.devices);
     mergeRoomStats(doc.roomStats);
@@ -3222,7 +3324,7 @@
     box.innerHTML=html;
   }
   var windActive=false;
-  function windItems(){var tk=todayKey();return state.items.filter(function(i){return !i.done&&(i.today||(i.due&&i.due<=tk));});}
+  function windItems(key){var tk=key||todayKey();return state.items.filter(function(i){return !i.done&&(i.today||(i.due&&i.due<=tk));});}
   // W6 item 46 — the Close ritual's start hour, configurable in the wind-down
   // overlay. Device-local (SYNC_SKIP, like push.hour) but carried in backups.
   function closeHourVal(){var h=state.closeHour;return (typeof h==="number"&&h>=12&&h<=23)?h:17;}
@@ -4158,6 +4260,61 @@
   /* ---------- STUDIO ---------- */
   var AI_ROLES=[{key:"Architect"},{key:"Builder"},{key:"Verifier"},{key:"Release"},{key:"Auditor"},{key:"Writer"}];
   var VERIFY_STATUS=[{key:"unverified",label:"Unverified"},{key:"manual",label:"Manually verified"},{key:"machine",label:"Machine verified"},{key:"blocked",label:"Blocked"}];
+  var PROOF_BUNDLE_VERSION=1,PROOF_ATTEMPT_KEEP=10,PROOF_RECEIPT_KEEP=50;
+  var missionOverrideArmedId="",missionOverrideReason="";
+  function proofLines(text,sortLines){
+    var rows=String(text||"").split(/\r?\n/),seen={},out=[],i,s;
+    for(i=0;i<rows.length;i++){s=rows[i].trim();if(!s||seen[s])continue;seen[s]=true;out.push(s);}
+    if(sortLines)out.sort();return out;
+  }
+  function proofItemId(index,text){return "ac-"+aiFingerprint(String(index)+"|"+String(text||"").trim().toLowerCase());}
+  function normalizeProofBundle(b){
+    var raw=b&&b.proofBundle&&typeof b.proofBundle==="object"?b.proofBundle:{},items=isArr(raw.acceptanceItems)?raw.acceptanceItems:[],attempts=isArr(raw.attempts)?raw.attempts:[],out={version:PROOF_BUNDLE_VERSION,packetFingerprint:String(raw.packetFingerprint||""),acceptanceItems:[],attempts:[]},seen={},i,x,id,status,j,a,receipts,r;
+    for(i=0;i<items.length&&out.acceptanceItems.length<50;i++){x=items[i]||{};id=SAFE_ID_RE.test(String(x.id||""))?String(x.id):proofItemId(i,x.text);while(seen[id])id=proofItemId(i+out.acceptanceItems.length+1,x.text);seen[id]=true;status=(x.status==="pass"||x.status==="fail"||x.status==="waived")?x.status:"pending";out.acceptanceItems.push({id:id,text:String(x.text||"").slice(0,500),status:status,evidenceRefs:isArr(x.evidenceRefs)?x.evidenceRefs.slice(0,20).map(String):[],checkedAt:typeof x.checkedAt==="number"?x.checkedAt:undefined,checkedBy:String(x.checkedBy||"").slice(0,120),waiverReason:String(x.waiverReason||"").slice(0,500)});}
+    attempts=attempts.slice(-PROOF_ATTEMPT_KEEP);
+    for(i=0;i<attempts.length;i++){a=attempts[i]||{};receipts=isArr(a.verificationReceipts)?a.verificationReceipts.slice(-PROOF_RECEIPT_KEEP):[];r=[];for(j=0;j<receipts.length;j++){x=receipts[j]||{};r.push({id:SAFE_ID_RE.test(String(x.id||""))?String(x.id):uid(),actionType:(x.actionType==="browser"||x.actionType==="manual-inspection"||x.actionType==="artifact")?x.actionType:"command",action:String(x.action||"").slice(0,1000),reportedStatus:String(x.reportedStatus||"unreported").slice(0,60),localStatus:(x.localStatus==="pass"||x.localStatus==="fail"||x.localStatus==="not-applicable")?x.localStatus:"unverified",exitCode:typeof x.exitCode==="number"?x.exitCode:undefined,evidence:String(x.evidence||"").slice(0,4000),completedAt:typeof x.completedAt==="number"?x.completedAt:undefined});}out.attempts.push({id:SAFE_ID_RE.test(String(a.id||""))?String(a.id):uid(),collaborator:String(a.collaborator||"").slice(0,120),role:String(a.role||"").slice(0,120),packetFingerprint:String(a.packetFingerprint||""),startedAt:typeof a.startedAt==="number"?a.startedAt:0,completedAt:typeof a.completedAt==="number"?a.completedAt:undefined,summary:String(a.summary||"").slice(0,2000),changedFiles:isArr(a.changedFiles)?a.changedFiles.slice(0,100).map(String):[],verificationReceipts:r});}
+    if(raw.override&&raw.override.reason)out.override={reason:String(raw.override.reason).slice(0,1000),at:typeof raw.override.at==="number"?raw.override.at:0};
+    return out;
+  }
+  function missionPacketFingerprint(b,bundle){
+    b=b||{};bundle=bundle||normalizeProofBundle(b);var items=[],i,x;
+    for(i=0;i<bundle.acceptanceItems.length;i++){x=bundle.acceptanceItems[i];items.push({id:x.id,text:String(x.text||"").trim()});}
+    return aiFingerprint(canonicalAiString({version:PROOF_BUNDLE_VERSION,outcome:String(b.outcome||b.name||"").trim(),currentState:String(b.currentState||"").trim(),next:String(b.next||"").trim(),repo:String(b.repo||"").trim(),branch:String(b.branch||"").trim(),worktree:String(b.worktree||"").trim(),allowedScope:proofLines(b.allowedScope,true),forbidden:proofLines(b.forbiddenFiles,true),acceptanceItems:items,verificationCommands:proofLines(b.tests,true),role:String(b.aiRole||"Builder").trim()}));
+  }
+  function refreshProofFingerprint(b){if(!b||!b.proofBundle)return "";var bundle=normalizeProofBundle(b);bundle.packetFingerprint=missionPacketFingerprint(b,bundle);b.proofBundle=bundle;return bundle.packetFingerprint;}
+  function convertMissionProof(b){
+    if(!b)return false;var lines=proofLines(b.acceptance,false),items=[],i;
+    if(!lines.length)return false;
+    for(i=0;i<lines.length;i++)items.push({id:proofItemId(i,lines[i]),text:lines[i],status:"pending",evidenceRefs:[]});
+    b.proofBundle={version:PROOF_BUNDLE_VERSION,packetFingerprint:"",acceptanceItems:items,attempts:[]};refreshProofFingerprint(b);touch(b);return true;
+  }
+  function recordMissionAttempt(b){
+    if(!b||!b.proofBundle)return false;var bundle=normalizeProofBundle(b),fp=missionPacketFingerprint(b,bundle),now=Date.now(),local=b.verificationStatus==="blocked"?"fail":((b.verificationStatus==="manual"||b.verificationStatus==="machine")?"pass":"unverified"),reported=(b.evidence||"").trim()?"reported-pass":"unreported";
+    bundle.packetFingerprint=fp;bundle.attempts.push({id:uid(),collaborator:String(b.assignedAI||"External collaborator"),role:String(b.aiRole||"Builder"),packetFingerprint:fp,startedAt:now,completedAt:now,summary:String(b.currentState||b.lastHandoff||"Attempt recorded"),changedFiles:[],verificationReceipts:[{id:uid(),actionType:(b.tests||"").trim()?"command":"manual-inspection",action:String((b.tests||"").trim()||"Mission evidence review"),reportedStatus:reported,localStatus:local,evidence:String(b.evidence||"").slice(0,4000),completedAt:now}]});
+    bundle.attempts=bundle.attempts.slice(-PROOF_ATTEMPT_KEEP);b.proofBundle=bundle;touch(b);return true;
+  }
+  function missionProofStatus(b){
+    if(!b||!b.proofBundle)return {structured:false,verified:false,label:"Legacy evidence — convert to structured proof",passed:0,total:0,receipts:0,stale:false,failed:false};
+    var bundle=normalizeProofBundle(b),fp=missionPacketFingerprint(b,bundle),items=bundle.acceptanceItems,attempt=bundle.attempts.length?bundle.attempts[bundle.attempts.length-1]:null,all=items.length>0,passed=0,i,x,localPass=false,failed=false,receipts=0;
+    for(i=0;i<items.length;i++){x=items[i];if(x.status==="pass"){passed++;}else if(x.status==="waived"&&x.waiverReason.trim()){passed++;}else all=false;}
+    if(attempt){receipts=attempt.verificationReceipts.length;for(i=0;i<attempt.verificationReceipts.length;i++){x=attempt.verificationReceipts[i];if(x.localStatus==="pass")localPass=true;if(x.localStatus==="fail")failed=true;}}
+    var stale=!attempt||attempt.packetFingerprint!==fp,verified=!!(all&&localPass&&!failed&&!stale);
+    return {structured:true,verified:verified,label:verified?"Verified":(bundle.override?"Shipped with override":"Needs structured proof"),passed:passed,total:items.length,receipts:receipts,stale:stale,failed:failed,fingerprint:fp,bundle:bundle};
+  }
+  function missionVerified(b){return missionProofStatus(b).verified;}
+  function missionCanShip(b){var s=missionProofStatus(b);return s.verified||!!(s.bundle&&s.bundle.override&&s.bundle.override.reason);}
+  function missionProofEditorHTML(b){
+    var s=missionProofStatus(b),h='<div class="proof-editor"><p class="section-label">Structured proof</p>',errors=[];
+    if(!s.structured)return h+'<p class="hint">Legacy evidence cannot verify a mission. Review the acceptance lines above, then convert them.</p><button class="btn-soft" type="button" data-proof-convert="'+escapeHtml(b.id)+'">Convert reviewed acceptance lines</button></div>';
+    var bundle=s.bundle,i,x;h+='<p class="hint">Packet '+escapeHtml(s.fingerprint)+' · '+s.passed+'/'+s.total+' acceptance items · '+s.receipts+' latest receipts'+(s.stale?' · <strong>latest proof is stale</strong>':'')+'</p>';
+    for(i=0;i<bundle.acceptanceItems.length;i++){x=bundle.acceptanceItems[i];if(x.status==="waived"&&!x.waiverReason.trim())errors.push({href:"proof-waiver-"+x.id,text:"Add a waiver reason for "+x.id});h+='<div class="proof-item"><code>'+escapeHtml(x.id)+'</code><span>'+escapeHtml(x.text)+'</span><label>Status<select class="mini-select" data-proof-status="'+escapeHtml(x.id)+'"><option value="pending"'+(x.status==="pending"?' selected':'')+'>Pending</option><option value="pass"'+(x.status==="pass"?' selected':'')+'>Pass</option><option value="fail"'+(x.status==="fail"?' selected':'')+'>Fail</option><option value="waived"'+(x.status==="waived"?' selected':'')+'>Waived</option></select></label><label>Waiver reason<input class="inp" id="proof-waiver-'+escapeHtml(x.id)+'" data-proof-waiver="'+escapeHtml(x.id)+'" value="'+escapeHtml(x.waiverReason||"")+'"></label></div>';}
+    h+=errorSummaryHTML("mission-proof-errors","Proof needs attention",errors);
+    h+='<p class="hint">Save checklist changes first. Then record current verification/evidence as an immutable attempt. “Unverified” with evidence remains collaborator-reported only.</p><button class="btn-soft" type="button" data-proof-attempt="'+escapeHtml(b.id)+'">Record current evidence as attempt</button><div class="proof-attempts">';
+    for(i=bundle.attempts.length-1;i>=0;i--){x=bundle.attempts[i];var pass=0,fail=0,j;for(j=0;j<x.verificationReceipts.length;j++){if(x.verificationReceipts[j].localStatus==="pass")pass++;if(x.verificationReceipts[j].localStatus==="fail")fail++;}h+='<p class="hint"><strong>Attempt '+escapeHtml(x.id)+'</strong> · '+escapeHtml(x.collaborator||"Unassigned")+' · '+pass+' local pass · '+fail+' local fail'+(x.packetFingerprint===s.fingerprint?' · current packet':' · stale packet')+'</p>';}
+    h+='</div><label>High-stakes override reason<input class="inp" id="bOverrideReason" value=""></label><button class="btn-soft danger" type="button" data-proof-override="'+escapeHtml(b.id)+'">Ship with explicit override…</button>';
+    if(missionOverrideArmedId===b.id)h+=highStakesCardHTML("mission-override","Ship without verified proof?",'<strong>Reason:</strong> '+escapeHtml(missionOverrideReason),'The mission will remain visibly “Shipped with override,” not Verified.','data-proof-override-confirm="'+escapeHtml(b.id)+'"',"Ship with override",'data-proof-override-cancel="1"');
+    return h+'</div>';
+  }
   function addBuild(){var t=($("buildInput").value||"").trim();if(!t)return;state.builds.unshift({id:uid(),name:t,outcome:t,stage:"Idea",currentState:"Not started",next:"Define the first physical action",assignedAI:"",aiRole:"Builder",repo:"",branch:"",worktree:"",allowedScope:"",forbiddenFiles:"",sourceEvidence:"",contextPolicy:"KevinOS mission fields only",privacyBoundary:"No connections or credentials",dataClassification:"mission metadata",expectedArtifact:"",acceptance:"",tests:"",verificationStatus:"unverified",evidence:"",rollbackPlan:"",commitRef:"",blockers:"",lastHandoff:"",notes:"",createdAt:Date.now()});$("buildInput").value="";renderBuilds();save();}
   function buildBuildEditor(b){
     var w=document.createElement("div");w.className="edit-panel";
@@ -4187,13 +4344,15 @@
     var f24=field("Blockers");f24.appendChild(taEl("bBlockers",b.blockers||""));w.appendChild(f24);
     var f25=field("Last handoff");f25.appendChild(taEl("bHandoff",b.lastHandoff||""));w.appendChild(f25);
     var f26=field("Notes");f26.appendChild(taEl("bNotes",b.notes||""));w.appendChild(f26);
+    var proof=document.createElement("div");proof.innerHTML=missionProofEditorHTML(b);w.appendChild(proof);
     w.appendChild(editActions("build",b.id));
     return w;
   }
-  function missionVerified(b){return !!(b&&((b.verificationStatus==="manual"||b.verificationStatus==="machine")&&(b.evidence||"").trim()));}
   function missionPacket(b,kind){
     b=b||{};kind=kind||"work";var head=kind==="audit"?"AUDIT PACKET":kind==="verify"?"VERIFICATION PACKET":kind==="handoff"?"HANDOFF":"IMPLEMENTATION WORK PACKET";
-    var s="# "+head+" — "+(b.name||"Mission")+"\n\nOutcome\n"+(b.outcome||b.name||"Not set")+"\n\nCurrent state\n"+(b.currentState||"Not set")+"\n\nNext physical action\n"+(b.next||"Not set")+"\n\nAssigned AI / role\n"+(b.assignedAI||"Unassigned")+" / "+(b.aiRole||"Builder")+"\n\nRepository / branch / worktree\n"+(b.repo||"Not set")+" / "+(b.branch||"Not set")+" / "+(b.worktree||"Not set")+"\n\nAllowed scope\n"+(b.allowedScope||"Not set")+"\n\nForbidden files / actions\n"+(b.forbiddenFiles||"None recorded")+"\n\nSource evidence\n"+(b.sourceEvidence||"None recorded")+"\n\nContext-sharing policy\n"+(b.contextPolicy||"KevinOS mission fields only")+"\n\nPrivacy boundary\n"+(b.privacyBoundary||"No connections or credentials")+"\n\nData / schema classification\n"+(b.dataClassification||"mission metadata")+"\n\nExpected artifact\n"+(b.expectedArtifact||"Not set")+"\n\nCanonical constraints\nPreserve KevinOS state, approval, sync, backup, and accessibility contracts. Do not expose secrets or overwrite unrelated work.\n\nAcceptance criteria\n"+(b.acceptance||"Not set")+"\n\nVerification commands\n"+(b.tests||"Not set")+"\n\nVerification status\n"+(b.verificationStatus||"unverified")+"\n\nEvidence\n"+(b.evidence||"None yet")+"\n\nRollback plan\n"+(b.rollbackPlan||"Not recorded")+"\n\nCommit / checkpoint\n"+(b.commitRef||"Not recorded")+"\n\nBlockers\n"+(b.blockers||"None recorded");
+    var ps=missionProofStatus(b),bundle=ps.bundle,acceptance=b.acceptance||"Not set",proof="Legacy evidence — convert before shipping",i,x,latest;
+    if(bundle){acceptance="";for(i=0;i<bundle.acceptanceItems.length;i++){x=bundle.acceptanceItems[i];if(kind!=="handoff"||(x.status!=="pass"&&!(x.status==="waived"&&x.waiverReason)))acceptance+="["+x.id+"] "+x.status.toUpperCase()+" — "+x.text+(x.status==="waived"?" — waiver: "+(x.waiverReason||"MISSING REASON"):"")+"\n";}latest=bundle.attempts.length?bundle.attempts[bundle.attempts.length-1]:null;proof="Packet fingerprint: "+ps.fingerprint+"\nLatest attempt: "+(latest?latest.id+" / "+(latest.packetFingerprint===ps.fingerprint?"current":"STALE"):"none")+"\nLocal verification: "+(ps.verified?"verified":"not verified");if(kind==="handoff"&&latest){proof+="\nUnresolved or failed receipts:\n";for(i=0;i<latest.verificationReceipts.length;i++){x=latest.verificationReceipts[i];if(x.localStatus!=="pass")proof+="- "+x.localStatus+" / "+x.action+" / "+(x.evidence||"no evidence")+"\n";}}}
+    var s="# "+head+" — "+(b.name||"Mission")+"\n\nOutcome\n"+(b.outcome||b.name||"Not set")+"\n\nCurrent state\n"+(b.currentState||"Not set")+"\n\nNext physical action\n"+(b.next||"Not set")+"\n\nAssigned AI / role\n"+(b.assignedAI||"Unassigned")+" / "+(b.aiRole||"Builder")+"\n\nRepository / branch / worktree\n"+(b.repo||"Not set")+" / "+(b.branch||"Not set")+" / "+(b.worktree||"Not set")+"\n\nAllowed scope\n"+(b.allowedScope||"Not set")+"\n\nForbidden files / actions\n"+(b.forbiddenFiles||"None recorded")+"\n\nSource evidence\n"+(b.sourceEvidence||"None recorded")+"\n\nContext-sharing policy\n"+(b.contextPolicy||"KevinOS mission fields only")+"\n\nPrivacy boundary\n"+(b.privacyBoundary||"No connections or credentials")+"\n\nData / schema classification\n"+(b.dataClassification||"mission metadata")+"\n\nExpected artifact\n"+(b.expectedArtifact||"Not set")+"\n\nCanonical constraints\nPreserve KevinOS state, approval, sync, backup, and accessibility contracts. Do not expose secrets or overwrite unrelated work.\n\nAcceptance criteria\n"+(acceptance||"All structured items resolved")+"\n\nVerification commands\n"+(b.tests||"Not set")+"\n\nProof bundle\n"+proof+"\n\nRollback plan\n"+(b.rollbackPlan||"Not recorded")+"\n\nCommit / checkpoint\n"+(b.commitRef||"Not recorded")+"\n\nBlockers\n"+(b.blockers||"None recorded");
     if(kind==="handoff")s+="\n\nLast handoff\n"+(b.lastHandoff||"None recorded");
     return s;
   }
@@ -4205,7 +4364,7 @@
     var pill=document.createElement("button");pill.className="pill solid";pill.style.background=colorFor(BUILD_STAGES,b.stage);pill.dataset.buildCycle=b.id;pill.textContent=b.stage;pill.title="Tap to advance stage";top.appendChild(pill);
     el.appendChild(top);
     var meta=document.createElement("div");meta.className="ecard-meta";var has=false;
-    var vstat=b.verificationStatus||"unverified";var t=document.createElement("span");t.className="metatag";t.textContent=(missionVerified(b)?"Verified":"Needs proof")+" · "+vstat;meta.appendChild(t);has=true;
+    var vstat=b.verificationStatus||"unverified",ps=missionProofStatus(b);var t=document.createElement("span");t.className="metatag";t.textContent=ps.label+" · "+(ps.structured?(ps.passed+"/"+ps.total+" acceptance") : vstat);meta.appendChild(t);has=true;
     if(b.next){var n=document.createElement("span");n.className="metatag";n.textContent="Next: "+b.next;meta.appendChild(n);has=true;}
     if(b.assignedAI){var a=document.createElement("span");a.className="metatag";a.textContent=(b.aiRole||"AI")+": "+b.assignedAI;meta.appendChild(a);has=true;}
     if(has)el.appendChild(meta);
@@ -4224,11 +4383,21 @@
     var rf=e.target.closest("[data-mission-role-filter]");if(rf){missionRoleFilter=rf.value;renderBuilds();return;}
     var cp=e.target.closest("[data-mission-copy]");if(cp){var bm=findBuild(cp.getAttribute("data-id"));if(bm){copyText(missionPacket(bm,cp.getAttribute("data-mission-copy")));flashCopied(cp,"Copied");}return;}
     var cap=e.target.closest("[data-mission-capsule]");if(cap){var cb=findBuild(cap.getAttribute("data-id"));if(cb){copyText(JSON.stringify(missionCapsule(cb),null,2));flashCopied(cap,"Copied");}return;}
-    var cy=e.target.closest("[data-build-cycle]");if(cy){var b=findBuild(cy.dataset.buildCycle);if(b){var idx=0;for(var i=0;i<BUILD_STAGES.length;i++)if(BUILD_STAGES[i].key===b.stage)idx=i;var next=BUILD_STAGES[(idx+1)%BUILD_STAGES.length].key;if(next==="Shipped"&&!missionVerified(b)){editingBuildId=b.id;toast("Add verification evidence before marking this mission Shipped.");renderBuilds();return;}b.stage=next;touch(b);}renderBuilds();save();return;}
+    var cv=e.target.closest("[data-proof-convert]");if(cv){var bc=findBuild(cv.getAttribute("data-proof-convert"));if(bc&&convertMissionProof(bc)){save();renderBuilds();toast("Acceptance converted to structured proof");}else toast("Add and review at least one acceptance line first.");return;}
+    var pa=e.target.closest("[data-proof-attempt]");if(pa){var ba=findBuild(pa.getAttribute("data-proof-attempt"));if(ba&&recordMissionAttempt(ba)){save();renderBuilds();toast("Attempt receipt recorded");}return;}
+    var oa=e.target.closest("[data-proof-override]");if(oa){var bo=findBuild(oa.getAttribute("data-proof-override")),root=oa.closest(".edit-panel"),reason=pf(oa,"bOverrideReason");if(bo&&root)updateBuildFromEditor(bo,root);missionOverrideReason=(reason&&reason.value||"").trim();if(!missionOverrideReason){toast("An override reason is required.");return;}rememberHighStakesFocus(oa);missionOverrideArmedId=bo.id;save();renderBuilds();focusHighStakes("mission-override");return;}
+    var oc=e.target.closest("[data-proof-override-confirm]");if(oc){var bov=findBuild(oc.getAttribute("data-proof-override-confirm"));if(bov&&bov.proofBundle&&missionOverrideReason){var bun=normalizeProofBundle(bov);bun.override={reason:missionOverrideReason,at:Date.now()};bun.packetFingerprint=missionPacketFingerprint(bov,bun);bov.proofBundle=bun;bov.stage="Shipped";touch(bov);save();toast("Mission shipped with visible override");}missionOverrideArmedId="";missionOverrideReason="";renderBuilds();return;}
+    if(e.target.closest("[data-proof-override-cancel]")){missionOverrideArmedId="";missionOverrideReason="";renderBuilds();restoreHighStakesFocus();return;}
+    var cy=e.target.closest("[data-build-cycle]");if(cy){var b=findBuild(cy.dataset.buildCycle);if(b){var idx=0;for(var i=0;i<BUILD_STAGES.length;i++)if(BUILD_STAGES[i].key===b.stage)idx=i;var next=BUILD_STAGES[(idx+1)%BUILD_STAGES.length].key;if(next==="Shipped"&&!missionCanShip(b)){editingBuildId=b.id;toast("Structured acceptance and current local proof are required before Shipped.");renderBuilds();return;}b.stage=next;touch(b);}renderBuilds();save();return;}
     var op=e.target.closest("[data-build-open]");if(op){editingBuildId=(editingBuildId===op.dataset.buildOpen)?null:op.dataset.buildOpen;renderBuilds();return;}
-    var sv=e.target.closest("[data-build-save]");if(sv){var b2=findBuild(sv.dataset.buildSave);if(b2){var t=(pf(sv,"bName").value||"").trim();if(t)b2.name=t;b2.stage=pf(sv,"bStage").value;b2.outcome=pf(sv,"bOutcome").value;b2.currentState=pf(sv,"bCurrent").value;b2.next=pf(sv,"bNext").value;b2.assignedAI=pf(sv,"bAI").value;b2.aiRole=pf(sv,"bRole").value;b2.repo=pf(sv,"bRepo").value;b2.branch=pf(sv,"bBranch").value;b2.worktree=pf(sv,"bWorktree").value;b2.allowedScope=pf(sv,"bScope").value;b2.forbiddenFiles=pf(sv,"bForbidden").value;b2.sourceEvidence=pf(sv,"bSourceEvidence").value;b2.contextPolicy=pf(sv,"bContextPolicy").value;b2.privacyBoundary=pf(sv,"bPrivacyBoundary").value;b2.dataClassification=pf(sv,"bDataClassification").value;b2.expectedArtifact=pf(sv,"bExpectedArtifact").value;b2.acceptance=pf(sv,"bAcceptance").value;b2.tests=pf(sv,"bTests").value;b2.verificationStatus=pf(sv,"bVerify").value;b2.evidence=pf(sv,"bEvidence").value;b2.rollbackPlan=pf(sv,"bRollbackPlan").value;b2.commitRef=pf(sv,"bCommit").value;b2.blockers=pf(sv,"bBlockers").value;b2.lastHandoff=pf(sv,"bHandoff").value;b2.notes=pf(sv,"bNotes").value;if(b2.stage==="Shipped"&&!missionVerified(b2)){b2.stage="Testing";toast("Mission kept in Testing until evidence is recorded.");}touch(b2);}editingBuildId=null;renderBuilds();save();return;}
+    var sv=e.target.closest("[data-build-save]");if(sv){var b2=findBuild(sv.dataset.buildSave);if(b2){updateBuildFromEditor(b2,sv.closest(".edit-panel"));if(b2.stage==="Shipped"&&!missionCanShip(b2)){b2.stage="Testing";toast("Mission kept in Testing until structured proof is current.");}touch(b2);}editingBuildId=null;renderBuilds();save();return;}
     var cn=e.target.closest("[data-build-cancel]");if(cn){editingBuildId=null;renderBuilds();return;}
     var dl=e.target.closest("[data-build-delete]");if(dl){bury(dl.dataset.buildDelete);state.builds=state.builds.filter(function(x){return x.id!==dl.dataset.buildDelete;});editingBuildId=null;renderBuilds();save();return;}
+  }
+  function updateBuildFromEditor(b2,root){
+    if(!b2||!root)return false;var t=(pf(root,"bName").value||"").trim();if(t)b2.name=t;b2.stage=pf(root,"bStage").value;b2.outcome=pf(root,"bOutcome").value;b2.currentState=pf(root,"bCurrent").value;b2.next=pf(root,"bNext").value;b2.assignedAI=pf(root,"bAI").value;b2.aiRole=pf(root,"bRole").value;b2.repo=pf(root,"bRepo").value;b2.branch=pf(root,"bBranch").value;b2.worktree=pf(root,"bWorktree").value;b2.allowedScope=pf(root,"bScope").value;b2.forbiddenFiles=pf(root,"bForbidden").value;b2.sourceEvidence=pf(root,"bSourceEvidence").value;b2.contextPolicy=pf(root,"bContextPolicy").value;b2.privacyBoundary=pf(root,"bPrivacyBoundary").value;b2.dataClassification=pf(root,"bDataClassification").value;b2.expectedArtifact=pf(root,"bExpectedArtifact").value;b2.acceptance=pf(root,"bAcceptance").value;b2.tests=pf(root,"bTests").value;b2.verificationStatus=pf(root,"bVerify").value;b2.evidence=pf(root,"bEvidence").value;b2.rollbackPlan=pf(root,"bRollbackPlan").value;b2.commitRef=pf(root,"bCommit").value;b2.blockers=pf(root,"bBlockers").value;b2.lastHandoff=pf(root,"bHandoff").value;b2.notes=pf(root,"bNotes").value;
+    if(b2.proofBundle){var bundle=normalizeProofBundle(b2),sels=root.querySelectorAll("[data-proof-status]"),i,j,id,waivers=root.querySelectorAll("[data-proof-waiver]");for(i=0;i<sels.length;i++){id=sels[i].getAttribute("data-proof-status");for(j=0;j<bundle.acceptanceItems.length;j++)if(bundle.acceptanceItems[j].id===id){bundle.acceptanceItems[j].status=sels[i].value;bundle.acceptanceItems[j].checkedAt=Date.now();bundle.acceptanceItems[j].checkedBy="Kevin";}}for(i=0;i<waivers.length;i++){id=waivers[i].getAttribute("data-proof-waiver");for(j=0;j<bundle.acceptanceItems.length;j++)if(bundle.acceptanceItems[j].id===id)bundle.acceptanceItems[j].waiverReason=waivers[i].value;}b2.proofBundle=bundle;refreshProofFingerprint(b2);}
+    return true;
   }
 
   /* ---------- GOALS ---------- */
@@ -4854,10 +5023,10 @@
     return '<button class="health-chip '+escapeHtml(relayUnlocked()?"unknown":st)+'" type="button" data-relay-health="1"><i></i>'+escapeHtml(relayHealthLabel())+'</button>'+body;
   }
   function systemHealthHTML(){
-    var issues=[],backup=state.lastBackupAt?ghAgo(new Date(state.lastBackupAt).toISOString()):"never",sync=syncOn()?((state.sync&&state.sync.err)?"needs attention":"linked · rev "+(state.sync.rev||0)):"off",accounts=((state.email&&state.email.accounts)||[]).length;
+    var issues=[],backup=state.lastBackupAt?ghAgo(new Date(state.lastBackupAt).toISOString()):"never",sync=syncOn()?((state.sync&&state.sync.err)?"needs attention":"linked · rev "+(state.sync.rev||0)):"off",accounts=((state.email&&state.email.accounts)||[]).length,drill=recoveryDrillMeta(),drillLabel=drill&&drill.at?(drill.status+" · "+ghAgo(new Date(drill.at).toISOString())):"not tested";
     if(saveFailing||loadFailed)issues.push("storage");if(relayHealth.status==="auth"||relayHealth.status==="error"||relayUnlocked())issues.push("relay");if(syncOn()&&state.sync.err)issues.push("sync");if(!state.lastBackupAt)issues.push("backup");
     var label=issues.length?issues.length+" item"+(issues.length===1?"":"s")+" need attention":"healthy";
-    return '<details class="launch-card"><summary class="support-summary"><span class="section-label">System health</span><span>'+escapeHtml(label)+'</span></summary><div class="heat-list"><div class="heat-row"><span>App / schema</span><span>v'+escapeHtml(APP_VERSION)+' / v'+SCHEMA_VERSION+'</span></div><div class="heat-row"><span>Storage</span><span>'+escapeHtml(store.mode)+(saveFailing?" · SAVE FAILING":" · ready")+'</span></div><div class="heat-row"><span>Backup</span><span>'+escapeHtml(backup)+'</span></div><div class="heat-row"><span>Snapshots</span><span>'+(_lastSnapAt?escapeHtml(ghAgo(new Date(_lastSnapAt).toISOString())):"available after first write")+'</span></div><div class="heat-row"><span>Sync</span><span>'+escapeHtml(sync)+'</span></div><div class="heat-row"><span>Relay</span><span>'+escapeHtml(relayHealthLabel())+'</span></div><div class="heat-row"><span>Push</span><span>'+((state.push&&state.push.enabled)?"enabled":"off")+'</span></div><div class="heat-row"><span>Connections</span><span>'+accounts+' Google · '+((state.github&&(state.github.session||state.github.token))?"GitHub linked":"GitHub off")+'</span></div><div class="heat-row"><span>Recovery</span><span>portable export + verified import + tombstones</span></div></div>'+(relayUnlocked()?'<p class="hint"><strong>Lock this relay:</strong> it has no KEVINOS_TOKEN and anyone with the URL can use it.</p>':'')+'<div class="today-actions"><button class="btn-soft" type="button" data-backup="1">Export backup</button><button class="btn-soft" type="button" data-go="next">Connections & sync</button></div></details>';
+    return '<details class="launch-card"><summary class="support-summary"><span class="section-label">System health</span><span>'+escapeHtml(label)+'</span></summary><div class="heat-list"><div class="heat-row"><span>App / schema</span><span>v'+escapeHtml(APP_VERSION)+' / v'+SCHEMA_VERSION+'</span></div><div class="heat-row"><span>Storage</span><span>'+escapeHtml(store.mode)+(saveFailing?" · SAVE FAILING":" · ready")+'</span></div><div class="heat-row"><span>Backup</span><span>'+escapeHtml(backup)+'</span></div><div class="heat-row"><span>Backup drill</span><span>'+escapeHtml(drillLabel)+'</span></div><div class="heat-row"><span>Snapshots</span><span>'+(_lastSnapAt?escapeHtml(ghAgo(new Date(_lastSnapAt).toISOString())):"available after first write")+'</span></div><div class="heat-row"><span>Sync</span><span>'+escapeHtml(sync)+'</span></div><div class="heat-row"><span>Relay</span><span>'+escapeHtml(relayHealthLabel())+'</span></div><div class="heat-row"><span>Push</span><span>'+((state.push&&state.push.enabled)?"enabled":"off")+'</span></div><div class="heat-row"><span>Connections</span><span>'+accounts+' Google · '+((state.github&&(state.github.session||state.github.token))?"GitHub linked":"GitHub off")+'</span></div><div class="heat-row"><span>Recovery</span><span>portable export + verified import + tombstones</span></div>'+frictionControlsHTML()+'</div>'+operationsHTML()+(relayUnlocked()?'<p class="hint"><strong>Lock this relay:</strong> it has no KEVINOS_TOKEN and anyone with the URL can use it.</p>':'')+'<div class="today-actions"><button class="btn-soft" type="button" data-backup="1">Export backup</button><button class="btn-soft" type="button" data-go="next">Connections & sync</button></div></details>';
   }
   function refreshRelayHealth(force){
     var base=relayBase();
@@ -4882,6 +5051,62 @@
   function sideGet(k){try{return window.localStorage?window.localStorage.getItem(k):null;}catch(e){return null;}}
   function sideSet(k,v){try{if(window.localStorage)window.localStorage.setItem(k,v);}catch(e){}}
   function sideDel(k){try{if(window.localStorage)window.localStorage.removeItem(k);}catch(e){}}
+  var OPERATIONS_KEY="kevinos:operations",OPERATIONS_KEEP=25;
+  var OPERATION_TYPES={"ai.apply":"kevinos.ai.proposal.applied","kevinos.ai.proposal.applied":"kevinos.ai.proposal.applied","ai.undo":"kevinos.ai.proposal.undone","kevinos.ai.proposal.undone":"kevinos.ai.proposal.undone","state.import":"kevinos.state.imported","kevinos.state.imported":"kevinos.state.imported","state.restore":"kevinos.state.restored","kevinos.state.restored":"kevinos.state.restored"};
+  function canonicalOperationType(type){return OPERATION_TYPES[String(type||"")]||"";}
+  function loadOperations(){
+    var rows=[];try{rows=JSON.parse(sideGet(OPERATIONS_KEY)||"[]");}catch(e){return [];}if(!isArr(rows))return [];
+    return rows.slice(0,OPERATIONS_KEEP).filter(function(x){return !!(x&&SAFE_ID_RE.test(String(x.id||""))&&canonicalOperationType(x.type)&&typeof x.startedAt==="number");}).map(function(x){return {id:String(x.id),type:canonicalOperationType(x.type),source:String(x.source||"Kevin").slice(0,80),status:(x.status==="succeeded"||x.status==="failed"||x.status==="cancelled")?x.status:"started",startedAt:x.startedAt,completedAt:typeof x.completedAt==="number"?x.completedAt:undefined,affectedCount:typeof x.affectedCount==="number"?x.affectedCount:0,beforeFingerprint:String(x.beforeFingerprint||"").slice(0,80),afterFingerprint:String(x.afterFingerprint||"").slice(0,80),targetKind:String(x.targetKind||"").slice(0,60),targetId:String(x.targetId||"").slice(0,80),proposalId:String(x.proposalId||"").slice(0,80),checkpointReason:String(x.checkpointReason||"").slice(0,80),undoAvailable:!!x.undoAvailable,revertsOperationId:String(x.revertsOperationId||"").slice(0,80),errorCode:String(x.errorCode||"").slice(0,80)};});
+  }
+  function saveOperations(rows){try{sideSet(OPERATIONS_KEY,JSON.stringify((rows||[]).slice(0,OPERATIONS_KEEP)));return true;}catch(e){return false;}}
+  function operationStateFingerprint(){return aiFingerprint(canonicalAiString(portableDoc(state)));}
+  function beginOperation(type,meta){
+    meta=meta||{};type=canonicalOperationType(type);if(!type)return "";var rows=loadOperations(),op={id:uid(),type:type,source:String(meta.source||"Kevin"),status:"started",startedAt:Date.now(),affectedCount:meta.affectedCount||0,beforeFingerprint:operationStateFingerprint(),targetKind:String(meta.targetKind||""),targetId:String(meta.targetId||""),proposalId:String(meta.proposalId||""),checkpointReason:String(meta.checkpointReason||""),undoAvailable:false,revertsOperationId:String(meta.revertsOperationId||"")};rows.unshift(op);saveOperations(rows);return op.id;
+  }
+  function finishOperation(id,status,meta){
+    meta=meta||{};var rows=loadOperations(),i,op=null;for(i=0;i<rows.length;i++)if(rows[i].id===id){op=rows[i];break;}if(!op)return false;
+    op.status=(status==="succeeded"||status==="cancelled")?status:"failed";op.completedAt=Date.now();op.afterFingerprint=operationStateFingerprint();if(typeof meta.affectedCount==="number")op.affectedCount=meta.affectedCount;if(meta.targetKind)op.targetKind=String(meta.targetKind);if(meta.targetId)op.targetId=String(meta.targetId);op.undoAvailable=!!meta.undoAvailable;if(meta.errorCode)op.errorCode=String(meta.errorCode).slice(0,80);saveOperations(rows);return true;
+  }
+  function latestApplyOperation(proposalId){var rows=loadOperations(),i;for(i=0;i<rows.length;i++)if(rows[i].type==="kevinos.ai.proposal.applied"&&rows[i].proposalId===proposalId&&rows[i].status==="succeeded")return rows[i];return null;}
+  function operationsHTML(){
+    var rows=loadOperations();if(!rows.length)return '<p class="hint">No important local operations recorded yet.</p>';var h='<details class="operation-log"><summary>Recent important changes · '+rows.length+'</summary><div class="heat-list">',i,x,p,label;
+    for(i=0;i<rows.length;i++){x=rows[i];label=x.type==="kevinos.ai.proposal.applied"?"AI proposal applied":x.type==="kevinos.ai.proposal.undone"?"AI application undone":x.type==="kevinos.state.imported"?"Backup imported":x.type==="kevinos.state.restored"?"Snapshot restored":x.type;h+='<div class="operation-row"><div><strong>'+escapeHtml(label)+'</strong><div class="hint">'+escapeHtml(x.status)+' · '+escapeHtml(ghAgo(new Date(x.startedAt).toISOString()))+' · '+x.affectedCount+' record'+(x.affectedCount===1?'':'s')+'</div></div><div class="today-actions">';p=x.proposalId?findPending(x.proposalId):null;if(x.type==="kevinos.ai.proposal.applied"&&x.status==="succeeded"&&x.undoAvailable&&p&&p.undo)h+='<button class="linklike" type="button" data-op-undo="'+escapeHtml(x.proposalId)+'">Undo</button>';if(x.checkpointReason)h+='<button class="linklike" type="button" data-op-snapshots="1">View checkpoint</button>';h+='</div></div>';}
+    return h+'</div></details>';
+  }
+  var FRICTION_KEY="kevinos:friction",FRICTION_ENABLED_KEY="kevinos:friction:enabled",FRICTION_KEEP=200,FRICTION_DAYS=30,FRICTION_COMPACT_MS=43200000;
+  var FRICTION_CATEGORIES=[{key:"unclear",label:"Unclear"},{key:"still-too-big",label:"Still too big"},{key:"blocked-by-person",label:"Blocked by person"},{key:"bad-timing",label:"Bad timing"},{key:"not-worth-doing",label:"Not worth doing"}];
+  function frictionCategory(key){var i;for(i=0;i<FRICTION_CATEGORIES.length;i++)if(FRICTION_CATEGORIES[i].key===key)return FRICTION_CATEGORIES[i];return null;}
+  function frictionEnabled(){return sideGet(FRICTION_ENABLED_KEY)==="1";}
+  function setFrictionEnabled(on){if(on)sideSet(FRICTION_ENABLED_KEY,"1");else sideDel(FRICTION_ENABLED_KEY);if(!on)frictionPrompt={surface:"",targetKind:"",targetId:""};return frictionEnabled();}
+  function loadFrictionEvents(now){
+    now=typeof now==="number"?now:Date.now();var rows=[];try{rows=JSON.parse(sideGet(FRICTION_KEY)||"[]");}catch(e){return [];}if(!isArr(rows))return [];
+    return rows.filter(function(x){return !!(x&&SAFE_ID_RE.test(String(x.id||""))&&(x.type==="friction.marked"||x.type==="kevinos.friction.marked")&&(x.surface==="now"||x.surface==="capture")&&frictionCategory(x.category)&&typeof x.timestamp==="number"&&x.timestamp>=now-FRICTION_DAYS*86400000&&x.timestamp<=now+300000);}).slice(0,FRICTION_KEEP).map(function(x){return {id:String(x.id),type:"kevinos.friction.marked",surface:x.surface,targetKind:String(x.targetKind||"").slice(0,40),targetId:String(x.targetId||"").slice(0,80),category:x.category,timestamp:x.timestamp};});
+  }
+  function saveFrictionEvents(rows){try{sideSet(FRICTION_KEY,JSON.stringify((rows||[]).slice(0,FRICTION_KEEP)));return true;}catch(e){return false;}}
+  function clearFrictionEvents(){sideDel(FRICTION_KEY);frictionPrompt={surface:"",targetKind:"",targetId:""};}
+  function markFriction(surface,targetKind,targetId,category,now){
+    if(!frictionEnabled()||(surface!=="now"&&surface!=="capture")||!frictionCategory(category))return false;
+    now=typeof now==="number"?now:Date.now();targetKind=String(targetKind||"").slice(0,40);targetId=String(targetId||"").slice(0,80);var rows=loadFrictionEvents(now),i,x;
+    for(i=0;i<rows.length;i++){x=rows[i];if(x.surface===surface&&x.targetKind===targetKind&&x.targetId===targetId&&x.category===category&&now-x.timestamp<FRICTION_COMPACT_MS)return false;}
+    rows.unshift({id:uid(),type:"kevinos.friction.marked",surface:surface,targetKind:targetKind,targetId:targetId,category:category,timestamp:now});return saveFrictionEvents(rows);
+  }
+  function frictionAggregate(now){
+    now=typeof now==="number"?now:Date.now();var rows=loadFrictionEvents(now),counts={},surfaces={now:0,capture:0},i,x,best="",bestN=0,total=0,suggestion="";for(i=0;i<FRICTION_CATEGORIES.length;i++)counts[FRICTION_CATEGORIES[i].key]=0;
+    for(i=0;i<rows.length;i++){x=rows[i];if(x.timestamp<now-604800000)continue;counts[x.category]++;surfaces[x.surface]++;total++;}
+    for(i=0;i<FRICTION_CATEGORIES.length;i++){x=FRICTION_CATEGORIES[i];if(counts[x.key]>bestN){best=x.key;bestN=counts[x.key];}}
+    if(bestN>=2){if(best==="unclear")suggestion="Clarify the next physical action before adding more work.";else if(best==="still-too-big")suggestion="Split the next action into a smaller visible move.";else if(best==="blocked-by-person")suggestion="Name the person and the smallest follow-up you control.";else if(best==="bad-timing")suggestion="Move the commitment to a time you can actually protect.";else suggestion="Review whether this commitment should be removed.";}
+    return {total:total,categories:counts,surfaces:surfaces,topCategory:best,topCount:bestN,suggestion:suggestion};
+  }
+  function frictionWeeklyHTML(){
+    if(!frictionEnabled())return "";var a=frictionAggregate(),parts=[],i,c;for(i=0;i<FRICTION_CATEGORIES.length;i++){c=FRICTION_CATEGORIES[i];if(a.categories[c.key])parts.push(c.label+" "+a.categories[c.key]);}
+    return '<div class="friction-week"><strong>Explicit friction · last 7 days</strong><p class="hint">'+(a.total?escapeHtml(parts.join(" · ")):"No marks yet")+'. Local to this device; no task text is recorded.</p>'+(a.suggestion?'<p>'+escapeHtml(a.suggestion)+'</p>':'')+'</div>';
+  }
+  function frictionControlsHTML(){var on=frictionEnabled(),n=loadFrictionEvents().length;return '<div class="heat-row"><span>Calm friction pilot</span><span>'+(on?'on · '+n+' local mark'+(n===1?'':'s'):'off')+'</span></div><div class="today-actions"><button class="btn-soft" type="button" data-friction-toggle="'+(on?'off':'on')+'">'+(on?'Turn off':'Enable')+'</button>'+(n?'<button class="linklike" type="button" data-friction-clear="1">Clear local marks</button>':'')+'</div>';}
+  function openFrictionPrompt(surface,targetKind,targetId){if(!frictionEnabled()){toast("Enable the Calm friction pilot in System health first.");return false;}if(surface!=="now"&&surface!=="capture")return false;frictionPrompt={surface:surface,targetKind:String(targetKind||""),targetId:String(targetId||"")};return true;}
+  function closeFrictionPrompt(){frictionPrompt={surface:"",targetKind:"",targetId:""};}
+  function frictionPromptHTML(surface,targetKind,targetId){
+    if(!frictionEnabled()||frictionPrompt.surface!==surface||frictionPrompt.targetKind!==String(targetKind||"")||frictionPrompt.targetId!==String(targetId||""))return "";var h='<div class="friction-prompt" role="group" aria-label="Mark friction"><p><strong>What made this hard?</strong></p><div class="friction-choices">',i,c;for(i=0;i<FRICTION_CATEGORIES.length;i++){c=FRICTION_CATEGORIES[i];h+='<button class="btn-soft" type="button" data-friction-mark="'+c.key+'">'+escapeHtml(c.label)+'</button>';}return h+'<button class="linklike" type="button" data-friction-cancel="1">Cancel</button></div></div>';
+  }
   function onboardingDone(){return sideGet("kevinos:onboarding")==="done";}
   function finishOnboarding(){sideSet("kevinos:onboarding","done");onboardOpen=false;onboardStep=0;renderOnboarding();go("today");}
   function startDemoMode(){
@@ -4949,7 +5174,7 @@
   }
   function nowModel(key,time){
     key=key||todayKey();time=time||pad((new Date()).getHours())+":"+pad((new Date()).getMinutes());
-    var plate=windItems().slice(0,3),all=windItems(),top=plate[0]||null,overdue=0,i,e,stops=[],seenG={},project=null,next="";
+    var all=focusItems(key),plate=all.slice(0,3),top=plate[0]||null,overdue=0,i,e,stops=[],seenG={},project=null,next="",receipts={};
     for(i=0;i<all.length;i++)if(all[i].due&&all[i].due<key)overdue++;
     for(i=0;i<state.events.length;i++){e=state.events[i];if(e.gcalId)seenG[e.gcalId]=true;if(e.date===key&&e.time&&e.time>=time)stops.push({time:e.time,title:e.title||"(untitled)"});}
     for(i=0;i<gcalEvents.length;i++){e=gcalEvents[i];if(e.date===key&&e.start&&!seenG[e.id]&&e.start>=time)stops.push({time:e.start,title:e.title||"(untitled)"});}
@@ -4957,13 +5182,14 @@
     if(top&&top.projectId)project=findProject(top.projectId);
     next=project&&project.nextAction?project.nextAction:(top?top.text:"");
     var why=top?(top.due&&top.due<key?"This is the first overdue commitment in Kevin's chosen order.":(top.due===key?"This is the first commitment due today in Kevin's chosen order.":(top.today?"Kevin explicitly placed this first on today's plate.":"This is first in Kevin's chosen commitment order."))):"No commitment is selected yet; KevinOS will not invent one.";
-    return {taskId:top?top.id:"",outcome:top?top.text:"Choose the one thing that matters today",nextAction:next||"Capture or choose a commitment",why:why,hardStop:stops[0]||null,commitments:plate,overdue:overdue,total:all.length};
+    for(i=0;i<plate.length;i++)receipts[plate[i].id]=attentionReasons(plate[i],key);
+    return {taskId:top?top.id:"",outcome:top?top.text:"Choose the one thing that matters today",nextAction:next||"Capture or choose a commitment",why:why,hardStop:stops[0]||null,commitments:plate,attentionReceipts:receipts,duplicateFocusRanks:duplicateFocusRanks(key),overdue:overdue,total:all.length};
   }
   function attentionTodaySignalHTML(){var a=sanitizeAttention(state.attention);if(!a.enabled)return "";var s=attentionSignal(attentionDigest(a));return s.kind==="friction"?'<p class="now-evidence" role="status">'+escapeHtml(s.text)+'</p>':"";}
   function nowCardHTML(){
     var n=nowModel(),h='<section class="now-card" aria-labelledby="nowTitle"><p class="now-eyebrow">Now</p><h1 class="now-outcome" id="nowTitle">'+escapeHtml(n.outcome)+'</h1><div class="now-next"><strong>Do next</strong>'+escapeHtml(n.nextAction)+'</div><p class="now-why"><strong>Why this is NOW:</strong> '+escapeHtml(n.why)+'</p>'+attentionTodaySignalHTML()+'<div class="now-support"><div><span class="now-label">Next hard stop</span>'+(n.hardStop?escapeHtml(fmtTime(n.hardStop.time)+" · "+n.hardStop.title):'None set — add one in Calendar')+'</div><div'+(n.overdue?' class="now-risk"':'')+'><span class="now-label">Risk</span>'+(n.overdue?escapeHtml(n.overdue+" overdue commitment"+(n.overdue===1?"":"s")):'No overdue commitments')+'</div></div>';
-    if(n.commitments.length){h+='<ol class="now-commitments" aria-label="Today commitments">';for(var i=0;i<n.commitments.length;i++){var t=n.commitments[i];h+='<li><span class="dot" style="background:'+areaColor(t.area)+'"></span><span class="commit-text">'+escapeHtml(t.text)+'</span>'+(i>0?'<button class="btn-soft icon-sq" type="button" data-focus-move="up" data-id="'+escapeHtml(t.id)+'" aria-label="Move '+escapeHtml(t.text)+' up">↑</button>':'')+(i<n.commitments.length-1?'<button class="btn-soft icon-sq" type="button" data-focus-move="down" data-id="'+escapeHtml(t.id)+'" aria-label="Move '+escapeHtml(t.text)+' down">↓</button>':'')+'</li>';}h+='</ol>';}
-    h+='<div class="now-actions">'+(n.taskId?'<button class="add-btn" type="button" data-now-task="'+escapeHtml(n.taskId)+'">Open next action</button>':'<button class="add-btn" type="button" data-go="tasks">Choose focus</button>')+'<button class="btn-soft" type="button" data-openwind="1">Close the loop</button></div></section>';
+    if(n.commitments.length){h+='<ol class="now-commitments" aria-label="Today commitments">';for(var i=0;i<n.commitments.length;i++){var t=n.commitments[i],reason=(n.attentionReceipts[t.id]||["fallback-order"])[0];h+='<li><span class="dot" style="background:'+areaColor(t.area)+'"></span><span class="commit-text">'+escapeHtml(t.text)+'<span class="focus-reason">'+escapeHtml(attentionReasonLabel(reason))+'</span></span>'+(i>0?'<button class="btn-soft icon-sq" type="button" data-focus-move="up" data-id="'+escapeHtml(t.id)+'" aria-label="Move '+escapeHtml(t.text)+' up">↑</button>':'')+(i<n.commitments.length-1?'<button class="btn-soft icon-sq" type="button" data-focus-move="down" data-id="'+escapeHtml(t.id)+'" aria-label="Move '+escapeHtml(t.text)+' down">↓</button>':'')+'</li>';}h+='</ol><details class="attention-explain"><summary>Why these?</summary><p class="hint">Chosen daily focus appears first. Remaining eligible tasks keep their existing task order. Due and project reasons are explanations, not a hidden score.</p>'+(n.duplicateFocusRanks.length?'<p class="hint now-risk">Duplicate active focus rank detected. Your next focus move will compact it safely.</p>':'')+'<button class="linklike" type="button" data-focus-reset="1">Clear today’s explicit focus</button></details>';}
+    h+='<div class="now-actions">'+(n.taskId?'<button class="add-btn" type="button" data-now-task="'+escapeHtml(n.taskId)+'">Open next action</button>':'<button class="add-btn" type="button" data-go="tasks">Choose focus</button>')+'<button class="btn-soft" type="button" data-openwind="1">Close the loop</button></div><div class="friction-entry"><button class="linklike" type="button" data-friction-open="now" data-friction-kind="'+(n.taskId?'task':'')+'" data-friction-target="'+escapeHtml(n.taskId)+'">I’m stuck</button>'+frictionPromptHTML("now",n.taskId?"task":"",n.taskId)+'</div></section>';
     return h;
   }
   function normalizeAiProposal(p){
@@ -4979,9 +5205,9 @@
     var active=rows.filter(function(p){return p.status==="working"||p.status==="review"||p.status==="edited"||p.status==="error";}).length,stats=aiFeedbackSummary(rows);
     var h='<details class="launch-card"><summary class="support-summary"><span class="section-label">AI Proposal Inbox</span><span>'+active+' need review · '+rows.length+' total</span></summary><p class="hint">Local outcomes: '+stats.accepted+' accepted · '+stats.edited+' edited first · '+stats.rejected+' rejected · '+stats.escalated+' escalated · '+stats.errors+' failed'+(stats.medianMinutes!=null?' · median '+stats.medianMinutes+'m to resolve':'')+(stats.stale?' · '+stats.stale+' stale':'')+'. Provider reliability: '+stats.reliability+'%.</p>'+aiWorkflowEvidenceHTML(rows)+'<div class="ai-review-list">';
     rows.forEach(function(p){
-      var editable=p.status!=="working",cats=(p.contextCategories||[]).join(", ");
-      h+='<article class="ai-review-row"><div class="ai-review-main"><div class="proposal-status">'+escapeHtml(p.status)+'</div><strong>'+escapeHtml(p.title||"AI proposal")+'</strong><div class="proposal-meta"><span>'+escapeHtml(p.mode)+'</span><span>'+escapeHtml(p.seat)+'</span><span>'+escapeHtml(p.provider)+' · '+escapeHtml(p.model)+'</span><span>Prompt '+escapeHtml(p.promptId)+' v'+escapeHtml(p.promptVersion)+'</span></div><p class="hint">Shared: '+escapeHtml(cats||"source item")+' · Created '+escapeHtml(ghAgo(new Date(p.createdAt||Date.now()).toISOString()))+'</p>'+(editable?'<textarea class="inp proposal-body" data-ai-body="'+escapeHtml(p.id)+'" aria-label="Edit '+escapeHtml(p.title||"AI proposal")+'">'+escapeHtml(p.body||p.text||"")+'</textarea>':'<p class="hint">Working…</p>')+'</div>';
-      if(editable)h+='<div class="ai-review-actions"><button class="linklike" type="button" data-ai-edit="'+escapeHtml(p.id)+'">Save edit</button>'+(p.status==="applied"&&p.undo?'<button class="linklike" type="button" data-ai-undo="'+escapeHtml(p.id)+'">Undo</button>':'<button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="task">Apply as task</button><button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="note">Apply as note</button><button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="event">Apply as event</button>'+(p.sourceKind==="project"?'<button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="project">Apply to project</button>':'')+'<button class="linklike" type="button" data-ai-escalate="'+escapeHtml(p.id)+'">Council</button><button class="linklike" type="button" data-ai-reject="'+escapeHtml(p.id)+'">Reject</button>')+'</div>';
+      var editable=p.status!=="working",actionable=p.status==="review"||p.status==="edited",cats=(p.contextCategories||[]).join(", "),rv=aiReceiptView(p),decision=p.review&&p.review.action?p.review.action:(p.feedback||"pending");
+      h+='<article class="ai-review-row"><div class="ai-review-main"><div class="proposal-status">'+escapeHtml(p.status)+'</div><strong>'+escapeHtml(p.title||"AI proposal")+'</strong><div class="proposal-meta"><span>'+escapeHtml(p.mode)+'</span><span>'+escapeHtml(p.seat)+'</span><span>'+escapeHtml(p.provider)+' · '+escapeHtml(p.model)+'</span><span>Prompt '+escapeHtml(p.promptId)+' v'+escapeHtml(p.promptVersion)+'</span></div><p class="hint">Shared: '+escapeHtml(cats||"source item")+' · Created '+escapeHtml(ghAgo(new Date(p.createdAt||Date.now()).toISOString()))+'</p>'+(editable?'<textarea class="inp proposal-body" data-ai-body="'+escapeHtml(p.id)+'" aria-label="'+(actionable?'Edit ':'Review ')+escapeHtml(p.title||"AI proposal")+'"'+(actionable?'':' readonly')+'>'+escapeHtml(p.body||p.text||"")+'</textarea>':'<p class="hint">Working…</p>')+'<details class="ai-receipt"><summary>Receipt · '+(rv.legacy?'legacy / unrecorded':(rv.passed+'/'+rv.total+' checks · '+formatReceiptBytes(rv.context.approximateBytes)))+'</summary><div class="receipt-grid"><span>Job</span><span>'+escapeHtml(rv.jobId)+'</span><span>Context</span><span>'+escapeHtml(rv.context.recordCount==null?'unrecorded':rv.context.recordCount+' records')+' · '+escapeHtml(formatReceiptBytes(rv.context.approximateBytes))+'</span><span>Checks</span><span>'+escapeHtml(rv.validation.status)+'</span><span>Attempts</span><span>'+rv.attempts.length+'</span><span>Decision</span><span>'+escapeHtml(decision)+'</span><span>Undo</span><span>'+escapeHtml(p.application&&p.application.undoAvailable?'available':(p.application&&p.application.state||p.applicationState||'not applied'))+'</span></div></details></div>';
+      if(editable&&(actionable||(p.status==="applied"&&p.undo)))h+='<div class="ai-review-actions">'+(actionable?'<button class="linklike" type="button" data-ai-edit="'+escapeHtml(p.id)+'">Save edit</button>':'')+(p.status==="applied"&&p.undo?'<button class="linklike" type="button" data-ai-undo="'+escapeHtml(p.id)+'">Undo</button>':'<button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="task">Apply as task</button><button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="note">Apply as note</button><button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="event">Apply as event</button>'+(p.sourceKind==="project"?'<button class="linklike" type="button" data-ai-apply="'+escapeHtml(p.id)+'" data-ai-target="project">Apply to project</button>':'')+'<button class="linklike" type="button" data-ai-escalate="'+escapeHtml(p.id)+'">Council</button><button class="linklike" type="button" data-ai-reject="'+escapeHtml(p.id)+'">Reject</button>')+'</div>';
       h+='</article>';
     });
     return h+'</div></details>';
@@ -5017,7 +5243,7 @@
     refreshRelayHealth(false);
     var needsProfile=!state.profile||state.profile.length<2;
     box.innerHTML=(demoMode?'<div class="demo-banner"><span><strong>Demo Mode</strong> · Sample data is isolated from your real KevinOS.</span><button class="btn-soft" type="button" data-clear-demo="1">Clear demo</button></div>':'')+'<div class="launch-greet">'+escapeHtml(launchGreeting())+'</div>'+nowCardHTML()+
-      '<div class="launch-card"><div class="lc-head"><p class="section-label">Quick capture</p></div><div class="capture-row"><input id="todayCaptureInput" class="capture-input" type="text" placeholder="Capture to Inbox..." autocomplete="off" aria-label="Today quick capture"><button class="add-btn" type="button" data-today-capture="1">Add</button></div><details class="hint" style="margin-top:8px"><summary>Power syntax</summary><div style="margin-top:6px">#Area · @tomorrow · @3pm · +person · //project · ! pins · note: / event:</div></details></div>'+
+      '<div class="launch-card"><div class="lc-head"><p class="section-label">Quick capture</p></div><div class="capture-row"><input id="todayCaptureInput" class="capture-input" type="text" placeholder="Capture to Inbox..." autocomplete="off" aria-label="Today quick capture"><button class="add-btn" type="button" data-today-capture="1">Add</button></div><details class="hint" style="margin-top:8px"><summary>Power syntax</summary><div style="margin-top:6px">#Area · @tomorrow · @3pm · +person · //project · ! pins · note: / event:</div></details><div class="friction-entry"><button class="linklike" type="button" data-friction-open="capture" data-friction-kind="" data-friction-target="">Capture felt hard</button>'+frictionPromptHTML("capture","","")+'</div></div>'+
       launchAgendaCardHTML()+
       '<details class="launch-card"><summary class="support-summary"><span class="section-label">Support</span><span>Plan, habits, AI & system</span></summary><div style="margin-top:12px">'+
         systemHealthHTML()+
@@ -5055,6 +5281,13 @@
   function handleTodayClick(e){
     if(e.target.closest("[data-clear-demo]")){clearDemoMode();return;}
     if(e.target.closest("[data-backup]")){sideDel("kevinos:backup-reminder");exportBackup();renderToday();return;}
+    var frictionToggle=e.target.closest("[data-friction-toggle]");if(frictionToggle){setFrictionEnabled(frictionToggle.getAttribute("data-friction-toggle")==="on");renderToday();toast(frictionEnabled()?"Calm friction pilot enabled on this device":"Calm friction pilot turned off");return;}
+    if(e.target.closest("[data-friction-clear]")){clearFrictionEvents();renderToday();toast("Local friction marks cleared");return;}
+    var frictionOpen=e.target.closest("[data-friction-open]");if(frictionOpen){if(openFrictionPrompt(frictionOpen.getAttribute("data-friction-open"),frictionOpen.getAttribute("data-friction-kind"),frictionOpen.getAttribute("data-friction-target"))){renderToday();setTimeout(function(){var b=$("todayView").querySelector("[data-friction-mark]");if(b)b.focus();},20);}return;}
+    var frictionMark=e.target.closest("[data-friction-mark]");if(frictionMark){var marked=markFriction(frictionPrompt.surface,frictionPrompt.targetKind,frictionPrompt.targetId,frictionMark.getAttribute("data-friction-mark"));closeFrictionPrompt();renderToday();toast(marked?"Friction marked locally":"Similar mark already counted");return;}
+    if(e.target.closest("[data-friction-cancel]")){closeFrictionPrompt();renderToday();return;}
+    var opUndo=e.target.closest("[data-op-undo]");if(opUndo){undoAIProposal(opUndo.getAttribute("data-op-undo"));return;}
+    if(e.target.closest("[data-op-snapshots]")){var sp=$("snapshotPanel"),details=sp&&sp.closest?sp.closest("details"):null;if(details)details.open=true;if(sp&&sp.scrollIntoView)sp.scrollIntoView({block:"center"});return;}
     if(e.target.closest("[data-relay-health]")){relayHealthOpen=!relayHealthOpen;renderToday();return;}
     if(e.target.closest("[data-today-capture]")){addTodayCapture();return;}
     if(e.target.closest("[data-today-council]")){var ci=$("todayCouncilInput");addCouncilFromText(ci?ci.value:"");if(ci)ci.value="";return;}
@@ -5064,6 +5297,7 @@
     var nt=e.target.closest("[data-now-task]");if(nt){logAttention("focus-confirmed",{source:"today",entityType:"task",entityId:String(nt.getAttribute("data-now-task")||"")});persist();taskMenuId=nt.getAttribute("data-now-task");go("tasks");renderTasks();return;}
     var fm=e.target.closest("[data-focus-move]");
     if(fm){if(moveFocusTask(fm.getAttribute("data-id"),fm.getAttribute("data-focus-move"))){save();renderToday();}return;}
+    if(e.target.closest("[data-focus-reset]")){if(resetFocus(todayKey())){save();renderToday();toast("Today’s explicit focus cleared");}return;}
     var g=e.target.closest("[data-go]");if(g){go(g.getAttribute("data-go"));return;}
     var hp=e.target.closest("[data-launch-habit]");
     if(hp){var h=findHabit(hp.getAttribute("data-launch-habit"));if(h){toggleHabitToday(h);touch(h);save();renderToday();renderHabits();}return;}
@@ -5074,6 +5308,7 @@
     var aiUndo=e.target.closest("[data-ai-undo]");if(aiUndo){undoAIProposal(aiUndo.getAttribute("data-ai-undo"));return;}
   }
   function handleTodayKeydown(e){
+    if(e.key==="Escape"&&frictionPrompt.surface){e.preventDefault();closeFrictionPrompt();renderToday();return;}
     if(e.key!=="Enter")return;
     if(e.target&&e.target.id==="todayCaptureInput"){e.preventDefault();addTodayCapture();}
     else if(e.target&&e.target.id==="todayCouncilInput"){e.preventDefault();addCouncilFromText(e.target.value);e.target.value="";}
@@ -5146,6 +5381,14 @@
     Draft:{id:"draft",version:2,seat:"Writer",instruction:"Draft a concise, useful artifact from this context. Mark any assumption and do not invent facts."},
     Challenge:{id:"challenge",version:1,seat:"Skeptic",instruction:"Challenge the current approach constructively. Identify the failure mode that matters most and propose a safer alternative or test."}
   };
+  var AI_RECEIPT_VERSION=2;
+  var AI_MODE_REGISTRY={
+    Decide:{mode:"Decide",promptId:"decide",promptVersion:1,outputKind:"text",schemaVersion:1,maxContextBytes:64000,maxOutputCharacters:12000,validatorNames:["non-empty-text","within-output-character-limit","safe-text-rendering-path"]},
+    Plan:{mode:"Plan",promptId:"plan",promptVersion:1,outputKind:"text",schemaVersion:1,maxContextBytes:64000,maxOutputCharacters:12000,validatorNames:["non-empty-text","within-output-character-limit","safe-text-rendering-path","one-primary-action-line"]},
+    Review:{mode:"Review",promptId:"review",promptVersion:1,outputKind:"text",schemaVersion:1,maxContextBytes:64000,maxOutputCharacters:12000,validatorNames:["non-empty-text","within-output-character-limit","safe-text-rendering-path"]},
+    Draft:{mode:"Draft",promptId:"draft",promptVersion:2,outputKind:"text",schemaVersion:1,maxContextBytes:64000,maxOutputCharacters:12000,validatorNames:["non-empty-text","within-output-character-limit","safe-text-rendering-path"]},
+    Challenge:{mode:"Challenge",promptId:"challenge",promptVersion:1,outputKind:"text",schemaVersion:1,maxContextBytes:64000,maxOutputCharacters:12000,validatorNames:["non-empty-text","within-output-character-limit","safe-text-rendering-path"]}
+  };
   function aiContext(kind,id,sharing){
     sharing=sharing||{};
     var x,r;
@@ -5168,13 +5411,77 @@
     return null;
   }
   function aiFingerprint(s){var h=2166136261,i;for(i=0;i<s.length;i++){h^=s.charCodeAt(i);h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);}return (h>>>0).toString(16);}
+  function canonicalAiValue(v){
+    var i,k,keys,out;
+    if(v===null||typeof v==="number"||typeof v==="boolean"||typeof v==="string")return v;
+    if(isArr(v)){out=[];for(i=0;i<v.length;i++)out.push(canonicalAiValue(v[i]));return out;}
+    if(typeof v==="object"){out={};keys=[];for(k in v)if(v.hasOwnProperty(k)&&typeof v[k]!=="undefined")keys.push(k);keys.sort();for(i=0;i<keys.length;i++)out[keys[i]]=canonicalAiValue(v[keys[i]]);return out;}
+    return String(v);
+  }
+  function canonicalAiString(v){return JSON.stringify(canonicalAiValue(v));}
+  function utf8ByteCount(s){
+    s=String(s||"");var n=0,i,c;
+    for(i=0;i<s.length;i++){c=s.charCodeAt(i);if(c<128)n++;else if(c<2048)n+=2;else if(c>=55296&&c<=56319&&i+1<s.length&&s.charCodeAt(i+1)>=56320&&s.charCodeAt(i+1)<=57343){n+=4;i++;}else n+=3;}
+    return n;
+  }
+  function aiContextSourceCount(category){
+    var i,x,n=0;
+    if(category==="source item")return 1;
+    if(category==="profile")return Math.min((state.profile||[]).length,12);
+    if(category==="email")return Math.min(emailThreads.length,10);
+    if(category==="calendar"){for(i=0;i<state.events.length;i++)if(state.events[i].date===todayKey())n++;return n;}
+    if(category==="calendarDetails"){for(i=0;i<state.events.length;i++){x=state.events[i];if(x.date===todayKey()&&(x.location||x.notes))n++;}return n;}
+    if(category==="history")return Math.min(state.items.filter(function(t){return t.done;}).length,10);
+    if(category==="library")return Math.min(libraryRecords().length,10);
+    if(category==="personEmail"||category==="personNotes")return 1;
+    return 0;
+  }
+  function buildAiContextManifest(ctx,sharing,shared){
+    sharing=sharing||{};shared=typeof shared==="string"?shared:buildAiSharedContext(ctx,sharing);
+    var order=["source item","profile","personEmail","personNotes","email","calendar","calendarDetails","history","library"],sources=[],included=[],omitted=[],total=0,i,cat,on,count,status;
+    for(i=0;i<order.length;i++){
+      cat=order[i];on=cat==="source item"||!!sharing[cat];count=on?aiContextSourceCount(cat):0;status=on?(count?"included":"empty"):"omitted";
+      sources.push({category:cat,recordCount:count,approximateBytes:cat==="source item"?utf8ByteCount(ctx&&ctx.text||""):0,status:status,deduplicatedCount:0});
+      if(on){included.push(cat);total+=count;}else omitted.push(cat);
+    }
+    return {categories:included,sources:sources,recordCount:total,approximateBytes:utf8ByteCount(shared),omittedCategories:omitted,fingerprint:aiFingerprint(shared)};
+  }
+  function aiRequestFingerprint(mode,def,manifest){
+    var cats=(manifest.categories||[]).slice().sort();
+    return aiFingerprint(canonicalAiString({receiptVersion:AI_RECEIPT_VERSION,mode:mode,prompt:{id:def.id,version:def.version,fingerprint:aiFingerprint(def.instruction||"")},context:{categories:cats,fingerprint:manifest.fingerprint,approximateBytes:manifest.approximateBytes}}));
+  }
+  function runAiValidators(text,mode){
+    text=String(text||"");var reg=AI_MODE_REGISTRY[mode]||AI_MODE_REGISTRY.Draft,trim=text.trim(),checks=[],i,name,pass,lines;
+    for(i=0;i<reg.validatorNames.length;i++){
+      name=reg.validatorNames[i];pass=false;
+      if(name==="non-empty-text")pass=!!trim;
+      else if(name==="within-output-character-limit")pass=text.length<=reg.maxOutputCharacters;
+      else if(name==="safe-text-rendering-path")pass=true;
+      else if(name==="one-primary-action-line"){lines=trim.split(/\r?\n/).filter(function(x){return !!x.trim();});pass=!!(lines.length&&lines[0].trim().length<=240);}
+      checks.push({name:name,status:pass?"pass":"fail"});
+    }
+    return {status:checks.every(function(c){return c.status==="pass";})?"pass":"needs-review",checks:checks};
+  }
+  function findDuplicateAiResponse(id,fingerprint){
+    var rows=state.pending||[],i,p;
+    if(!fingerprint)return "";
+    for(i=0;i<rows.length;i++){p=rows[i];if(p&&p.id!==id&&p.kind==="ai"&&p.receipt&&p.receipt.responseFingerprint===fingerprint)return p.id;}
+    return "";
+  }
+  function aiReceiptView(p){
+    var r=p&&p.receipt,v=r&&r.version===AI_RECEIPT_VERSION?r:null,checks=v&&v.validation&&isArr(v.validation.checks)?v.validation.checks:[],passed=0,i;
+    for(i=0;i<checks.length;i++)if(checks[i].status==="pass")passed++;
+    return v?{version:v.version,jobId:v.jobId||"unrecorded",context:v.context||{},attempts:isArr(v.attempts)?v.attempts:[],validation:v.validation||{status:"unrecorded",checks:[]},passed:passed,total:checks.length,legacy:false}:{version:0,jobId:"unrecorded",context:{categories:p&&p.contextCategories||[],recordCount:null,approximateBytes:null,omittedCategories:[],fingerprint:p&&p.contextFingerprint||""},attempts:[],validation:{status:"unrecorded",checks:[]},passed:0,total:0,legacy:true};
+  }
+  function formatReceiptBytes(n){if(typeof n!=="number")return "unrecorded";return n<1024?n+" B":(Math.round(n/102.4)/10)+" KB";}
   function universalAIActionsHTML(kind,id){return '<button class="linklike" type="button" data-ai-kind="'+escapeHtml(kind)+'" data-ai-id="'+escapeHtml(id)+'">Ask AI…</button><button class="linklike" type="button" data-ai-kind="'+escapeHtml(kind)+'" data-ai-id="'+escapeHtml(id)+'" data-ai-mode="council">Send to Council</button>';}
   function renderAiComposer(){
     var ov=$("aiComposeOverlay"),box=$("aiComposeCard");if(!ov||!box)return;ov.classList.toggle("open",!!aiCompose.open);if(!aiCompose.open){box.innerHTML="";return;}
     var ctx=aiContext(aiCompose.kind,aiCompose.id,aiCompose.sharing);if(!ctx){closeAiComposer();return;}
+    var shared=buildAiSharedContext(ctx,aiCompose.sharing),manifest=buildAiContextManifest(ctx,aiCompose.sharing,shared);aiCompose.previewFingerprint=manifest.fingerprint;
     var modes=["Decide","Plan","Review","Draft","Challenge"],h='<p class="now-eyebrow">Prepare AI proposal</p><h1>'+escapeHtml(ctx.title)+'</h1><p class="hint">Choose the job and exactly what leaves this device. The returned text cannot change KevinOS until you apply it.</p><div class="ai-compose-grid">',i,m;
     for(i=0;i<modes.length;i++){m=modes[i];h+='<button class="ai-mode'+(aiCompose.mode===m?' active':'')+'" type="button" data-ai-compose-mode="'+m+'">'+m+'</button>';}
-    h+='</div><div class="ai-share"><label><input type="checkbox" checked disabled> Source item and its direct link — sent to AI</label><label><input type="checkbox" data-ai-share="profile"'+(aiCompose.sharing.profile?' checked':'')+'> Profile facts — sent to AI</label>'+(aiCompose.kind==="person"?'<label><input type="checkbox" data-ai-share="personEmail"'+(aiCompose.sharing.personEmail?' checked':'')+'> Email address — sent to AI</label><label><input type="checkbox" data-ai-share="personNotes"'+(aiCompose.sharing.personNotes?' checked':'')+'> Person notes — sent to AI</label>':'')+'<label><input type="checkbox" data-ai-share="email"'+(aiCompose.sharing.email?' checked':'')+'> Gmail subjects and snippets — sent to AI</label><label><input type="checkbox" data-ai-share="calendar"'+(aiCompose.sharing.calendar?' checked':'')+'> Today’s calendar titles and times — sent to AI</label><label><input type="checkbox" data-ai-share="calendarDetails"'+(aiCompose.sharing.calendarDetails?' checked':'')+'> Calendar notes and locations — sent to AI</label><label><input type="checkbox" data-ai-share="history"'+(aiCompose.sharing.history?' checked':'')+'> Related completed-task history — sent to AI</label><label><input type="checkbox" data-ai-share="library"'+(aiCompose.sharing.library?' checked':'')+'> Other Library titles and snippets — sent to AI</label></div><details><summary>Preview shared context</summary><pre class="copy-box" style="white-space:pre-wrap;margin-top:8px">'+escapeHtml(buildAiSharedContext(ctx,aiCompose.sharing))+'</pre></details><div class="now-actions"><button class="add-btn" type="button" data-ai-compose-run="1">Generate '+escapeHtml(aiCompose.mode)+' proposal</button><button class="btn-soft" type="button" data-ai-compose-close="1">Cancel</button></div>';
+    h+='</div><div class="ai-share"><label><input type="checkbox" checked disabled> Source item and its direct link — sent to AI</label><label><input type="checkbox" data-ai-share="profile"'+(aiCompose.sharing.profile?' checked':'')+'> Profile facts — sent to AI</label>'+(aiCompose.kind==="person"?'<label><input type="checkbox" data-ai-share="personEmail"'+(aiCompose.sharing.personEmail?' checked':'')+'> Email address — sent to AI</label><label><input type="checkbox" data-ai-share="personNotes"'+(aiCompose.sharing.personNotes?' checked':'')+'> Person notes — sent to AI</label>':'')+'<label><input type="checkbox" data-ai-share="email"'+(aiCompose.sharing.email?' checked':'')+'> Gmail subjects and snippets — sent to AI</label><label><input type="checkbox" data-ai-share="calendar"'+(aiCompose.sharing.calendar?' checked':'')+'> Today’s calendar titles and times — sent to AI</label><label><input type="checkbox" data-ai-share="calendarDetails"'+(aiCompose.sharing.calendarDetails?' checked':'')+'> Calendar notes and locations — sent to AI</label><label><input type="checkbox" data-ai-share="history"'+(aiCompose.sharing.history?' checked':'')+'> Related completed-task history — sent to AI</label><label><input type="checkbox" data-ai-share="library"'+(aiCompose.sharing.library?' checked':'')+'> Other Library titles and snippets — sent to AI</label></div><p class="context-budget"><strong>'+manifest.recordCount+' records · '+escapeHtml(formatReceiptBytes(manifest.approximateBytes))+'</strong> · '+escapeHtml(manifest.categories.join(", "))+' · '+manifest.omittedCategories.length+' categories omitted</p><details><summary>Preview shared context</summary><pre class="copy-box" style="white-space:pre-wrap;margin-top:8px">'+escapeHtml(shared)+'</pre></details><div class="now-actions"><button class="add-btn" type="button" data-ai-compose-run="1">Generate '+escapeHtml(aiCompose.mode)+' proposal</button><button class="btn-soft" type="button" data-ai-compose-close="1">Cancel</button></div>';
     box.innerHTML=h;setTimeout(function(){var a=box.querySelector(".ai-mode.active");if(a)a.focus();},20);
   }
   function buildAiSharedContext(ctx,sharing){
@@ -5198,31 +5505,34 @@
     var ctx=aiContext(kind,id,{});if(!ctx){toast("Nothing to send.");return;}
     if(mode==="council"){addCouncilFromText(ctx.text);toast("Sent to Council");return;}
     if(!relayOn()){toast("Connect AI first.");return;}
-    aiReturnFocus=(trigger&&trigger.focus)?trigger:(document.activeElement&&document.activeElement!==document.body?document.activeElement:null);aiReturnFocusSelector=(trigger&&trigger.closest&&trigger.closest(".task-wrap"))?'[data-action="menu"][data-id="'+id+'"]':"";aiCompose={open:true,kind:kind,id:id,mode:(AI_PROMPTS[mode]?mode:"Draft"),sharing:{profile:false,personEmail:false,personNotes:false,email:false,calendar:false,calendarDetails:false,history:false,library:false}};renderAiComposer();
+    aiReturnFocus=(trigger&&trigger.focus)?trigger:(document.activeElement&&document.activeElement!==document.body?document.activeElement:null);aiReturnFocusSelector=(trigger&&trigger.closest&&trigger.closest(".task-wrap"))?'[data-action="menu"][data-id="'+id+'"]':"";aiCompose={open:true,kind:kind,id:id,mode:(AI_PROMPTS[mode]?mode:"Draft"),sharing:{profile:false,personEmail:false,personNotes:false,email:false,calendar:false,calendarDetails:false,history:false,library:false},previewFingerprint:""};renderAiComposer();
   }
   function runAiProposal(){
     var ctx=aiContext(aiCompose.kind,aiCompose.id,aiCompose.sharing),def=AI_PROMPTS[aiCompose.mode]||AI_PROMPTS.Draft;if(!ctx)return;
-    var shared=buildAiSharedContext(ctx,aiCompose.sharing),cats=["source item"],k;for(k in aiCompose.sharing)if(aiCompose.sharing.hasOwnProperty(k)&&aiCompose.sharing[k])cats.push(k);
-    var pid=uid(),created=Date.now(),p={id:pid,kind:"ai",proposalType:"text",mode:aiCompose.mode,status:"working",title:aiCompose.mode+" · "+ctx.title,body:"Working...",sourceKind:aiCompose.kind,sourceId:aiCompose.id,targetKind:"",targetId:"",provider:"pending",model:"pending",seat:def.seat,promptId:def.id,promptVersion:def.version,createdAt:created,contextCategories:cats,contextFingerprint:aiFingerprint(shared),warnings:[],applicationState:"not-applied",feedback:""};
+    var shared=buildAiSharedContext(ctx,aiCompose.sharing),manifest=buildAiContextManifest(ctx,aiCompose.sharing,shared),reg=AI_MODE_REGISTRY[aiCompose.mode]||AI_MODE_REGISTRY.Draft;
+    if(manifest.fingerprint!==aiCompose.previewFingerprint){toast("Shared context changed. Review the preview and send again.");renderAiComposer();return false;}
+    if(manifest.approximateBytes>reg.maxContextBytes){toast("Shared context is over the "+reg.maxContextBytes+" byte limit. Deselect context and review again.");return false;}
+    var pid=uid(),attemptId=uid(),created=Date.now(),requestFingerprint=aiRequestFingerprint(aiCompose.mode,def,manifest),p={id:pid,kind:"ai",proposalType:"text",mode:aiCompose.mode,status:"working",title:aiCompose.mode+" · "+ctx.title,body:"Working...",sourceKind:aiCompose.kind,sourceId:aiCompose.id,targetKind:"",targetId:"",provider:"pending",model:"pending",seat:def.seat,promptId:def.id,promptVersion:def.version,createdAt:created,contextCategories:manifest.categories.slice(),contextFingerprint:manifest.fingerprint,warnings:[],applicationState:"not-applied",feedback:"",receipt:{version:AI_RECEIPT_VERSION,jobId:pid,mode:aiCompose.mode,createdAt:created,startedAt:created,prompt:{id:def.id,version:def.version,fingerprint:aiFingerprint(def.instruction||"")},provider:{id:"pending",model:"pending",seat:def.seat},context:manifest,requestFingerprint:requestFingerprint,output:{kind:reg.outputKind,schemaVersion:reg.schemaVersion,parseStatus:"working"},validation:{status:"working",checks:[]},attempts:[{id:attemptId,startedAt:created,status:"working"}]},review:{action:"pending"},application:{state:"not-applied",undoAvailable:false}};
     state.pending.unshift(p);save();closeAiComposer(false);go("today");
-    relayPost("/ai",{prompt:def.instruction+"\n\n"+shared,promptId:def.id,promptVersion:def.version,mode:aiCompose.mode}).then(function(j){var x=findPending(pid);if(!x)return;x.body=(j&&j.text)||"No proposal returned.";x.status=(j&&j.text)?"review":"error";x.provider=(j&&j.provider)||"relay";x.model=(j&&j.model)||"unreported";x.completedAt=Date.now();touch(x);save();renderCurrentRoom();}).catch(function(){var x=findPending(pid);if(x){x.body="Could not reach the relay.";x.status="error";x.provider="relay";x.model="unavailable";x.completedAt=Date.now();touch(x);save();renderCurrentRoom();}});
+    relayPost("/ai",{prompt:def.instruction+"\n\n"+shared,promptId:def.id,promptVersion:def.version,mode:aiCompose.mode}).then(function(j){var x=findPending(pid),text=j&&j.text?String(j.text):"",done=Date.now(),a,validation,fp;if(!x)return;a=x.receipt.attempts[0];x.provider=(j&&j.provider)||"relay";x.model=(j&&j.model)||"unreported";x.receipt.provider={id:x.provider,model:x.model,seat:x.seat};x.completedAt=done;x.receipt.completedAt=done;x.receipt.latencyMs=Math.max(0,done-created);a.completedAt=done;a.latencyMs=x.receipt.latencyMs;a.provider=x.provider;a.model=x.model;if(!text){x.body="No proposal returned.";x.status="error";a.status="error";a.errorCode="empty-response";x.receipt.output.parseStatus="error";x.receipt.validation=runAiValidators("",x.mode);}else{x.body=text;x.status="review";fp=aiFingerprint(text);validation=runAiValidators(text,x.mode);x.receipt.responseFingerprint=fp;x.receipt.output.parseStatus="text";x.receipt.validation=validation;a.status="complete";a.responseFingerprint=fp;var dup=findDuplicateAiResponse(x.id,fp);if(dup)x.receipt.duplicateOf=dup;}touch(x);save();renderCurrentRoom();}).catch(function(){var x=findPending(pid),done=Date.now(),a;if(x){a=x.receipt.attempts[0];x.body="Could not reach the relay.";x.status="error";x.provider="relay";x.model="unavailable";x.completedAt=done;x.receipt.completedAt=done;x.receipt.latencyMs=Math.max(0,done-created);x.receipt.provider={id:"relay",model:"unavailable",seat:x.seat};x.receipt.output.parseStatus="error";x.receipt.validation={status:"error",checks:[]};a.status="error";a.completedAt=done;a.latencyMs=x.receipt.latencyMs;a.errorCode="relay-unavailable";touch(x);save();renderCurrentRoom();}});
+    return true;
   }
-  function editAIProposal(id){var p=findPending(id),ta=document.querySelector('[data-ai-body="'+id+'"]');if(!p||!ta)return;p.body=ta.value;p.editedAt=Date.now();p.status="edited";p.feedback="edited";touch(p);save();renderCurrentRoom();toast("Proposal edit saved");}
+  function editAIProposal(id){var p=findPending(id),ta=document.querySelector('[data-ai-body="'+id+'"]');if(!p||!ta||(p.status!=="review"&&p.status!=="edited"))return;p.body=ta.value;p.editedAt=Date.now();p.status="edited";p.feedback="edited";if(p.receipt){p.receipt.output=p.receipt.output||{};p.receipt.output.reviewedFingerprint=aiFingerprint(p.body||"");p.receipt.validation=runAiValidators(p.body||"",p.mode);}p.review={action:"edited",at:p.editedAt,edited:true,reasonCode:"manual-edit"};touch(p);save();renderCurrentRoom();toast("Proposal edit saved");}
   function applyAIProposal(id,target){
-    var p=normalizeAiProposal(findPending(id));if(!p||p.status==="working")return;var rid=uid(),body=p.body||"",rec;
+    var p=normalizeAiProposal(findPending(id));if(!p||(p.status!=="review"&&p.status!=="edited")){toast("This proposal must be in Review or Edited state before it can be applied.");return false;}if(["task","note","event","project"].indexOf(target)<0){toast("Choose a supported application target.");return false;}if(target==="project"&&p.sourceKind!=="project"){toast("Only a proposal created from a project can apply back to that project.");return false;}var rid=uid(),body=p.body||"",rec,opId;if(target==="project"&&!findProject(p.sourceId)){toast("The target project no longer exists.");return false;}opId=beginOperation("kevinos.ai.proposal.applied",{source:"Kevin",affectedCount:1,targetKind:target,proposalId:id});
     if(target==="note"){rec={id:rid,title:p.title||"AI proposal",para:"Resource",area:"Inbox",tags:"ai,approved",body:body,createdAt:Date.now()};touch(rec);state.notes.unshift(rec);p.undo={kind:"create",collection:"notes",id:rid};}
     else if(target==="event"){rec={id:rid,title:(body.split(/\n/)[0]||p.title||"AI proposal").replace(/^[-*# ]+/,"").slice(0,200),date:todayKey(),time:null,allDay:true,area:"Inbox",notes:body,source:"ai-approved"};touch(rec);state.events.push(rec);p.undo={kind:"create",collection:"events",id:rid};}
     else if(target==="project"&&p.sourceKind==="project"){rec=findProject(p.sourceId);if(!rec)return;p.undo={kind:"project",id:rec.id,notes:rec.notes||""};rec.notes=(rec.notes?rec.notes+"\n\n":"")+body;touch(rec);}
     else{rec={id:rid,text:(body.split(/\n/)[0]||p.title||"AI proposal").replace(/^[-*# ]+/,"").slice(0,240),area:"Inbox",today:false,done:false,due:null,dueTime:"",projectId:p.sourceKind==="project"?p.sourceId:null,repeat:"",notes:body,createdAt:Date.now()};touch(rec);state.items.unshift(rec);p.undo={kind:"create",collection:"items",id:rid};}
-    p.status="applied";p.applicationState="applied";p.appliedAs=target;p.targetKind=target;p.targetId=rec&&rec.id||p.sourceId||"";p.appliedAt=Date.now();p.resolvedAt=p.appliedAt;p.feedback=p.editedAt?"edited-accepted":"accepted";touch(p);save();renderCurrentRoom();toast("Proposal applied — Undo is available");
+    p.status="applied";p.applicationState="applied";p.appliedAs=target;p.targetKind=target;p.targetId=rec&&rec.id||p.sourceId||"";p.appliedAt=Date.now();p.resolvedAt=p.appliedAt;p.feedback=p.editedAt?"edited-accepted":"accepted";p.review={action:"applied",at:p.appliedAt,edited:!!p.editedAt,reasonCode:p.editedAt?"edited-accepted":"accepted"};p.application={state:"applied",targetKind:p.targetKind,targetId:p.targetId,appliedAt:p.appliedAt,undoAvailable:true};touch(p);finishOperation(opId,"succeeded",{affectedCount:1,targetKind:p.targetKind,targetId:p.targetId,undoAvailable:true});save();renderCurrentRoom();toast("Proposal applied — Undo is available");return true;
   }
-  function rejectAIProposal(id){var p=findPending(id);if(!p)return;p.status="rejected";p.applicationState="rejected";p.feedback="rejected";p.resolvedAt=Date.now();touch(p);save();renderCurrentRoom();}
-  function escalateAIProposal(id){var p=findPending(id);if(!p)return;addCouncilFromText("Challenge this "+(p.mode||"AI")+" proposal:\n\n"+(p.body||""));p.status="escalated";p.applicationState="escalated";p.feedback="escalated";p.resolvedAt=Date.now();touch(p);save();renderCurrentRoom();toast("Escalated to Council");}
+  function rejectAIProposal(id){var p=findPending(id);if(!p||(p.status!=="review"&&p.status!=="edited"))return;p.status="rejected";p.applicationState="rejected";p.feedback="rejected";p.resolvedAt=Date.now();p.review={action:"rejected",at:p.resolvedAt,edited:!!p.editedAt,reasonCode:"not-useful"};p.application={state:"rejected",undoAvailable:false};touch(p);save();renderCurrentRoom();}
+  function escalateAIProposal(id){var p=findPending(id);if(!p||(p.status!=="review"&&p.status!=="edited"))return;addCouncilFromText("Challenge this "+(p.mode||"AI")+" proposal:\n\n"+(p.body||""));p.status="escalated";p.applicationState="escalated";p.feedback="escalated";p.resolvedAt=Date.now();p.review={action:"escalated",at:p.resolvedAt,edited:!!p.editedAt,reasonCode:"needs-challenge"};p.application={state:"escalated",undoAvailable:false};touch(p);save();renderCurrentRoom();toast("Escalated to Council");}
   function undoAIProposal(id){
-    var p=findPending(id),u=p&&p.undo;if(!p||!u)return;
+    var p=findPending(id),u=p&&p.undo,prior=latestApplyOperation(id),opId;if(!p||!u)return false;opId=beginOperation("kevinos.ai.proposal.undone",{source:"Kevin",affectedCount:1,targetKind:p.targetKind,targetId:p.targetId,proposalId:id,revertsOperationId:prior&&prior.id||""});
     if(u.kind==="create"&&isArr(state[u.collection])){bury(u.id);state[u.collection]=state[u.collection].filter(function(x){return x.id!==u.id;});}
     else if(u.kind==="project"){var pr=findProject(u.id);if(pr){pr.notes=u.notes||"";touch(pr);}}
-    p.status="review";p.applicationState="undone";p.feedback="undone";p.undoneAt=Date.now();delete p.undo;touch(p);save();renderCurrentRoom();toast("Applied change undone");
+    p.status="undone";p.applicationState="undone";p.feedback="undone";p.undoneAt=Date.now();p.application=p.application||{};p.application.state="undone";p.application.undoneAt=p.undoneAt;p.application.undoAvailable=false;delete p.undo;touch(p);finishOperation(opId,"succeeded",{affectedCount:1,undoAvailable:false});save();renderCurrentRoom();toast("Applied change undone");return true;
   }
   function saveAiPendingToNotes(id){applyAIProposal(id,"note");}
   function dismissAiPending(id){rejectAIProposal(id);}
@@ -5389,8 +5699,8 @@
   $("snapshotPanel").addEventListener("click",function(e){
     if(e.target.closest("[data-snap-now]")){if(loadFailed){toast("Fix recovery first — nothing readable to snapshot.");return;}snapPut(portableDoc(state),"manual").then(function(ok){toast(ok?"Snapshot saved ✓":"Snapshots unavailable on this browser.");});return;}
     var y=e.target.closest("[data-snap-confirm]");if(y){doRestoreSnapshot(parseInt(y.getAttribute("data-snap-confirm"),10)||0);return;}
-    if(e.target.closest("[data-snap-cancel]")){snapConfirmAt=0;renderSnapshots();return;}
-    var b=e.target.closest("[data-snap-restore]");if(b)restoreSnapshot(b.getAttribute("data-snap-restore"));
+    if(e.target.closest("[data-snap-cancel]")){snapConfirmAt=0;renderSnapshots();restoreHighStakesFocus();return;}
+    var b=e.target.closest("[data-snap-restore]");if(b){rememberHighStakesFocus(b);restoreSnapshot(b.getAttribute("data-snap-restore"));}
   });
   $("bottomNav").addEventListener("click",function(e){var c=e.target.closest("[data-bottom-capture]");if(c){vcOpenPanel(c);return;}var b=e.target.closest("[data-bottom-room]");if(b)go(b.getAttribute("data-bottom-room"));});
   document.addEventListener("click",function(e){if(e.target.closest("[data-save-export]")){exportBackup();return;}if(e.target.closest("[data-raw-storage]")){downloadRawStorage();return;}if(e.target.closest("[data-emergency-import]")){$("restoreInput").click();return;}if(e.target.closest("[data-weekly-retro]")){councilRetroAsk();return;}var ai=e.target.closest("[data-ai-kind]");if(ai){startUniversalAI(ai.getAttribute("data-ai-kind"),ai.getAttribute("data-ai-id"),ai.getAttribute("data-ai-mode")||"draft",ai);}});
@@ -5460,7 +5770,8 @@
   $("sweepInner").addEventListener("keydown",function(e){if(e.key==="Enter"){var step=SWEEP_STEPS[sweep.step];if(step&&step.type==="area"){e.preventDefault();sweepAdd();}}});
   $("windInner").addEventListener("click",handleWind);
   $("windInner").addEventListener("change",function(e){if(e.target&&e.target.id==="windHourSel"){state.closeHour=parseInt(e.target.value,10)||17;persist();toast("Close ritual set for "+fmtTime(pad(closeHourVal())+":00"));}});
-  document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(aiCompose.open)closeAiComposer();else if(vcOpen)vcClose();else if(sweep.active)exitSweep();else if(windActive)closeWind();else if(intakeActive)exitIntake();}});
+  function cancelHighStakes(){if(missionOverrideArmedId){missionOverrideArmedId="";missionOverrideReason="";renderBuilds();restoreHighStakesFocus();return true;}if(snapConfirmAt){snapConfirmAt=0;renderSnapshots();restoreHighStakesFocus();return true;}if(pendingImport&&pendingImport.stage==="confirm"){pendingImport.stage="";renderImportConfirm();restoreHighStakesFocus();return true;}return false;}
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"){if(cancelHighStakes()){e.preventDefault();return;}if(frictionPrompt.surface){var fs=frictionPrompt.surface;closeFrictionPrompt();renderToday();setTimeout(function(){var b=$("todayView").querySelector('[data-friction-open="'+fs+'"]');if(b)b.focus();},20);e.preventDefault();return;}if(aiCompose.open)closeAiComposer();else if(vcOpen)vcClose();else if(sweep.active)exitSweep();else if(windActive)closeWind();else if(intakeActive)exitIntake();}});
   document.addEventListener("keydown",function(e){
     if(e.key!=="Tab")return;
     if(sweep.active)trapTab(e,$("sweepInner"));
@@ -5927,11 +6238,12 @@
     var box=$("snapshotPanel");if(!box)return;
     snapList().then(function(rows){
       var h='<div class="storage-stats" style="margin-top:12px;display:flex;gap:10px;align-items:center"><strong>Snapshots</strong><button class="linklike" type="button" data-snap-now="1">Snapshot now</button></div>';
+      if(snapshotError)h+=errorSummaryHTML("snapshot-errors","Snapshot could not be restored",[{text:snapshotError}]);
       if(!rows.length){box.innerHTML=h+'<p class="hint">No local snapshots yet.</p>';return;}
       h+='<div class="snap-list">';
       rows.forEach(function(r){
         h+='<div class="snap-row"><span>'+escapeHtml(fmtSnapDate(r.at))+' · '+escapeHtml(r.reason||"snapshot")+' · '+Math.round((r.bytes||0)/1024)+' KB</span><button class="btn-soft" type="button" data-snap-restore="'+escapeHtml(r.at)+'">Restore</button></div>';
-        if(snapConfirmAt===r.at)h+=confirmCardHTML(snapDiffText(r)+"Current KevinOS data on this device will be replaced (a pre-restore snapshot is taken first); synced data merges back in if sync is linked.",'data-snap-confirm="'+escapeHtml(r.at)+'"',"Restore snapshot",'data-snap-cancel="1"');
+        if(snapConfirmAt===r.at)h+=highStakesCardHTML("snapshot-restore","Replace local data from this snapshot?",snapDiffText(r),'Current KevinOS content on this device will be replaced after a pre-restore snapshot; linked sync may merge newer content back in.','data-snap-confirm="'+escapeHtml(r.at)+'"',"Restore snapshot",'data-snap-cancel="1"');
       });
       box.innerHTML=h+'</div>';
     }).catch(function(e){snapWarn(e);box.innerHTML='<p class="hint">Snapshots unavailable on this browser.</p>';});
@@ -5956,19 +6268,51 @@
     var schemaLine="Schema v"+v+" (this app writes v"+SCHEMA_VERSION+").<br>";
     return schemaLine+docCountsText(doc,"backup")+"Connections and credentials are never imported.<br>";
   }
+  var RECOVERY_DRILL_KEY="kevinos:recoveryDrill",RECOVERY_DRILL_MAX_BYTES=5000000,recoveryDrillResult=null;
+  function backupDifferenceCount(doc,current){
+    doc=doc||{};current=current||portableDoc(state);var different=0,i,k,a,b,by={},j,x;
+    for(i=0;i<CONTENT_ARRAYS.length;i++){k=CONTENT_ARRAYS[i];a=isArr(doc[k])?doc[k]:[];b=isArr(current[k])?current[k]:[];by={};for(j=0;j<b.length;j++){x=b[j];if(x&&x.id!=null)by[x.id]=canonicalAiString(x);}for(j=0;j<a.length;j++){x=a[j];if(!x||x.id==null||by[x.id]!==canonicalAiString(x))different++;else delete by[x.id];}for(j in by)if(by.hasOwnProperty(j))different++;}
+    return different;
+  }
+  function recoveryDrillDocument(raw,current){
+    raw=String(raw==null?"":raw);var bytes=utf8ByteCount(raw),doc,warnings=[],present=0,i,k,connectionsExcluded=true;
+    if(bytes>RECOVERY_DRILL_MAX_BYTES)return {ok:false,status:"too-large",bytes:bytes,message:"Backup exceeds the 5 MB read-only drill limit. No replacement was performed."};
+    try{doc=JSON.parse(raw);}catch(e){return {ok:false,status:"malformed",bytes:bytes,message:"Backup is not valid JSON. No replacement was performed."};}
+    if(!doc||typeof doc!=="object"||isArr(doc))return {ok:false,status:"invalid-shape",bytes:bytes,message:"Backup does not contain a KevinOS document object. No replacement was performed."};
+    for(i=0;i<CONTENT_ARRAYS.length;i++){k=CONTENT_ARRAYS[i];if(isArr(doc[k]))present++;}
+    if(doc.sync||doc.push||doc.github||doc.email||doc.calendar||(doc.relay&&doc.relay.token)){connectionsExcluded=false;warnings.push("Connection fields are present; import would exclude them.");}
+    if((doc.v||0)>SCHEMA_VERSION)warnings.push("Backup schema is newer than this app; unknown fields may be omitted by import.");
+    if((doc.v||0)<SCHEMA_VERSION)warnings.push("Backup schema is older; compatible fields remain readable.");
+    if(!present)warnings.push("No canonical content collections were found.");
+    return {ok:present>0,status:present>0?"pass":"invalid-contract",bytes:bytes,schema:doc.v||0,collectionsPresent:present,connectionsExcluded:connectionsExcluded,differences:backupDifferenceCount(doc,current),fingerprint:aiFingerprint(canonicalAiString(doc)),warnings:warnings,message:present>0?"Backup readable":"Backup JSON is readable but does not match the portable KevinOS contract."};
+  }
+  function recoveryDrillMeta(){var x=null;try{x=JSON.parse(sideGet(RECOVERY_DRILL_KEY)||"null");}catch(e){}return x&&typeof x==="object"?x:null;}
+  function recordRecoveryDrill(report){var meta={at:Date.now(),fingerprint:report&&report.fingerprint||"",status:report&&report.status||"error"};sideSet(RECOVERY_DRILL_KEY,JSON.stringify(meta));return meta;}
+  function renderRecoveryDrill(){
+    var box=$("recoveryDrillResult");if(!box)return;var r=recoveryDrillResult,m=recoveryDrillMeta(),h="",i;
+    if(!r){if(m&&m.at)box.innerHTML='<p class="hint">Last read-only backup drill: '+escapeHtml(fmtSnapDate(m.at))+' · '+escapeHtml(m.status)+'.</p>';else box.innerHTML="";return;}
+    h='<section class="recovery-drill '+(r.ok?'pass':'fail')+'" role="status" aria-live="polite"><h3>'+escapeHtml(r.message)+'</h3><div class="receipt-grid"><span>Schema</span><span>'+escapeHtml(r.schema==null?'unreadable':r.schema)+'</span><span>Collections</span><span>'+escapeHtml(r.collectionsPresent==null?'unreadable':r.collectionsPresent+' present')+'</span><span>Connections</span><span>'+escapeHtml(r.connectionsExcluded?'excluded':'present — import still excludes them')+'</span><span>Differences</span><span>'+escapeHtml(r.differences==null?'not compared':r.differences+' records differ')+'</span><span>Replacement</span><span>none performed</span></div>';
+    if(r.warnings&&r.warnings.length){h+='<ul>';for(i=0;i<r.warnings.length;i++)h+='<li>'+escapeHtml(r.warnings[i])+'</li>';h+='</ul>';}
+    box.innerHTML=h+'</section>';
+  }
+  function runRecoveryDrillFile(file){
+    if(!file)return;if(typeof file.size==="number"&&file.size>RECOVERY_DRILL_MAX_BYTES){recoveryDrillResult={ok:false,status:"too-large",bytes:file.size,message:"Backup exceeds the 5 MB read-only drill limit. No replacement was performed."};recordRecoveryDrill(recoveryDrillResult);renderRecoveryDrill();return;}
+    var reader=new FileReader();reader.onload=function(){recoveryDrillResult=recoveryDrillDocument(String(reader.result),portableDoc(state));recordRecoveryDrill(recoveryDrillResult);renderRecoveryDrill();};reader.onerror=function(){recoveryDrillResult={ok:false,status:"read-error",message:"Backup could not be read. No replacement was performed."};recordRecoveryDrill(recoveryDrillResult);renderRecoveryDrill();};reader.readAsText(file);
+  }
   function restoreSnapshot(at){
-    snapConfirmAt=parseInt(at,10)||0;renderSnapshots();
+    snapshotError="";snapConfirmAt=parseInt(at,10)||0;renderSnapshots();focusHighStakes("snapshot-restore");
   }
   function doRestoreSnapshot(at){
-    snapConfirmAt=0;
+    snapConfirmAt=0;var opId=beginOperation("kevinos.state.restored",{source:"Kevin",checkpointReason:"pre-restore"});
     snapPut(portableDoc(state),"pre-restore").then(function(){
       snapGet(at).then(function(rec){
-        if(!rec||!rec.doc){toast("Snapshot unavailable.");return;}
+        if(!rec||!rec.doc){finishOperation(opId,"failed",{errorCode:"snapshot-missing"});snapshotError="The selected snapshot is missing or unreadable. Choose another snapshot or use a portable backup.";renderSnapshots();return;}
+        var affected=backupDifferenceCount(rec.doc,portableDoc(state));
         applyPortableDoc(rec.doc,{reason:"snapshot"});
         var done=loadFailed?completeRecovery():save();
-        done.then(function(){go(room);if(syncOn())syncPull();toast("Snapshot restored ✓");});
-      }).catch(function(){toast("Snapshot unavailable.");});
-    });
+        done.then(function(r){finishOperation(opId,r&&r.ok===false?"failed":"succeeded",{affectedCount:affected,errorCode:r&&r.ok===false?"save-failed":""});go(room);if(syncOn())syncPull();toast("Snapshot restored ✓");});
+      }).catch(function(){finishOperation(opId,"failed",{errorCode:"snapshot-read"});snapshotError="The selected snapshot could not be read. Current state was not changed.";renderSnapshots();});
+    }).catch(function(){finishOperation(opId,"failed",{errorCode:"checkpoint-failed"});snapshotError="A safety checkpoint could not be created, so restore did not run.";renderSnapshots();});
   }
 
   /* ---------- backup & PWA (v0.6) ---------- */
@@ -6007,23 +6351,27 @@
       return;
     }
     // Stage 2: the destructive confirm.
-    box.innerHTML=confirmCardHTML(warn+"Import &ldquo;"+escapeHtml(pendingImport.name)+"&rdquo;? It replaces everything in KevinOS on this device (a pre-import snapshot is taken first). If cross-device sync is on, the restored data will be MERGED with your synced data, not replace it.",'data-import-yes="1"',"Import backup",'data-import-no="1"');
+    box.innerHTML=highStakesCardHTML("backup-import","Replace local data from this backup?",warn+'Backup &ldquo;'+escapeHtml(pendingImport.name)+'&rdquo; passed the read check.','Current KevinOS content on this device will be replaced after a pre-import snapshot; linked sync merges rather than erases cloud content.','data-import-yes="1"',"Import backup",'data-import-no="1"');focusHighStakes("backup-import");
   }
   function doImportBackup(saved){
     // P3: snapPut(portableDoc(state), "pre-import") before applying import.
+    var opId=beginOperation("kevinos.state.imported",{source:"Kevin",checkpointReason:"pre-import"}),affected=backupDifferenceCount(saved,portableDoc(state));
     var before=(typeof snapPut==="function"&&!loadFailed)?snapPut(portableDoc(state),"pre-import"):Promise.resolve(false);
     before.then(function(){
       applyPortableDoc(saved,{reason:"import"});
       if(loadFailed){
-        completeRecovery().then(function(){go(room);if(syncOn())syncPull();window.alert("Backup imported — recovery is restored.");});
+        completeRecovery().then(function(r){finishOperation(opId,r&&r.ok===false?"failed":"succeeded",{affectedCount:affected,errorCode:r&&r.ok===false?"save-failed":""});go(room);if(syncOn())syncPull();window.alert("Backup imported — recovery is restored.");});
       }else{
-        save().then(function(){go(room);if(syncOn())syncPull();window.alert("Backup imported — everything’s restored.");});
+        save().then(function(r){finishOperation(opId,r&&r.ok===false?"failed":"succeeded",{affectedCount:affected,errorCode:r&&r.ok===false?"save-failed":""});go(room);if(syncOn())syncPull();window.alert("Backup imported — everything’s restored.");});
       }
-    });
+    }).catch(function(){finishOperation(opId,"failed",{errorCode:"checkpoint-failed"});toast("Import stopped because a safety checkpoint could not be created.");});
   }
   $("backupBtn").addEventListener("click",exportBackup);
   $("restoreBtn").addEventListener("click",function(){$("restoreInput").click();});
   $("restoreInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importBackup(f);e.target.value="";});
+  $("drillBtn").addEventListener("click",function(){$("drillInput").click();});
+  $("drillInput").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)runRecoveryDrillFile(f);e.target.value="";});
+  renderRecoveryDrill();
   $("themeToggle").addEventListener("click",cycleTheme);
   try{if(window.matchMedia)window.matchMedia("(prefers-color-scheme: dark)").addListener(function(){applyTheme();});}catch(e){}
   $("storageStats").addEventListener("click",function(e){
@@ -6034,9 +6382,9 @@
     }
   });
   $("importConfirm").addEventListener("click",function(e){
-    if(e.target.closest("[data-import-continue]")){if(pendingImport){pendingImport.stage="confirm";renderImportConfirm();}return;}
+    if(e.target.closest("[data-import-continue]")){if(pendingImport){rememberHighStakesFocus(e.target);pendingImport.stage="confirm";renderImportConfirm();}return;}
     if(e.target.closest("[data-import-yes]")){var doc=pendingImport&&pendingImport.doc;pendingImport=null;renderImportConfirm();if(doc)doImportBackup(doc);return;}
-    if(e.target.closest("[data-import-no]")){pendingImport=null;renderImportConfirm();}
+    if(e.target.closest("[data-import-no]")){pendingImport=null;renderImportConfirm();restoreHighStakesFocus();}
   });
   $("syncRow").addEventListener("click",handleSyncClick);
   $("syncRow").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target&&e.target.id==="syncPass"){e.preventDefault();connectSync(e.target.value);}});

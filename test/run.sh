@@ -31,12 +31,16 @@ node test/attention-proof.test.js
 node test/ui-contract.test.js
 node test/xss-corpus.test.js
 node test/capture.test.js
+node test/operations.test.js
+node test/friction.test.js
+node test/conflicts.test.js
 node test/merge.test.js
 node test/portable.test.js
 node test/ics.test.js
 node test/recurrence.test.js
 node test/streaks.test.js
 node test/convergence.test.js
+node test/sync-reference.test.js
 
 echo "── relay suites ───────────────────────────────"
 node relay/test/route-auth.test.js
