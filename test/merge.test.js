@@ -135,5 +135,24 @@ const { loadApp } = require("./harness");
   count = app.mergeRemoteDoc({ items: [{ id: "new1", u: 1 }] });
   assert.strictEqual(count, 0, "identical remote content counts zero");
 
+  // v0.51 focus metadata follows the existing whole-record newer-wins rule.
+  const focusDay = app.todayKey();
+  st.items = [{ id: "focus-merge", text: "Focus me", today: true, focusDate: focusDay, focusRank: 2, focusSetAt: 10, focusSource: "manual", u: 10 }];
+  app.mergeRemoteDoc({ items: [{ id: "focus-merge", text: "Focus me", today: true, focusDate: focusDay, focusRank: 1, focusSetAt: 20, focusSource: "manual", u: 20 }] });
+  assert.strictEqual(st.items[0].focusRank, 1, "newer explicit focus record wins deterministically");
+  st.items = [{ id: "focus-tie-a", text: "A", today: true, focusDate: focusDay, focusRank: 1, focusSetAt: 50, u: 30 }];
+  app.mergeRemoteDoc({ items: [{ id: "focus-tie-b", text: "B", today: true, focusDate: focusDay, focusRank: 1, focusSetAt: 40, u: 30 }] });
+  assert.deepStrictEqual(app.focusItems(focusDay).map((x) => x.id), ["focus-tie-b", "focus-tie-a"], "same-rank merged tasks use focus timestamp then id");
+
+  // v0.53 structured proof merges nested identity lists losslessly even
+  // though ordinary mission fields continue to use whole-record newer-wins.
+  const baseMission = { id: "proof-merge", name: "Proof merge", outcome: "Preserve evidence", currentState: "Testing", next: "Merge", aiRole: "Verifier", allowedScope: "index.html", forbiddenFiles: "", tests: "node test/merge.test.js" };
+  const localMission = Object.assign({}, baseMission, { u: 100, proofBundle: { version: 1, acceptanceItems: [{ id: "ac-local", text: "Local criterion", status: "pass", checkedAt: 100, evidenceRefs: [] }], attempts: [{ id: "attempt-local", packetFingerprint: "old-a", startedAt: 100, completedAt: 100, verificationReceipts: [{ id: "receipt-local", actionType: "command", action: "local", reportedStatus: "reported-pass", localStatus: "pass", evidence: "ok" }] }] } });
+  const remoteMission = Object.assign({}, baseMission, { u: 200, proofBundle: { version: 1, acceptanceItems: [{ id: "ac-remote", text: "Remote criterion", status: "pending", checkedAt: 200, evidenceRefs: [] }], attempts: [{ id: "attempt-remote", packetFingerprint: "old-b", startedAt: 200, completedAt: 200, verificationReceipts: [{ id: "receipt-remote", actionType: "command", action: "remote", reportedStatus: "reported-pass", localStatus: "unverified", evidence: "reported" }] }] } });
+  const mergedMission = app.mergeBuildsById([localMission], [remoteMission])[0];
+  assert.deepStrictEqual(mergedMission.proofBundle.acceptanceItems.map((x) => x.id), ["ac-local", "ac-remote"], "acceptance identities union across devices");
+  assert.deepStrictEqual(mergedMission.proofBundle.attempts.map((x) => x.id), ["attempt-local", "attempt-remote"], "attempt receipts union across devices");
+  assert.strictEqual(mergedMission.u, 200, "newer ordinary mission fields still win");
+
   console.log("merge convergence ok");
 })().catch((err) => { console.error(err); process.exit(1); });

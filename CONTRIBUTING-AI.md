@@ -68,6 +68,8 @@ Kevin runs a studio: one AI specs, another implements, another directs, another 
 - Small, reviewable commits; one item per commit, prefixed with its id (e.g. `W2.1: …`).
 - Update the ledger (`MISSION.md` / the execution order's Wave Log) before you run out of context — a cold agent must be able to resume from one read.
 - Honest status only: machine-verified vs `USER-REPORTED PASS` vs `MANUAL-UNVERIFIED` are different things.
+- Return the exact Studio packet fingerprint and acceptance-item IDs. A collaborator-reported pass remains unverified until KevinOS or Kevin records local evidence; failed attempts are preserved, not rewritten.
+- “Shipped” requires structured acceptance plus a current local pass. A reasoned override is allowed only through the visible high-stakes path and remains “Shipped with override,” never “Verified.”
 - AI proposes, Kevin approves: pushes, deploys, schema bumps, and anything destructive or outward-facing wait for his explicit yes.
 
-**Doc trust order when sources disagree:** code → `MISSION.md` → `GETTING_STARTED.md` → `HANDOFF.md` → `ROADMAP.md` → `CLAUDE_CODE_HANDOFF.md`. Log any drift you find.
+**Doc trust order when sources disagree:** code → `docs/CURRENT_STATE.md` → `AGENTS.md` and the relevant current domain contract → historical mission/handoff/roadmap evidence. Log any drift you find.
