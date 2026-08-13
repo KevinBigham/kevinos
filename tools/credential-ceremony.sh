@@ -124,7 +124,10 @@ self_test() {
   if configured GROQ_API_KEY; then printf '%s\n' 'self-test failed: revoke' >&2; exit 1; fi
   grep -q '^UNRELATED_FIXTURE=keep-me$' "$TARGET"
   write_name MISTRAL_API_KEY fixture-mistral-safe
-  mode=$(stat -f '%Lp' "$TARGET" 2>/dev/null || stat -c '%a' "$TARGET")
+  # Node gives one portable permission value. GNU `stat -f` can print partial
+  # filesystem output before its BSD-style format operand fails, which made
+  # the command-substitution fallback produce a multi-line value in Linux CI.
+  mode=$(node -e 'var fs=require("fs"); process.stdout.write(((fs.statSync(process.argv[1]).mode & 511).toString(8)));' "$TARGET")
   [ "$mode" = 600 ]
   result=$(KEVINOS_PROVIDER_CONFIG_FILE="$TARGET" node "$ROOT/tools/verify-ai-provider-config.js" --redacted)
   printf '%s' "$result" | grep -q 'Mistral.*CONFIGURED'
