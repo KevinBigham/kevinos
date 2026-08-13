@@ -48,9 +48,9 @@ Status: **YELLOW — STATIC APP, RELAY, AND VERIFIED GROQ ROUTE DEPLOYED**
 
 ## Provider activation truth
 
-Groq is **VERIFIED-FREE-ACTIVE** at exact pair `groq:openai/gpt-oss-20b`. Mistral, Gemini, Cohere, OpenRouter, SambaNova, and NVIDIA are **CONFIGURED / POLICY-DISABLED** for the new fabric. Cloudflare Workers AI is **BOUND / MODEL-REACHABLE / OUTPUT-SCHEMA-FAILED / POLICY-DISABLED**. Key or binding presence is not represented as a successful provider contract, universal free-tier guarantee, or privacy acknowledgement.
+Groq is **VERIFIED-FREE-ACTIVE** at exact pair `groq:openai/gpt-oss-20b`. Gemini is **STRICT-PASS / ACTIVATION-CANDIDATE** through `gemini-flash-latest`, resolving to `gemini-3.6-flash`; production activation awaits the focused repair merge/deploy. Mistral, Cohere, OpenRouter, SambaNova, and NVIDIA are **CONFIGURED / POLICY-DISABLED**. Cloudflare Workers AI is **BOUND / MODEL-REACHABLE / OUTPUT-SCHEMA-FAILED / POLICY-DISABLED**. Key or binding presence is not represented as a successful provider contract, universal free-tier guarantee, or privacy acknowledgement.
 
-Core verification on 2026-08-13 changed only Groq's ruling: Kevin confirmed ZDR, and `groq:openai/gpt-oss-20b` passed the strict schema/privacy/proposal contract with live free-plan rate headers. The old Groq model was replaced ahead of its documented 2026-08-16 retirement. Mistral remains disabled after `OUTPUT_SCHEMA`; Gemini remains disabled after `MODEL_NOT_FOUND`; Workers AI and all optional providers remain disabled. Paid routing remains false.
+Core verification on 2026-08-13 first activated Groq after Kevin confirmed ZDR and `groq:openai/gpt-oss-20b` passed the strict schema/privacy/proposal contract with live free-plan rate headers. A later focused Gemini repair replaced the new-user-ineligible 2.5 target, secured key transport in the documented header, supplied the strict schema, and passed on resolved model `gemini-3.6-flash`. Mistral remains disabled after `OUTPUT_SCHEMA`; Workers AI and all optional providers remain disabled. Paid routing remains false.
 
 Only the exact Groq pair is present in the production enable/free allowlists. Optional seats retain their evaluation/emergency/lab/prototype-only classes; failed core seats require a later focused repair and fresh receipt, not optimistic activation.
 

@@ -86,6 +86,8 @@ async function post(worker, env, pathname, body) {
   const aiBudgets = [];
   const aiSystems = [];
   const aiConfigs = [];
+  const aiUrls = [];
+  const aiHeaders = [];
   let phase = "scan";
   let phaseFetches = 0;
   let sendCalls = 0;
@@ -139,6 +141,8 @@ async function post(worker, env, pathname, body) {
       throw new Error("Unexpected Gmail URL: " + url);
     }
     if (url.indexOf("generativelanguage.googleapis.com") >= 0) {
+      aiUrls.push(url);
+      aiHeaders.push(init.headers);
       const req = JSON.parse(init.body);
       const system = req.systemInstruction.parts[0].text;
       aiSystems.push(system);
@@ -210,7 +214,9 @@ async function post(worker, env, pathname, body) {
     assert.deepStrictEqual(scan.data.candidates.map((c) => c.id), ["m002", "m001"], "AI ranking is allowlisted to supplied message ids and preserves order");
     assert.strictEqual(scan.data.candidates[0].body, undefined, "stage 1 never sends message bodies back to the browser");
     assert.deepStrictEqual(aiBudgets.slice(0, 2), [512, 4096], "scan uses bounded query-planning and selection budgets");
-    assert.ok(aiConfigs[0].responseSchema && aiConfigs[1].responseSchema, "scan uses Gemini structured-output schemas");
+    assert.ok(aiConfigs[0].responseJsonSchema && aiConfigs[1].responseJsonSchema, "scan uses Gemini structured-output schemas");
+    assert.ok(aiUrls.every((url) => url.indexOf("?key=") < 0), "Gemini credentials are excluded from request URLs");
+    assert.ok(aiHeaders.every((headers) => headers["x-goog-api-key"] === "gemini-test"), "Gemini requests authenticate with the documented header");
     assert.deepStrictEqual(aiConfigs.slice(0, 2).map((c) => c.thinkingConfig.thinkingBudget), [0, 0], "scan reserves its output budget for complete JSON");
     assert.ok(aiSystems[1].indexOf("untrusted evidence") >= 0, "scan prompt defends against email prompt injection");
     assert.ok(phaseFetches < 50, "scan stays below the Worker external-subrequest limit");
@@ -230,7 +236,7 @@ async function post(worker, env, pathname, body) {
     assert.strictEqual(research.data.results[0].to, "dana@example.com", "reply routing uses the parsed sender email");
     assert.ok(historyQueries.some((q) => q.indexOf('from:"Coach Carter"') >= 0 && q.indexOf('to:"coach@example.com"') >= 0), "relationship search uses sender name and email");
     assert.strictEqual(aiBudgets[2], 8192, "research has room for ten sets of three replies");
-    assert.ok(aiConfigs[2].responseSchema, "research uses a Gemini structured-output schema");
+    assert.ok(aiConfigs[2].responseJsonSchema, "research uses a Gemini structured-output schema");
     assert.strictEqual(aiConfigs[2].thinkingConfig.thinkingBudget, 0, "research reserves its output budget for complete JSON");
     assert.ok(aiSystems[2].indexOf("Nothing is being sent") >= 0, "research explicitly remains draft-only");
     assert.ok(phaseFetches < 50, "research stays below the Worker external-subrequest limit");

@@ -11,7 +11,7 @@
 
 This file activates the personalization and provider-fabric mission over the verified v0.57/schema-v39 Convergence baseline. It preserves every previously approved Kevin-shaped evolution and adds a provider-neutral, zero-dollar, privacy-first AI fabric.
 
-Schema v40, provider adapters/routes, Control Center, credential tooling, and passing evidence now exist. Groq passed the strict remote-preview contract on `openai/gpt-oss-20b` and is the sole enabled production fabric route in Worker `364b59ca-7f8c-43dc-ad3d-f30c36f99760`. Mistral, Gemini, Workers AI, and optional routes failed or remain unverified and stay disabled. Code, tests, `MISSION_STATE.json`, and the evidence index remain source truth.
+Schema v40, provider adapters/routes, Control Center, credential tooling, and passing evidence now exist. Groq passed the strict contract on `openai/gpt-oss-20b` and remains the sole enabled production fabric route in Worker `364b59ca-7f8c-43dc-ad3d-f30c36f99760` until the focused Gemini candidate is merged and deployed. Gemini now passes through `gemini-flash-latest`, resolving to `gemini-3.6-flash`, with strict schema/privacy/proposal-only validation and no retained content. Mistral, Workers AI, and optional routes failed or remain unverified and stay disabled. Code, tests, `MISSION_STATE.json`, and the evidence index remain source truth.
 
 ## Non-stop implementation behavior
 
@@ -29,7 +29,7 @@ K-1 through K9 are fully credentialless. Codex must build and prove adapters, ro
 
 Only after `sh tools/run-evolution-gates.sh preactivation` passes may K10 begin. Codex then asks once, tells Kevin not to paste keys into chat, and directs him to a silent ignored local credential ceremony. Missing optional keys remain disabled and non-blocking. Unknown or non-free pricing remains blocked. Remote secret mutation or deployment still requires separate just-in-time authorization.
 
-Preactivation passed before the one K10 request. Resume at K10.07 only after Kevin replies `ceremony complete`; do not open or display `relay/.dev.vars`. The strict local probe and post-entry verification remain bounded to the providers Kevin actually configured.
+Preactivation passed before the one K10 request. The silent ceremony, Groq activation, and Gemini strict activation candidate are complete; do not open or display `relay/.dev.vars`. Finish the focused Gemini merge/deploy receipt, then resume at K10.09 for Mistral's still-disabled `OUTPUT_SCHEMA` repair. Every later probe remains bounded to providers Kevin actually configured and their explicit policy gates.
 
 ## Prepared baseline
 
