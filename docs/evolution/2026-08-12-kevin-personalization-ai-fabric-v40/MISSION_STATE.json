@@ -3,7 +3,7 @@
   "status": "BLOCKED-EXTERNAL",
   "currentWave": "K10",
   "currentTask": "K10.09",
-  "lastUpdated": "2026-08-13T13:15:52Z",
+  "lastUpdated": "2026-08-13T13:23:36Z",
   "baseline": {
     "appVersion": "0.57",
     "schemaVersion": 39,
@@ -127,7 +127,7 @@
       "title": "Credentials-last secure activation and live synthetic verification",
       "status": "BLOCKED-EXTERNAL",
       "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003", "EV-K10-004", "EV-K10-005", "EV-K10-006", "EV-K10-007"],
-      "notes": "The credential ceremony, remote secret transfer, v0.58 Pages release, and relay deployment are complete. Groq is production-active. Gemini Free Tier/account state and data-use acknowledgement are confirmed; its current Flash alias resolves to gemini-3.6-flash and passes the strict activation contract, pending focused merge/deploy. Mistral and Workers AI failed OUTPUT_SCHEMA and remain disabled; optional-provider account/model probes remain external."
+      "notes": "The credential ceremony, remote secret transfer, v0.58 Pages release, and relay deployment are complete. Groq and Gemini are production-active in Worker 12fab779-f1b5-430e-b67b-64d3543ef295 with paid routing false. Gemini Free Tier/account state and data-use acknowledgement are confirmed; its current Flash alias resolves to gemini-3.6-flash and passes the strict contract. Mistral and Workers AI failed OUTPUT_SCHEMA and remain disabled; optional-provider account/model probes remain external."
     }
   ],
   "finalGates": {
