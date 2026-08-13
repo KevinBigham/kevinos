@@ -112,7 +112,7 @@ No push, PR, merge, tag, deploy, publish, outward send, calendar creation, finan
 
 ## 16. Patch, checksums, and rollback
 
-- Review diff excluding generated `output/` evidence: `output/evolution/kevinos-v058-credentialless.patch`. It remains an untracked local artifact; the checkpoint commit is the authoritative file manifest.
+- Credentialless review diff: `output/evolution/kevinos-v058-credentialless.patch`. It is committed as a bounded evidence artifact; the Git commits remain the authoritative file manifest.
 - Key SHA-256 values at handoff: `index.html` `df972a734716fc6b64d4940fd508e956e3e56462473ec3142b5d7d28794e6587`; `sw.js` `e51f6bf22c56aa9871dc15c019a8d7954e65dc3775f0e8d8d308f7139eacbf2c`; `relay/worker.js` `fd07c1a3df5dfa7131e17035905650324a69be145f10712284aea978fbb1b012`.
 - Code rollback before publication: review/revert this focused branch against base `43715bf...`; do not use a destructive reset in a dirty workspace.
 - Data rollback: use the tested pre-v40 snapshot or a verified portable backup; connection state remains device-local.
