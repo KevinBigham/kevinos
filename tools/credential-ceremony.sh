@@ -130,7 +130,7 @@ self_test() {
   stage_core_policy 'groq,mistral,gemini' >/dev/null
   grep -q '^AI_ALLOW_PAID=false$' "$TARGET"
   grep -q '^AI_ENABLED_PROVIDERS=groq,mistral,gemini$' "$TARGET"
-  grep -q '^AI_FREE_VERIFIED_MODELS=groq:openai/gpt-oss-20b,mistral:mistral-small-latest,gemini:gemini-2.5-flash$' "$TARGET"
+  grep -q '^AI_FREE_VERIFIED_MODELS=groq:openai/gpt-oss-20b,mistral:mistral-small-latest,gemini:gemini-flash-latest$' "$TARGET"
   grep -q '^GROQ_ZDR_CONFIRMED=1$' "$TARGET"
   grep -q '^MISTRAL_FREE_MODE_CONFIRMED=1$' "$TARGET"
   grep -q '^GEMINI_FREE_DATA_USE_ACKNOWLEDGED=1$' "$TARGET"
@@ -167,7 +167,7 @@ stage_core_policy() {
         seen_mistral=1; key=MISTRAL_API_KEY; model='mistral-small-latest' ;;
       gemini)
         [ "$seen_gemini" -eq 0 ] || { printf '%s\n' 'Duplicate core provider.' >&2; exit 2; }
-        seen_gemini=1; key=GEMINI_API_KEY; model='gemini-2.5-flash' ;;
+        seen_gemini=1; key=GEMINI_API_KEY; model='gemini-flash-latest' ;;
       *) printf '%s\n' 'Core policy accepts only groq, mistral, gemini, or none.' >&2; exit 2 ;;
     esac
     configured "$key" || { printf '%s is not configured; policy was not changed.\n' "$(provider_label "$key")" >&2; exit 1; }

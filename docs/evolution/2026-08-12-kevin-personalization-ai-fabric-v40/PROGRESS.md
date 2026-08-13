@@ -206,7 +206,7 @@ Every subsequent entry includes:
 
 ## Current next task
 
-`K10.07` — after Kevin completes the silent local ceremony, verify Groq ZDR/account state and run exactly one strict synthetic Groq probe. Live provider/account work is blocked externally until that confirmation.
+`K10.09` — finish the focused Gemini production receipt, then repair/reverify Mistral's strict `OUTPUT_SCHEMA` failure without enabling it unless the exact contract passes. Optional-provider/account work remains externally gated.
 
 ## K10 deployment receipt — 2026-08-13T11:40:39Z
 
@@ -243,6 +243,14 @@ Every subsequent entry includes:
 - Live public root returned 200, Pages-origin CORS returned 200, and unauthenticated `/ai/health` plus `/ai/providers` returned 401. GitHub Pages still exposes v0.58/schema v40/cache `kevinos-v0_58`.
 - A real in-app browser loaded the live GitHub Pages app, opened Studio and the zero-dollar Provider Control Center through isolated demo data, then cleared that data. Final console had zero warnings/errors. The fresh browser origin correctly remained in local mode because no relay token was entered or inspected.
 - Mistral, Gemini, Workers AI, and optional providers remain production-disabled. The activation changed no static app or save schema and performed no paid call, send, publish, schedule, calendar, OAuth, push, or destructive action.
+
+## K10 Gemini repair candidate — 2026-08-13T13:15:52Z
+
+- Kevin's signed-in AI Studio showed the KevinOS project on Free Tier with one key and no monthly spend. The authenticated catalog listed the configured 2.5 model, but its generation endpoint explicitly rejected that model for new users.
+- KevinOS now uses `gemini-flash-latest`, moves every Gemini credential from query strings to Google's documented `x-goog-api-key` header, supplies `responseJsonSchema` for strict jobs, and records the provider's resolved `modelVersion`.
+- One bounded synthetic remote-preview probe resolved to exact `gemini-3.6-flash` and passed schema, privacy, and proposal-only validation in 3,743 ms. It reported 72 input, 52 output, and 590 total tokens; retained no response content and ran no fallback.
+- Focused fabric, inbox-intelligence, syntax, doctor, credential-ceremony, 346-file zero-exposure scan, mission structure, complete app/relay suite, and wave gate pass. Evidence log: `output/evolution/wave-20260813T131956Z.log`. The ignored mode-600 policy store is staged for only Groq and Gemini with `AI_ALLOW_PAID=false`.
+- This is an activation candidate until the focused branch is merged and the sealed secrets plus Worker are redeployed. Mistral, Workers AI, and every optional provider remain disabled.
 
 ## K9 completion receipt — 2026-08-13T07:28:00Z
 

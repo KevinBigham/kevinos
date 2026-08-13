@@ -31,6 +31,8 @@ function envFor(ids) {
 }
 
 (async function () {
+  const workerSource = fs.readFileSync(path.join(__dirname, "..", "worker.js"), "utf8");
+  assert.doesNotMatch(workerSource, /generateContent\?key=/, "no Gemini route places a credential in the URL");
   const worker = await loadWorker();
   assert.strictEqual(worker.FABRIC_PROVIDER_SPECS.length, 8, "all eight bounded provider adapters are registered");
   assert.deepStrictEqual(worker.FABRIC_PRIVACY, ["PUBLIC", "SANITIZED", "PERSONAL", "WORK_INTERNAL", "YOUTH_SENSITIVE", "FINANCIAL_SENSITIVE", "SECRET"]);
@@ -145,7 +147,7 @@ function envFor(ids) {
   assert.deepStrictEqual({ status: recommendation.status, proposed: recommendation.proposedProviderId, lkg: recommendation.lastKnownGood, auto: recommendation.autoApplied }, { status: "AWAITING_KEVIN", proposed: "groq", lkg: "mistral", auto: false }, "recommendations preserve approval and rollback boundaries");
 
   const adapterResponses = {
-    gemini: { candidates: [{ content: { parts: [{ text: JSON.stringify({ proposals: [] }) }] } }], usageMetadata: { promptTokenCount: 2, candidatesTokenCount: 3 } },
+    gemini: { modelVersion: "gemini-3.6-flash", candidates: [{ content: { parts: [{ text: JSON.stringify({ proposals: [] }) }] } }], usageMetadata: { promptTokenCount: 2, candidatesTokenCount: 3 } },
     cohere: { message: { content: [{ text: JSON.stringify({ proposals: [] }) }] }, usage: { input_tokens: 2, output_tokens: 3 } },
     standard: { model: "actual-returned-model", choices: [{ message: { content: JSON.stringify({ proposals: [] }) } }], usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 } }
   };
@@ -160,6 +162,16 @@ function envFor(ids) {
       assert.ok(out.actualModel, spec.id + " records exact/selected model");
     } finally { global.fetch = realFetch; }
   }
+
+  const geminiSpec = worker.FABRIC_PROVIDER_SPECS.find((spec) => spec.id === "gemini"), geminiEnv = envFor(["gemini"]);let geminiUrl, geminiOptions;
+  global.fetch = async function (url, options) { geminiUrl = String(url);geminiOptions = options;return new Response(JSON.stringify(adapterResponses.gemini), { status: 200 }); };
+  try {
+    await worker.callFabricAdapter(geminiSpec, Object.assign(requestFixture(), { responseFormat: strictFormat }), geminiEnv);
+    assert.strictEqual(geminiUrl, geminiSpec.endpoint + "/gemini-flash-latest:generateContent", "Gemini key is excluded from the request URL");
+    assert.strictEqual(geminiOptions.headers["x-goog-api-key"], "server-test-secret", "Gemini authenticates with the documented header");
+    assert.deepStrictEqual(JSON.parse(geminiOptions.body).generationConfig.responseJsonSchema, strictFormat.json_schema.schema, "Gemini receives the strict proposal schema");
+    assert.strictEqual((await worker.callFabricAdapter(geminiSpec, requestFixture(), geminiEnv)).actualModel, "gemini-3.6-flash", "Gemini records the resolved model version");
+  } finally { global.fetch = realFetch; }
 
   const edgeSpec = worker.FABRIC_PROVIDER_SPECS.find((spec) => spec.id === "groq"), edgeEnv = envFor(["groq"]);
   for (const edge of [

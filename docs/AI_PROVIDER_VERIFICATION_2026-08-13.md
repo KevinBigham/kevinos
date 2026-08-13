@@ -8,6 +8,8 @@ This is the dated implementation snapshot for the credentialless KevinOS Provide
 
 > Production addendum, 2026-08-13 13:02 UTC: PR #11 merged and Worker `364b59ca-7f8c-43dc-ad3d-f30c36f99760` deployed. The production enable/free allowlists contain only Groq and `groq:openai/gpt-oss-20b`; paid routing remains false. Public root/CORS/auth boundaries and the live Studio shell passed. No additional provider inference was run during deployment.
 
+> Gemini repair addendum, 2026-08-13 13:15 UTC: Kevin's signed-in AI Studio showed the KevinOS project on Free Tier with one key and no monthly spend. Although the catalog still listed `gemini-2.5-flash`, its generation endpoint reported that model unavailable to new users. KevinOS now uses `gemini-flash-latest`, authenticates every Gemini route with `x-goog-api-key`, supplies `responseJsonSchema`, and records Google's resolved `modelVersion`. One strict remote-preview probe resolved to `gemini-3.6-flash` and passed schema, privacy, and proposal-only validation in 3,743 ms; 72 input, 52 output, and 590 total tokens were reported, no response content was retained, and no fallback ran. Production remains Groq-only until the focused repair is merged and deployed.
+
 ## Routing rule
 
 A provider is routable only when all of these runtime facts are true:
@@ -25,7 +27,7 @@ Unknown price, stale policy, missing credential, missing enablement, or absent e
 
 | Provider | Official fact checked on 2026-08-13 | Conservative KevinOS ruling | Official source |
 |---|---|---|---|
-| Gemini | Google lists `gemini-2.5-flash` as a stable model with Free Tier pricing and warns that free-tier content may be used to improve products. Kevin acknowledged that policy; his authenticated model catalog exposed the exact model, but the strict generation probe returned `MODEL_NOT_FOUND`. | `PRIMARY_FREE`; Public/Sanitized only; configured but disabled until the transport contract passes. | [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing), [models](https://ai.google.dev/gemini-api/docs/models) |
+| Gemini | Kevin's AI Studio project is on Free Tier and its authenticated catalog exposes the current Flash alias. The new-user generation endpoint rejected the old 2.5 target, while `gemini-flash-latest` succeeded and resolved to `gemini-3.6-flash`. Kevin acknowledged free-tier data use. | `PRIMARY_FREE`; Public/Sanitized only; strict activation candidate passed and awaits focused merge/deploy. | [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing), [models](https://ai.google.dev/gemini-api/docs/models), [structured output](https://ai.google.dev/gemini-api/docs/structured-output) |
 | Groq | Groq lists `openai/gpt-oss-20b` as a production model with free-plan limits and strict structured-output support. `llama-3.3-70b-versatile` is scheduled to shut down for free/developer tiers on 2026-08-16. Kevin confirmed ZDR; the exact replacement model and live account rate headers passed. | `PRIMARY_FREE`; Public/Sanitized only; production active with paid routing disabled. | [GPT-OSS 20B](https://console.groq.com/docs/model/openai/gpt-oss-20b), [structured outputs](https://console.groq.com/docs/structured-outputs), [deprecations](https://console.groq.com/docs/deprecations), [rate limits](https://console.groq.com/docs/rate-limits) |
 | Mistral | Studio Free Mode enables API access without a credit card, with variable usage/rate limits; keys support expiry. | `PRIMARY_FREE`; exact model, account limits, Free Mode, and key expiry must be verified live. | [Free Mode and key setup](https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key) |
 | Cloudflare Workers AI | The free allocation is 10,000 Neurons per day and resets at 00:00 UTC; paid overage belongs to paid Workers plans, and some named models require a paid method. | `PRIMARY_FREE`; binding only; conservative 8,500-Neuron app ceiling; exclude paid-only models and never enable paid overage for this mission. | [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [binding setup](https://developers.cloudflare.com/workers-ai/configuration/bindings/) |
@@ -54,7 +56,7 @@ These links were refreshed from official sources on 2026-08-13. Console/account/
 
 ## Honest activation-state receipt
 
-Groq is the only verified production-active route: `groq:openai/gpt-oss-20b`, ZDR confirmed, strict synthetic receipt passed, `allowPaid=false`. Mistral, Gemini, Cloudflare Workers AI, and every optional provider remain configured/bound but policy-disabled after their current result or pending gate. The app remains fully useful without any provider.
+Groq is the only verified production-active route until the focused Gemini repair deploys: `groq:openai/gpt-oss-20b`, ZDR confirmed, strict synthetic receipt passed, `allowPaid=false`. Gemini's `gemini-flash-latest` activation candidate also passes and resolves to `gemini-3.6-flash`. Mistral, Cloudflare Workers AI, and every optional provider remain configured/bound but policy-disabled after their current result or pending gate. The app remains fully useful without any provider.
 
 ## Refresh rule
 
