@@ -227,6 +227,15 @@ Every subsequent entry includes:
 - The returned content failed local `OUTPUT_SCHEMA`, was discarded, ran no fallback, and opened the bounded 60-second circuit. Production allowlists remain empty.
 - The corrected merged Worker is `098fbb96-d4f3-424b-a718-07c0edf51a5b`. Workers AI is model-reachable but remains policy-disabled until its proposal schema passes.
 
+## K10 core-provider activation receipt — 2026-08-13T12:55:39Z
+
+- Kevin explicitly confirmed Groq ZDR, Mistral Free Mode, and acknowledgement of Gemini free-tier data use. The mode-600 local store records only those non-secret flags; no key value entered output, Git, browser state, or a receipt.
+- Official current sources showed Groq's legacy `llama-3.3-70b-versatile` free/developer shutdown on 2026-08-16. KevinOS now selects `openai/gpt-oss-20b`, uses Groq's documented hidden-reasoning plus strict JSON-schema contract, and preserves exact schema validation locally.
+- The first content-discarding receipts exposed safe failure categories only. After the adapter correction, Groq passed on the exact model in 687 ms with 172 input, 435 output, 607 total tokens and live free-plan request/token headers. Schema, privacy, and proposal-only rules passed; response content was not retained.
+- Mistral Free Mode is confirmed but `mistral-small-latest` failed `OUTPUT_SCHEMA`; Gemini's authenticated catalog exposed `models/gemini-2.5-flash` with `generateContent`, but the strict probe returned `MODEL_NOT_FOUND`. Both remain configured and policy-disabled. Cloudflare and all optional seats remain disabled.
+- Local production policy is staged for Groq only. `AI_ALLOW_PAID=false`; there is no automatic provider promotion, fallback spill, or outward action.
+- Doctor, 345-file secret scan, full suite, mission structure, and wave gate pass. Evidence log: `output/evolution/wave-20260813T125836Z.log`.
+
 ## K9 completion receipt — 2026-08-13T07:28:00Z
 
 **Status:** PREACTIVATION READY / v0.58 + SCHEMA v40 / NO CREDENTIALS REQUESTED

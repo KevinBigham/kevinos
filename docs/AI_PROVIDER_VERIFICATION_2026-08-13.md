@@ -4,6 +4,8 @@ This is the dated implementation snapshot for the credentialless KevinOS Provide
 
 > Activation addendum, 2026-08-13 11:53 UTC: after the credentialless snapshot, Kevin separately authorized deployment and bounded live verification. All requested credential names are present remotely without value exposure. One strict synthetic Workers AI call reached `@cf/meta/llama-3.3-70b-instruct-fp8-fast` after an explicit 250-Neuron estimate passed the 8,500-Neuron ceiling; the returned content failed the local `OUTPUT_SCHEMA` contract, was discarded, and triggered the bounded circuit. Production fabric allowlists remain empty.
 
+> Core-control addendum, 2026-08-13 12:55 UTC: Kevin explicitly confirmed Groq ZDR, Mistral Free Mode, and acknowledgement of Gemini free-tier data use. Groq's nearly retired `llama-3.3-70b-versatile` default was replaced with `openai/gpt-oss-20b`. A strict post-fix Groq probe passed schema, privacy, proposal-only, exact-model, usage, and live rate-header checks in 687 ms; no response content was retained. Mistral returned `OUTPUT_SCHEMA`, and Gemini returned `MODEL_NOT_FOUND` even though its authenticated model catalog exposed `models/gemini-2.5-flash` with `generateContent`. Both remain policy-disabled. Paid routing remains false.
+
 ## Routing rule
 
 A provider is routable only when all of these runtime facts are true:
@@ -21,8 +23,8 @@ Unknown price, stale policy, missing credential, missing enablement, or absent e
 
 | Provider | Official fact checked on 2026-08-13 | Conservative KevinOS ruling | Official source |
 |---|---|---|---|
-| Gemini | Google currently lists standard Gemini 3.6 Flash input/output as free of charge on the Free Tier and warns that free-tier content may be used to improve products. Account access is still a live activation fact. | `PRIMARY_FREE`; Public/Sanitized only; exact free model and Kevin's account eligibility must be allowlisted at activation. | [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing) |
-| Groq | Rate limits are model/account specific and exposed through response headers. Groq documents default inference retention controls and optional Zero Data Retention controls. | `PRIMARY_FREE`; parse rate headers; ZDR/account control remains an activation fact. | [Rate limits](https://console.groq.com/docs/rate-limits), [data controls](https://console.groq.com/docs/your-data) |
+| Gemini | Google lists `gemini-2.5-flash` as a stable model with Free Tier pricing and warns that free-tier content may be used to improve products. Kevin acknowledged that policy; his authenticated model catalog exposed the exact model, but the strict generation probe returned `MODEL_NOT_FOUND`. | `PRIMARY_FREE`; Public/Sanitized only; configured but disabled until the transport contract passes. | [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing), [models](https://ai.google.dev/gemini-api/docs/models) |
+| Groq | Groq lists `openai/gpt-oss-20b` as a production model with free-plan limits and strict structured-output support. `llama-3.3-70b-versatile` is scheduled to shut down for free/developer tiers on 2026-08-16. Kevin confirmed ZDR; the exact replacement model and live account rate headers passed. | `PRIMARY_FREE`; Public/Sanitized only; verified activation candidate with paid routing disabled. | [GPT-OSS 20B](https://console.groq.com/docs/model/openai/gpt-oss-20b), [structured outputs](https://console.groq.com/docs/structured-outputs), [deprecations](https://console.groq.com/docs/deprecations), [rate limits](https://console.groq.com/docs/rate-limits) |
 | Mistral | Studio Free Mode enables API access without a credit card, with variable usage/rate limits; keys support expiry. | `PRIMARY_FREE`; exact model, account limits, Free Mode, and key expiry must be verified live. | [Free Mode and key setup](https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key) |
 | Cloudflare Workers AI | The free allocation is 10,000 Neurons per day and resets at 00:00 UTC; paid overage belongs to paid Workers plans, and some named models require a paid method. | `PRIMARY_FREE`; binding only; conservative 8,500-Neuron app ceiling; exclude paid-only models and never enable paid overage for this mission. | [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [binding setup](https://developers.cloudflare.com/workers-ai/configuration/bindings/) |
 | Cohere | Trial/evaluation keys are free but rate-limited; Cohere documents a 1,000-call monthly trial limit and model-specific per-minute limits. | `EVALUATION_ONLY`; synthetic/public evaluation only. | [Cohere rate limits](https://docs.cohere.com/docs/rate-limits) |
@@ -48,9 +50,9 @@ Optional laboratory activation:
 
 These links were refreshed from official sources on 2026-08-13. Console/account/region availability can still differ and must be recorded as a live result, never inferred from a documentation page.
 
-## Honest disabled-state receipt
+## Honest activation-state receipt
 
-At implementation close, all eight providers intentionally remain `CREDENTIAL_MISSING` or `DISABLED`, and every exact model remains `UNKNOWN` until activation supplies both runtime allowlists. The app remains fully useful without the fabric.
+Groq is the only verified activation candidate: `groq:openai/gpt-oss-20b`, ZDR confirmed, strict synthetic receipt passed, `allowPaid=false`. Mistral, Gemini, Cloudflare Workers AI, and every optional provider remain configured/bound but policy-disabled after their current result or pending gate. The app remains fully useful without any provider.
 
 ## Refresh rule
 

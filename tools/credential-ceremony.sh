@@ -124,6 +124,16 @@ self_test() {
   if configured GROQ_API_KEY; then printf '%s\n' 'self-test failed: revoke' >&2; exit 1; fi
   grep -q '^UNRELATED_FIXTURE=keep-me$' "$TARGET"
   write_name MISTRAL_API_KEY fixture-mistral-safe
+  write_name GROQ_API_KEY fixture-groq-safe
+  write_name GEMINI_API_KEY fixture-gemini-safe
+  record_core_confirmations >/dev/null
+  stage_core_policy 'groq,mistral,gemini' >/dev/null
+  grep -q '^AI_ALLOW_PAID=false$' "$TARGET"
+  grep -q '^AI_ENABLED_PROVIDERS=groq,mistral,gemini$' "$TARGET"
+  grep -q '^AI_FREE_VERIFIED_MODELS=groq:openai/gpt-oss-20b,mistral:mistral-small-latest,gemini:gemini-2.5-flash$' "$TARGET"
+  grep -q '^GROQ_ZDR_CONFIRMED=1$' "$TARGET"
+  grep -q '^MISTRAL_FREE_MODE_CONFIRMED=1$' "$TARGET"
+  grep -q '^GEMINI_FREE_DATA_USE_ACKNOWLEDGED=1$' "$TARGET"
   # Node gives one portable permission value. GNU `stat -f` can print partial
   # filesystem output before its BSD-style format operand fails, which made
   # the command-substitution fallback produce a multi-line value in Linux CI.
@@ -132,12 +142,57 @@ self_test() {
   result=$(KEVINOS_PROVIDER_CONFIG_FILE="$TARGET" node "$ROOT/tools/verify-ai-provider-config.js" --redacted)
   printf '%s' "$result" | grep -q 'Mistral.*CONFIGURED'
   if printf '%s' "$result" | grep -q 'fixture-'; then printf '%s\n' 'self-test failed: redaction' >&2; exit 1; fi
-  printf '%s\n' 'credential ceremony self-test ok — create, preserve, rotate, revoke, permissions, and redaction'
+  printf '%s\n' 'credential ceremony self-test ok — create, preserve, rotate, revoke, permissions, redaction, and core policy staging'
+}
+
+stage_core_policy() {
+  requested=$1
+  enabled=''
+  verified=''
+  seen_groq=0
+  seen_mistral=0
+  seen_gemini=0
+  old_ifs=$IFS
+  IFS=,
+  set -- $requested
+  IFS=$old_ifs
+  [ "$requested" != 'none' ] || set --
+  for provider in "$@"; do
+    case "$provider" in
+      groq)
+        [ "$seen_groq" -eq 0 ] || { printf '%s\n' 'Duplicate core provider.' >&2; exit 2; }
+        seen_groq=1; key=GROQ_API_KEY; model='openai/gpt-oss-20b' ;;
+      mistral)
+        [ "$seen_mistral" -eq 0 ] || { printf '%s\n' 'Duplicate core provider.' >&2; exit 2; }
+        seen_mistral=1; key=MISTRAL_API_KEY; model='mistral-small-latest' ;;
+      gemini)
+        [ "$seen_gemini" -eq 0 ] || { printf '%s\n' 'Duplicate core provider.' >&2; exit 2; }
+        seen_gemini=1; key=GEMINI_API_KEY; model='gemini-2.5-flash' ;;
+      *) printf '%s\n' 'Core policy accepts only groq, mistral, gemini, or none.' >&2; exit 2 ;;
+    esac
+    configured "$key" || { printf '%s is not configured; policy was not changed.\n' "$(provider_label "$key")" >&2; exit 1; }
+    if [ -n "$enabled" ]; then enabled="$enabled,$provider"; verified="$verified,$provider:$model"; else enabled=$provider; verified="$provider:$model"; fi
+  done
+  ensure_policy_defaults
+  write_name AI_ALLOW_PAID false
+  write_name AI_ENABLED_PROVIDERS "$enabled"
+  write_name AI_FREE_VERIFIED_MODELS "$verified"
+  printf 'Staged local core policy: providers=%s; paid=false; credentials remain redacted.\n' "${enabled:-none}"
+}
+
+record_core_confirmations() {
+  ensure_policy_defaults
+  write_name GROQ_ZDR_CONFIRMED 1
+  write_name MISTRAL_FREE_MODE_CONFIRMED 1
+  write_name GEMINI_FREE_DATA_USE_ACKNOWLEDGED 1
+  printf '%s\n' 'Recorded the three explicit core account confirmations; no provider route was changed.'
 }
 
 case "${1:-}" in
   --self-test) [ $# -eq 1 ] || { printf '%s\n' 'No key values may be passed as arguments.' >&2; exit 2; }; self_test; exit 0 ;;
-  --help) printf '%s\n' 'Usage: sh tools/credential-ceremony.sh' 'Keys are entered silently in an interactive terminal. Never paste them into chat.'; exit 0 ;;
+  --record-core-confirmations) [ $# -eq 1 ] || { printf '%s\n' 'No values may be passed to the fixed confirmation recorder.' >&2; exit 2; }; record_core_confirmations; exit 0 ;;
+  --stage-core-policy) [ $# -eq 2 ] || { printf '%s\n' 'Usage: sh tools/credential-ceremony.sh --stage-core-policy groq,mistral,gemini' >&2; exit 2; }; ensure_policy_defaults; stage_core_policy "$2"; exit 0 ;;
+  --help) printf '%s\n' 'Usage: sh tools/credential-ceremony.sh' '       sh tools/credential-ceremony.sh --record-core-confirmations' '       sh tools/credential-ceremony.sh --stage-core-policy groq,mistral,gemini' 'Keys are entered silently in an interactive terminal. Never paste them into chat.'; exit 0 ;;
   '') ;;
   *) printf '%s\n' 'No key values or unsupported arguments are permitted.' >&2; exit 2 ;;
 esac

@@ -135,6 +135,12 @@ function envFor(ids) {
   assert.strictEqual(score.latencyMs, 900);
   assert.deepStrictEqual(score.usage, { inputTokens: 0, outputTokens: 0, totalTokens: 0, neurons: 0 });
   assert.doesNotMatch(JSON.stringify(score), /content must be discarded/, "scorecards are content-free");
+  const failedScore = worker.fabricEvalScorecard("code-review-public", { ok: false, code: "ALL_ROUTES_FAILED", attempted: [{ providerId: "groq", modelId: "openai/gpt-oss-20b", error: "REQUEST_INVALID" }] });
+  assert.deepStrictEqual({ provider: failedScore.providerId, model: failedScore.modelId, error: failedScore.errorCode }, { provider: "groq", model: "openai/gpt-oss-20b", error: "REQUEST_INVALID" }, "failed scorecards preserve only safe route diagnostics");
+  const strictFormat = worker.fabricResponseFormat(worker.FABRIC_PROMPTS["studio-second-opinion-v1"]);
+  assert.strictEqual(strictFormat.type, "json_schema");
+  assert.deepStrictEqual(strictFormat.json_schema.schema.required, ["proposal"]);
+  assert.strictEqual(strictFormat.json_schema.strict, true);
   const recommendation = worker.fabricRouteRecommendation([score, score, score, score, score], "mistral");
   assert.deepStrictEqual({ status: recommendation.status, proposed: recommendation.proposedProviderId, lkg: recommendation.lastKnownGood, auto: recommendation.autoApplied }, { status: "AWAITING_KEVIN", proposed: "groq", lkg: "mistral", auto: false }, "recommendations preserve approval and rollback boundaries");
 
@@ -157,7 +163,7 @@ function envFor(ids) {
 
   const edgeSpec = worker.FABRIC_PROVIDER_SPECS.find((spec) => spec.id === "groq"), edgeEnv = envFor(["groq"]);
   for (const edge of [
-    { status: 401, code: "AUTH_INVALID" }, { status: 403, code: "FORBIDDEN" },
+    { status: 400, code: "REQUEST_INVALID" }, { status: 401, code: "AUTH_INVALID" }, { status: 403, code: "FORBIDDEN" },
     { status: 404, code: "MODEL_NOT_FOUND" }, { status: 408, code: "TIMEOUT" },
     { status: 429, code: "RATE_LIMITED" }, { status: 503, code: "PROVIDER_UNAVAILABLE" }
   ]) {
@@ -166,6 +172,19 @@ function envFor(ids) {
       await assert.rejects(worker.callFabricAdapter(edgeSpec, requestFixture(), edgeEnv), function (err) {
         return worker.classifyFabricError(err.status, err) === edge.code;
       }, "adapter normalizes synthetic HTTP " + edge.status);
+    } finally { global.fetch = realFetch; }
+  }
+  for (const id of ["groq", "mistral"]) {
+    const spec = worker.FABRIC_PROVIDER_SPECS.find((item) => item.id === id), env = envFor([id]);let requestBody;
+    global.fetch = async function (_url, options) { requestBody = JSON.parse(options.body);return new Response(JSON.stringify(adapterResponses.standard), { status: 200 }); };
+    try {
+      await worker.callFabricAdapter(spec, Object.assign(requestFixture(), { responseFormat: strictFormat }), env);
+      assert.strictEqual(requestBody.response_format.type, "json_schema", id + " receives the strict proposal schema");
+      if (id === "groq") {
+        assert.strictEqual(requestBody.max_completion_tokens, 500);
+        assert.strictEqual(requestBody.reasoning_format, "hidden");
+        assert.strictEqual(Object.prototype.hasOwnProperty.call(requestBody, "max_tokens"), false);
+      }
     } finally { global.fetch = realFetch; }
   }
   global.fetch = async function () { return new Response("{interrupted", { status: 200 }); };

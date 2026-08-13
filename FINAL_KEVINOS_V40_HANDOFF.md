@@ -1,10 +1,10 @@
-# KevinOS v40 credentialless handoff
+# KevinOS v40 activation handoff
 
 ## 1. Executive result
 
 KevinOS v0.58/schema v40 is a merged and deployed release. It now models Kevin's roles, operating modes, commitments, portfolio capacity, project truth, restart context, AI missions, decisions, communication state, knowledge activation, local search, admin facts, evidence, and bounded product experiments without adding a room or weakening local-first custody. Core use remains complete with every new fabric route disabled.
 
-Static and relay activation are complete. All seven requested key-backed providers are present remotely by redacted name. Workers AI is bound and model-reachable; its one strict synthetic response failed the local schema contract, was discarded, and did not fall back. Exact provider-account controls, remaining strict probes, and physical-device claims remain deliberately incomplete.
+Static and relay deployment are complete. All seven requested key-backed providers are present remotely by redacted name. Kevin confirmed the three core account controls. Groq passed the strict synthetic contract on `openai/gpt-oss-20b`; Mistral, Gemini, and Workers AI failed closed and remain disabled. Optional-provider and physical-device claims remain deliberately incomplete.
 
 ## 2. Baseline and final versions
 
@@ -32,14 +32,14 @@ Only PUBLIC or explicitly SANITIZED packets with an exact approved manifest and 
 
 | Provider | Status | Exact model/runtime fact |
 | --- | --- | --- |
-| Groq | `NOT_CONFIGURED` | Credential missing; exact free eligibility and ZDR confirmation pending. |
-| Mistral | `NOT_CONFIGURED` | Credential missing; Free Mode/account discovery pending. |
-| Gemini | `NOT_CONFIGURED` | Credential missing; current free-eligible model and data-use acknowledgement pending. |
+| Groq | `VERIFIED_FREE / ACTIVATION_CANDIDATE` | `openai/gpt-oss-20b`; ZDR confirmed; strict schema/privacy/proposal receipt passed in 687 ms with free-plan rate headers. |
+| Mistral | `CONFIGURED / CONTROL_CONFIRMED / DISABLED` | `mistral-small-latest`; Free Mode confirmed; strict receipt failed `OUTPUT_SCHEMA`. |
+| Gemini | `CONFIGURED / ACKNOWLEDGED / DISABLED` | `gemini-2.5-flash`; data use acknowledged and catalog visibility confirmed; strict receipt failed `MODEL_NOT_FOUND`. |
 | Cloudflare Workers AI | `MODEL_REACHABLE / OUTPUT_SCHEMA / DISABLED` | Exact model and binding were reached once; response content was discarded after local schema failure and no fallback ran. |
-| Cohere | `OPTIONAL_MISSING` | Optional evaluation lane. |
-| OpenRouter | `OPTIONAL_MISSING` | Optional emergency free lane. |
-| SambaNova | `OPTIONAL_MISSING` | Optional lab lane. |
-| NVIDIA NIM | `OPTIONAL_MISSING` | Optional prototype lane. |
+| Cohere | `CONFIGURED / OPTIONAL_DISABLED` | Optional evaluation lane; strict activation pending. |
+| OpenRouter | `CONFIGURED / OPTIONAL_DISABLED` | Optional emergency free lane; strict activation pending. |
+| SambaNova | `CONFIGURED / OPTIONAL_DISABLED` | Optional lab lane; strict activation pending. |
+| NVIDIA NIM | `CONFIGURED / OPTIONAL_DISABLED` | Optional prototype lane; strict activation pending. |
 
 Provider policy was reviewed against official sources on 2026-08-13 in `docs/AI_PROVIDER_VERIFICATION_2026-08-13.md`; runtime facts still fail closed after the documented stale window.
 
@@ -58,7 +58,7 @@ Rollback before publication is the base commit plus the pre-v40 snapshot/import 
 `docs/evolution/2026-08-12-kevin-personalization-ai-fabric-v40/EVIDENCE_INDEX.md` is the canonical row-by-row map for all 72 IDs.
 
 - Credentialless product/state/browser contracts AT-001–AT-140 and AT-149–AT-155: machine-verified, including AT-100 search, AT-111 offline/reload, AT-112 representative scale, and AT-120 whole-system gates.
-- AT-156 (credentials requested last), AT-157 (silent entry/exclusion), AT-159 (rotation/revoke tooling), AT-160 (optional-provider honesty), and AT-161 (just-in-time remote authority) pass. AT-141–AT-148 and AT-158 remain narrowly blocked on exact account/model/privacy controls and bounded live probes; none is falsely claimed from a mock.
+- AT-142 now passes on Groq's exact model, ZDR confirmation, strict receipt, and rate metadata. AT-141 and AT-143 remain failed/blocked at the transport/output contracts despite their human account controls being complete. AT-144–AT-148 and the remaining portion of AT-158 stay narrowly pending; none is falsely claimed from key presence or a mock.
 
 ## 9. Tests and commands
 
@@ -102,8 +102,8 @@ Key reversible assumptions are AS-009 through AS-012; key implementation decisio
 
 ## 14. Residual risks and external/manual gates
 
-- Physical iOS/Android validation, elapsed adoption, provider dashboard policy acknowledgements, strict authenticated provider calls, and real OAuth/push journeys remain unproved. Hosted v0.58, public relay health/CORS, and unauthenticated denial are live-verified.
-- Provider models, quotas, regions, free eligibility, Gemini data-use terms, and Groq ZDR are runtime facts and remain disabled until verified.
+- Physical iOS/Android validation, elapsed adoption, optional-provider probes, and real OAuth/push journeys remain unproved. Hosted v0.58, public relay health/CORS, unauthenticated denial, and the strict Groq receipt are live-verified.
+- Mistral and Gemini remain disabled after exact failed receipts. Workers AI remains disabled after its schema failure. Provider models, quotas, regions, and free eligibility are still dated runtime facts.
 - GATE-76 encryption remains closed. Optional providers may remain missing without reducing local completion.
 
 ## 15. Remote action receipt
@@ -120,4 +120,4 @@ Kevin explicitly authorized branch publication, PR/merge, static publication, re
 
 ## 17. Kevin's next physical action
 
-Open the provider dashboards and confirm only these account facts: Groq ZDR is enabled, Mistral is in Free Mode, and Gemini's free-tier data-use policy is acknowledged. Then report those control names only—never a key. The v0.58 app and relay are deployed and all seven requested provider credentials are present by redacted name, but every new fabric route correctly remains policy-disabled until its exact account/model/free-policy check and one bounded synthetic probe pass. See `docs/RELEASE_v0.58.md`.
+No credential action is required. Use Groq for public or explicitly sanitized proposal jobs after the production activation receipt lands. Mistral, Gemini, Workers AI, and the optional seats stay visibly unavailable until a later focused repair/verification slice passes their exact contracts. Never paste or rotate a key merely to fix an adapter/schema failure.

@@ -2,7 +2,7 @@
 
 **Mission:** KevinOS v40 Personalization + Free AI Provider Fabric GOAT Marathon
 **Mission ID:** `kevinos-personalization-ai-fabric-v40-2026-08-12`
-**Status:** BLOCKED-EXTERNAL AT K10.07 / SAFE LOCAL WORK COMPLETE
+**Status:** K10 CORE ACTIVATION IN PROGRESS / GROQ VERIFIED LOCALLY
 **Owner:** Codex 5.6 Sol High Fast
 **Root prompt:** `CODEX_5_6_SOL_HIGH_FAST_KEVINOS_AI_FABRIC_GOAT_MARATHON.md`
 **Mission folder:** `docs/evolution/2026-08-12-kevin-personalization-ai-fabric-v40/`
@@ -11,7 +11,7 @@
 
 This file activates the personalization and provider-fabric mission over the verified v0.57/schema-v39 Convergence baseline. It preserves every previously approved Kevin-shaped evolution and adds a provider-neutral, zero-dollar, privacy-first AI fabric.
 
-Schema v40, provider adapters/routes, Control Center, credentialless ceremony/probe tooling, and passing local evidence now exist. Live provider activation does not. Code, tests, `MISSION_STATE.json`, and the evidence index remain source truth.
+Schema v40, provider adapters/routes, Control Center, credential tooling, and passing evidence now exist. Groq passed the strict local remote-preview contract on `openai/gpt-oss-20b`; Mistral and Gemini failed closed and remain disabled. Production publication of the verified Groq policy is the current bounded release step. Code, tests, `MISSION_STATE.json`, and the evidence index remain source truth.
 
 ## Non-stop implementation behavior
 
