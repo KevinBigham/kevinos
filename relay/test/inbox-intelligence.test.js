@@ -194,6 +194,8 @@ async function post(worker, env, pathname, body) {
     const env = {
       PUSH: fakePush(),
       GEMINI_API_KEY: "gemini-test",
+      AI_ENABLED_PROVIDERS: "gemini",
+      AI_FREE_VERIFIED_MODELS: "gemini:gemini-flash-latest",
       GOOGLE_CLIENT_ID: "client",
       GOOGLE_CLIENT_SECRET: "secret",
       AI_RATE_LIMIT_PER_HOUR: "0",

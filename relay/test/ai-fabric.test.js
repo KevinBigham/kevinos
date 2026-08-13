@@ -20,7 +20,8 @@ function requestFixture(extra) {
 }
 
 function envFor(ids) {
-  const env = { AI_ENABLED_PROVIDERS: ids.join(","), AI_FREE_VERIFIED_MODELS: "" };
+  const ledger = new Map();
+  const env = { AI_ENABLED_PROVIDERS: ids.join(","), AI_FREE_VERIFIED_MODELS: "", PUSH: { async get(k) { return ledger.has(k) ? ledger.get(k) : null; }, async put(k, v) { ledger.set(k, String(v)); } }, _fabricLedger: ledger };
   const pairs = [];
   for (const id of ids) {
     const key = id.toUpperCase();
@@ -58,6 +59,16 @@ function envFor(ids) {
     }
     const secret = requestFixture({ input: "api_key=sk-example-not-real" });
     assert.strictEqual(worker.fabricPrivacyDecision(secret).code, "SECRET_PATTERN_BLOCKED");
+    const oversizedManifest = requestFixture({ manifest: { approved: true, purpose: "Malformed oversized packet", deidentified: true, records: Array.from({ length: 26 }, (_, i) => ({ id: "row-" + i, fields: ["body"] })) } });
+    assert.strictEqual((await worker.runFabricRequest(oversizedManifest, envFor(["groq"]), {})).ok, false, "oversized manifest is denied");
+    const malformedManifest = requestFixture({ manifest: { approved: true, purpose: "Malformed packet", deidentified: true, records: [{ id: "row", fields: "body" }] } });
+    assert.strictEqual((await worker.runFabricRequest(malformedManifest, envFor(["groq"]), {})).ok, false, "malformed manifest is denied");
+    const invalidBytes = requestFixture({ manifest: { approved: true, purpose: "Invalid byte count", deidentified: true, byteCount: "not-a-number", records: [{ id: "row", fields: ["body"] }] } });
+    assert.strictEqual((await worker.runFabricRequest(invalidBytes, envFor(["groq"]), {})).ok, false, "non-numeric manifest bounds are denied");
+    const downgradedManifest = requestFixture({ privacyClass: "SANITIZED", manifest: { approved: true, purpose: "Invalid privacy downgrade", deidentified: true, records: [{ id: "row", fields: ["body"], privacyClass: "WORK_INTERNAL" }] } });
+    assert.strictEqual((await worker.runFabricRequest(downgradedManifest, envFor(["groq"]), {})).ok, false, "declared private rows cannot masquerade as sanitized");
+    const protectedManifest = requestFixture({ manifest: { approved: true, purpose: "Protected row", deidentified: true, records: [{ id: "row", fields: ["body"], privacyClass: "YOUTH_SENSITIVE" }] } });
+    assert.strictEqual((await worker.runFabricRequest(protectedManifest, envFor(["groq"]), {})).ok, false, "declared protected rows are denied at the manifest firewall");
     assert.strictEqual(calls, 0, "restricted and secret-pattern packets fail before transport");
   } finally { global.fetch = realFetch; }
 
@@ -86,6 +97,16 @@ function envFor(ids) {
 
   const routeEnv = envFor(["groq", "mistral"]);
   routeEnv.AI_FREE_VERIFIED_MODELS = "groq:openai/gpt-oss-20b,mistral:mistral-small-latest";
+  assert.strictEqual(worker.fabricAccountCeiling(worker.fabricSpec("groq"), routeEnv), 900);
+  assert.strictEqual(worker.fabricInternalCeiling(worker.fabricSpec("groq"), routeEnv), 675, "internal ceiling reserves 25% free-tier headroom");
+  assert.strictEqual(worker.fabricAccountCeiling(worker.fabricSpec("groq"), Object.assign({}, routeEnv, { GROQ_DAILY_CEILING: "0" })), 0, "an explicit zero ceiling disables the provider instead of falling back to a default");
+  assert.strictEqual(worker.fabricHeadroomPercent(Object.assign({}, routeEnv, { AI_FREE_HEADROOM_PERCENT: "40" })), 40, "larger configured headroom is preserved and reported");
+  assert.strictEqual(worker.fabricRoutePreview(requestFixture(), Object.assign({}, routeEnv, { PUSH: null }), {}).selected, null, "missing content-free ledger disables provider transport");
+  const countOnlyPreview = worker.fabricPreviewRequest({ lane: "FAST_STRUCTURED", manifestCounts: { records: 99, bytes: 999999, repoFiles: 99 }, sourceContent: "must never enter the preview" });
+  assert.deepStrictEqual(countOnlyPreview.manifestCounts, { records: 25, bytes: 150000, repoFiles: 5 }, "preview accepts bounded counts but no source content");
+  assert.doesNotMatch(JSON.stringify(countOnlyPreview), /must never enter the preview/, "route preview discards caller source content");
+  const liveDescriptor = worker.redactedFabricDescriptors(routeEnv, { usage: { groq: 25 }, circuits: { groq: "CLOSED" } }).find((x) => x.id === "groq");
+  assert.deepStrictEqual({ used: liveDescriptor.quota.used, remaining: liveDescriptor.quota.remaining, internal: liveDescriptor.quota.dailyCeiling }, { used: 25, remaining: 650, internal: 675 });
   let preview = worker.fabricRoutePreview(requestFixture(), routeEnv, {});
   assert.strictEqual(preview.selected, "groq", "fixed lane order selects Groq first");
   assert.strictEqual(preview.candidates[0].eligible, true);
@@ -97,6 +118,13 @@ function envFor(ids) {
   assert.ok(preview.candidates[0].reasons.includes("CIRCUIT_OPEN"));
   const unknownPrice = Object.assign({}, routeEnv, { AI_FREE_VERIFIED_MODELS: "" });
   assert.strictEqual(worker.fabricRoutePreview(requestFixture(), unknownPrice, {}).selected, null, "unknown pricing blocks every route");
+
+  const privateRequest = requestFixture({ privacyClass: "WORK_INTERNAL", feature: "project-truth-draft", lane: "DEEP_SYNTHESIS", promptVersion: "project-truth-v1", projectAiEnabled: true, projectPolicyVersion: 1, privateProviderPolicy: "ZDR_ONLY", preferredProviderId: "groq", manifest: { approved: true, purpose: "Exact project truth proposal", deidentified: false, records: [{ id: "project-1", type: "project", fields: ["outcome"], redactedFields: [], privacyClass: "WORK_INTERNAL" }] } });
+  const privateEnv = Object.assign(envFor(["groq", "mistral"]), { GROQ_ZDR_CONFIRMED: "1", AI_FREE_VERIFIED_MODELS: "groq:openai/gpt-oss-20b,mistral:mistral-small-latest" });
+  const privatePreview = worker.fabricRoutePreview(privateRequest, privateEnv, {});
+  assert.strictEqual(privatePreview.selected, "groq", "private context routes only to the confirmed ZDR provider");
+  assert.deepStrictEqual(privatePreview.candidates.map((x) => x.providerId), ["groq"], "private routing has no non-ZDR fallback candidate");
+  assert.strictEqual(worker.fabricRoutePreview(privateRequest, Object.assign({}, privateEnv, { GROQ_ZDR_CONFIRMED: "0" }), {}).selected, null, "missing ZDR confirmation blocks before transport");
 
   const rows = new Map(), PUSH = { async get(k) { return rows.has(k) ? rows.get(k) : null; }, async put(k, v) { rows.set(k, String(v)); } };
   await worker.recordFabricOutcome({ PUSH }, { ok: true, provenance: { providerId: "groq" }, usage: {} }, Date.UTC(2026, 7, 13));
@@ -218,6 +246,64 @@ function envFor(ids) {
     assert.strictEqual(result.provenance.providerId, "mistral", "compatible sequential fallback succeeds");
     assert.strictEqual(result.provenance.fallbackChain[0].providerId, "groq");
     assert.strictEqual(fallbackCalls.length, 2, "fallback is sequential and bounded, never fan-out");
+  } finally { global.fetch = realFetch; }
+
+  // Council uses the same privacy, free-model, sequential execution, and
+  // content-free accounting control plane as the Provider Fabric.
+  const councilRows = new Map();
+  const councilPush = {
+    async get(k) { return councilRows.has(k) ? councilRows.get(k) : null; },
+    async put(k, v) { councilRows.set(k, String(v)); },
+  };
+  const councilEnv = Object.assign(envFor(["groq", "mistral"]), {
+    PUSH: councilPush,
+    AI_FREE_VERIFIED_MODELS: "groq:openai/gpt-oss-20b,mistral:mistral-small-latest",
+  });
+  const councilManifest = { approved: true, purpose: "Challenge a synthetic public decision", deidentified: false, records: [{ id: "council-1", type: "council-question", fields: ["prompt"], redactedFields: [], privacyClass: "PUBLIC" }] };
+  let councilCalls = [], activeCouncilCalls = 0, maxActiveCouncilCalls = 0;
+  global.fetch = async function (url) {
+    councilCalls.push(String(url));activeCouncilCalls++;maxActiveCouncilCalls = Math.max(maxActiveCouncilCalls, activeCouncilCalls);
+    await new Promise((resolve) => setTimeout(resolve, 5));activeCouncilCalls--;
+    return new Response(JSON.stringify(adapterResponses.standard), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    let councilResponse = await worker.default.fetch(new Request("https://relay.test/council", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "Synthetic public decision", synthesize: false, allowPaid: false, privacyClass: "PUBLIC" }) }), councilEnv);
+    assert.strictEqual(councilResponse.status, 400, "Council cannot silently select providers or invent an approval manifest");
+    assert.strictEqual(councilCalls.length, 0, "missing Council approval makes zero provider calls");
+    councilResponse = await worker.default.fetch(new Request("https://relay.test/council", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "Synthetic public decision", synthesize: false, allowPaid: false, privacyClass: "PUBLIC", providerIds: ["groq", "mistral"], manifest: councilManifest }) }), councilEnv);
+    assert.strictEqual(councilResponse.status, 200);
+    let councilBody = await councilResponse.json();
+    assert.deepStrictEqual(councilBody.seats.map((seat) => seat.id), ["groq", "mistral"], "Council runs only Kevin's selected approved seats");
+    assert.strictEqual(maxActiveCouncilCalls, 1, "Council provider calls are sequential, never parallel fan-out");
+    const day = worker.fabricDayKey();
+    assert.strictEqual(councilRows.get("aifabric:usage:" + day + ":groq"), "1", "Council spends the shared Groq request ledger");
+    assert.strictEqual(councilRows.get("aifabric:usage:" + day + ":mistral"), "1", "Council spends the shared Mistral request ledger");
+
+    councilResponse = await worker.default.fetch(new Request("https://relay.test/ai/route", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requestFixture({ requestId: "shared-ledger-route" })) }), councilEnv);
+    assert.strictEqual(councilResponse.status, 200);
+    assert.strictEqual(councilRows.get("aifabric:usage:" + day + ":groq"), "2", "Fabric and Council increment one unified provider ledger");
+
+    const callsBeforeDenials = councilCalls.length;
+    for (const deniedPrivacy of ["YOUTH_SENSITIVE", "FINANCIAL_SENSITIVE", "SECRET"]) {
+      const deniedManifest = Object.assign({}, councilManifest, { records: [{ id: "blocked", type: "council-question", fields: ["prompt"], redactedFields: [], privacyClass: deniedPrivacy }] });
+      councilResponse = await worker.default.fetch(new Request("https://relay.test/council", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "Synthetic blocked question", synthesize: false, allowPaid: false, privacyClass: deniedPrivacy, providerIds: ["groq"], manifest: deniedManifest }) }), councilEnv);
+      assert.strictEqual(councilResponse.status, 403, deniedPrivacy + " Council request is denied before transport");
+    }
+    councilResponse = await worker.default.fetch(new Request("https://relay.test/council", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "api_key=sk-example-not-real", synthesize: false, allowPaid: false, privacyClass: "PUBLIC", providerIds: ["groq"], manifest: councilManifest }) }), councilEnv);
+    assert.strictEqual(councilResponse.status, 403, "secret-pattern Council prompt is denied before transport");
+    assert.strictEqual(councilCalls.length, callsBeforeDenials, "negative Council privacy fixtures make zero provider calls");
+  } finally { global.fetch = realFetch; }
+
+  const privateCouncilEnv = Object.assign(envFor(["groq", "mistral"]), { GROQ_ZDR_CONFIRMED: "1", AI_FREE_VERIFIED_MODELS: "groq:openai/gpt-oss-20b,mistral:mistral-small-latest" });
+  let privateCouncilCalls = [];
+  global.fetch = async function (url) { privateCouncilCalls.push(String(url));return new Response(JSON.stringify({ error: "synthetic failure" }), { status: 503 }); };
+  try {
+    const privateCouncilManifest = { approved: true, purpose: "Synthetic private project question", deidentified: false, records: [{ id: "private-project", type: "project", fields: ["outcome"], redactedFields: [], privacyClass: "WORK_INTERNAL" }] };
+    const privateCouncilResponse = await worker.default.fetch(new Request("https://relay.test/council", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "Synthetic private project question", synthesize: false, allowPaid: false, privacyClass: "WORK_INTERNAL", providerIds: ["groq", "mistral"], projectAiEnabled: true, projectPolicyVersion: 1, privateProviderPolicy: "ZDR_ONLY", manifest: privateCouncilManifest }) }), privateCouncilEnv);
+    assert.strictEqual(privateCouncilResponse.status, 200);
+    const privateCouncilBody = await privateCouncilResponse.json();
+    assert.deepStrictEqual(privateCouncilBody.seats.map((seat) => seat.id), ["groq"], "private Council has exactly one ZDR-qualified seat and no non-ZDR fallback");
+    assert.strictEqual(privateCouncilCalls.length, 1, "failed private Groq call does not spill to Mistral or another provider");
   } finally { global.fetch = realFetch; }
 
   let res = await worker.default.fetch(new Request("https://relay.test/ai/providers", { method: "GET", headers: { "X-KevinOS-Token": "wrong" } }), { KEVINOS_TOKEN: "secret" });

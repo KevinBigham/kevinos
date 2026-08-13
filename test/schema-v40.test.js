@@ -66,6 +66,13 @@ const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "v39
   assert.strictEqual(app.normalizeRoleRecord({}).id, undefined, "normalization never invents role ids");
   assert.strictEqual(app.normalizeDecisionRecord({}).id, undefined, "normalization never invents decision ids");
   assert.strictEqual(app.normalizeTaskRecord({ privacyClass: "youth-sensitive", roleId: "role-inbox" }).privacyClass, "youth-sensitive", "normalization never weakens explicit privacy");
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(app.normalizeProjectRecord({ id: "legacy-project", title: "Old save" }), "aiPolicy"), false, "old projects remain AI-disabled without acquiring a persisted policy");
+  assert.deepStrictEqual(
+    app.normalizeProjectRecord({ id: "ai-project", title: "AI project", aiPolicy: { version: 99, enabled: true, mode: "automatic", allowedJobIds: ["project-truth-draft", "unknown-job"], allowedPrivacyClasses: ["WORK_INTERNAL", "SECRET"], preferredProviderIds: ["groq", "bad provider"], privateProviderPolicy: "ANY", dailyCallCeiling: 500, updatedAt: 12 } }).aiPolicy,
+    { version: 1, enabled: true, mode: "manual", allowedJobIds: ["project-truth-draft"], allowedPrivacyClasses: ["WORK_INTERNAL"], preferredProviderIds: ["groq"], privateProviderPolicy: "ZDR_ONLY", dailyCallCeiling: 50, updatedAt: 12 },
+    "project AI policy stays bounded, manual, ZDR-only, and nested under schema v40"
+  );
+  assert.strictEqual(app.SCHEMA_VERSION, 40, "optional project AI policy does not bump the save schema");
 
   const boot = await loadApp({ storedState: fixture });
   const bootState = boot.app.getState();

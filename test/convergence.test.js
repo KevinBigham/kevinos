@@ -167,7 +167,7 @@ const KEY = "v2:" + "ab".repeat(32); // prove convergence under the new key form
   await A.push(); await B.pull();
   B.app.getState().decisions.find((d) => d.id === "decision-v40").choiceId = "ship";
   B.app.getState().decisions.find((d) => d.id === "decision-v40").u = 900;
-  B.app.getState().projects.push(B.app.normalizeProjectRecord({ id: "project-v40", title: "v40 convergence", area: "Work", roleId: "role-legacy-work", status: "Active", privacyClass: "youth-sensitive", currentState: "Relationship spine wired", nextAction: "Verify on three devices", blockers: ["None"], resumeChecklist: ["Pull", "Verify"], repoRefs: [{ label: "KevinOS", branch: "codex/v40" }], lastProof: "Focused suite", lastProofAt: 900, u: 900 }));
+  B.app.getState().projects.push(B.app.normalizeProjectRecord({ id: "project-v40", title: "v40 convergence", area: "Work", roleId: "role-legacy-work", status: "Active", privacyClass: "youth-sensitive", currentState: "Relationship spine wired", nextAction: "Verify on three devices", blockers: ["None"], resumeChecklist: ["Pull", "Verify"], repoRefs: [{ label: "KevinOS", branch: "codex/v40" }], lastProof: "Focused suite", lastProofAt: 900, aiPolicy: { enabled: true, allowedJobIds: ["project-truth-draft"], allowedPrivacyClasses: ["WORK_INTERNAL"], preferredProviderIds: ["groq"], dailyCallCeiling: 4, updatedAt: 900 }, u: 900 }));
   B.app.getState().notes.push(B.app.normalizeLinkedRecord({ id: "note-v40-spine", title: "Convergence note", projectId: "project-v40", roleId: "role-legacy-work", privacyClass: "youth-sensitive", u: 900 }));
   await B.push(); await C.pull(); await A.pull();
   for (const d of [A, B, C]) {
@@ -175,6 +175,8 @@ const KEY = "v2:" + "ab".repeat(32); // prove convergence under the new key form
     assert.strictEqual(d.app.getState().decisions.find((x) => x.id === "decision-v40").choiceId, "ship", "newest decision edit converges");
     assert.strictEqual(d.app.getState().projects.find((x) => x.id === "project-v40").privacyClass, "youth-sensitive", "project role/privacy links converge");
     assert.deepStrictEqual(d.app.getState().projects.find((x) => x.id === "project-v40").resumeChecklist, ["Pull", "Verify"], "Resume Capsule survives three-device convergence");
+    assert.deepStrictEqual(d.app.getState().projects.find((x) => x.id === "project-v40").aiPolicy.allowedJobIds, ["project-truth-draft"], "nested project AI policy converges without a top-level state field");
+    assert.strictEqual(d.app.getState().projects.find((x) => x.id === "project-v40").aiPolicy.privateProviderPolicy, "ZDR_ONLY", "converged private policy remains ZDR-only");
     assert.strictEqual(d.app.relationshipIndex(d.app.getState()).byProject["project-v40"].notes[0].id, "note-v40-spine", "relationship index reconstructs from converged canonical records");
   }
   C.app.getState().deleted["decision-v40"] = Date.now();

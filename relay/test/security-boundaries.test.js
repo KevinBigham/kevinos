@@ -80,7 +80,7 @@ async function post(worker, pathname, declared, body) {
     return new Response(JSON.stringify({ error: { message: "upstream leaked secret sk-test-123" } }), { status: 500, headers: { "Content-Type": "application/json" } });
   };
   try {
-    res = await worker.default.fetch(new Request("https://relay.test/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "hello" }) }), { PROVIDER: "gemini", GEMINI_API_KEY: "server-secret" });
+    res = await worker.default.fetch(new Request("https://relay.test/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "hello" }) }), { PROVIDER: "gemini", GEMINI_API_KEY: "server-secret", AI_ENABLED_PROVIDERS: "gemini", AI_FREE_VERIFIED_MODELS: "gemini:gemini-flash-latest", PUSH: { async get() { return null; }, async put() {} } });
     assert.strictEqual(res.status, 502);
     const safe = await res.json();
     assert.strictEqual(safe.error, "AI request failed.");
