@@ -2,16 +2,16 @@
 
 ## 1. Executive result
 
-KevinOS v0.58/schema v40 is a credentialless local release candidate. It now models Kevin's roles, operating modes, commitments, portfolio capacity, project truth, restart context, AI missions, decisions, communication state, knowledge activation, local search, admin facts, evidence, and bounded product experiments without adding a room or weakening local-first custody. Core use remains complete with every provider disabled.
+KevinOS v0.58/schema v40 is a merged and deployed release. It now models Kevin's roles, operating modes, commitments, portfolio capacity, project truth, restart context, AI missions, decisions, communication state, knowledge activation, local search, admin facts, evidence, and bounded product experiments without adding a room or weakening local-first custody. Core use remains complete with every new fabric route disabled.
 
-Activation is deliberately incomplete: no provider credential, live model call, remote secret mutation, push, deploy, merge, publication, or physical-device claim is represented here.
+Static and relay activation are complete. All seven requested key-backed providers are present remotely by redacted name and Workers AI is bound; no credential value or live model response is represented here. Exact provider-account controls, strict synthetic probes, and physical-device claims remain deliberately incomplete.
 
 ## 2. Baseline and final versions
 
 - Start: app v0.57, schema v39, cache `kevinos-v0_57`; canonical Git base `43715bf46f33163fc764341e16a7f798852ee157`.
-- Candidate: app/footer v0.58, schema v40, cache `kevinos-v0_58`; branch `codex/kevinos-v40-ai-fabric`.
+- Final: app/footer v0.58, schema v40, cache `kevinos-v0_58`; merged from `codex/kevinos-v40-ai-fabric`.
 - Migration: one v39→v40 gate only. No intermediate schema exists.
-- A local checkpoint commit exists on `codex/kevinos-v40-ai-fabric`; it remains unpushed. No remote action was performed.
+- PR #7 merged the focused branch as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI and Pages passed. Worker version `791fcd1d-6e35-4ffe-ad50-daa5b286bb51` is deployed.
 - Final credentialless K10 wave gate: `output/evolution/wave-20260813T112952Z.log`. The earlier preactivation log is `output/evolution/preactivation-20260813T072756Z.log`.
 
 ## 3. Kevin-shaped product evolution
@@ -35,7 +35,7 @@ Only PUBLIC or explicitly SANITIZED packets with an exact approved manifest and 
 | Groq | `NOT_CONFIGURED` | Credential missing; exact free eligibility and ZDR confirmation pending. |
 | Mistral | `NOT_CONFIGURED` | Credential missing; Free Mode/account discovery pending. |
 | Gemini | `NOT_CONFIGURED` | Credential missing; current free-eligible model and data-use acknowledgement pending. |
-| Cloudflare Workers AI | `BINDING_UNVERIFIED` | Local binding/account verification and explicit remote authority pending. |
+| Cloudflare Workers AI | `BOUND / POLICY-DISABLED` | Binding and current model catalog are verified; strict live fabric probe remains pending. |
 | Cohere | `OPTIONAL_MISSING` | Optional evaluation lane. |
 | OpenRouter | `OPTIONAL_MISSING` | Optional emergency free lane. |
 | SambaNova | `OPTIONAL_MISSING` | Optional lab lane. |
@@ -45,7 +45,7 @@ Provider policy was reviewed against official sources on 2026-08-13 in `docs/AI_
 
 ## 6. Credentials-last ceremony and secret proof
 
-No credential value has been read, stored, transmitted, or requested in chat. Browser state, portable export, sync, source, logs, screenshots, patches, and content-free receipts contain no provider credential. The scanner passed over 342 text files with zero exposed values. The tested K10 artifacts are `tools/credential-ceremony.sh`, `tools/verify-ai-provider-config.js`, and `tools/probe-ai-provider.js`; Kevin must never paste keys into chat or command arguments.
+No credential value was printed, requested in chat, stored in Git, or exposed to browser state. The approved local store transferred values directly to Cloudflare through Wrangler; portable export, sync, source, logs, screenshots, patches, and content-free receipts contain no provider credential. The final scanner passed over 345 text files with zero exposed values. The tested K10 artifacts are `tools/credential-ceremony.sh`, `tools/verify-ai-provider-config.js`, and `tools/probe-ai-provider.js`; Kevin must never paste keys into chat or command arguments.
 
 ## 7. State and migration contract
 
@@ -58,7 +58,7 @@ Rollback before publication is the base commit plus the pre-v40 snapshot/import 
 `docs/evolution/2026-08-12-kevin-personalization-ai-fabric-v40/EVIDENCE_INDEX.md` is the canonical row-by-row map for all 72 IDs.
 
 - Credentialless product/state/browser contracts AT-001–AT-140 and AT-149–AT-155: machine-verified, including AT-100 search, AT-111 offline/reload, AT-112 representative scale, and AT-120 whole-system gates.
-- AT-156 (credentials requested last), AT-159 (rotation/revoke tooling), and AT-160 (optional-provider honesty) pass. AT-141–AT-148, AT-157–AT-158, and AT-161 are narrowly blocked on Kevin's local account/key/control ceremony or separate remote authority; none is falsely claimed from a mock.
+- AT-156 (credentials requested last), AT-157 (silent entry/exclusion), AT-159 (rotation/revoke tooling), AT-160 (optional-provider honesty), and AT-161 (just-in-time remote authority) pass. AT-141–AT-148 and AT-158 remain narrowly blocked on exact account/model/privacy controls and bounded live probes; none is falsely claimed from a mock.
 
 ## 9. Tests and commands
 
@@ -102,13 +102,13 @@ Key reversible assumptions are AS-009 through AS-012; key implementation decisio
 
 ## 14. Residual risks and external/manual gates
 
-- Physical iOS/Android validation, elapsed adoption, live provider accounts, provider dashboard policy acknowledgements, real OAuth/push, hosted v0.58, and authenticated relay behavior are not proved by local Chromium.
+- Physical iOS/Android validation, elapsed adoption, provider dashboard policy acknowledgements, strict authenticated provider calls, and real OAuth/push journeys remain unproved. Hosted v0.58, public relay health/CORS, and unauthenticated denial are live-verified.
 - Provider models, quotas, regions, free eligibility, Gemini data-use terms, and Groq ZDR are runtime facts and remain disabled until verified.
 - GATE-76 encryption remains closed. Optional providers may remain missing without reducing local completion.
 
-## 15. Remote actions deliberately not performed
+## 15. Remote action receipt
 
-No push, PR, merge, tag, deploy, publish, outward send, calendar creation, financial action, billing change, remote secret mutation, data deletion, or GATE-76 bypass occurred.
+Kevin explicitly authorized branch publication, PR/merge, static publication, remote secret transfer, and Worker deployment; those actions completed through PR #7 and the release receipt in `docs/RELEASE_v0.58.md`. No tag, GitHub Release, outward send, calendar creation, financial action, billing change, provider-policy change, data deletion, or GATE-76 bypass occurred.
 
 ## 16. Patch, checksums, and rollback
 
@@ -120,4 +120,4 @@ No push, PR, merge, tag, deploy, publish, outward send, calendar creation, finan
 
 ## 17. Kevin's next physical action
 
-Create the desired core provider keys from the official links in `docs/AI_PROVIDER_VERIFICATION_2026-08-13.md`, enable Groq ZDR, confirm Mistral Free Mode, and acknowledge Gemini's free-tier data-use policy. Then, from the repository root, run `sh tools/credential-ceremony.sh` in your own terminal and reply only `ceremony complete` plus which account controls you confirmed. Do not paste any key into chat. Optional providers may all be skipped. Cloudflare binding/remote work is a later separate authority gate.
+Open the provider dashboards and confirm only these account facts: Groq ZDR is enabled, Mistral is in Free Mode, and Gemini's free-tier data-use policy is acknowledged. Then report those control names only—never a key. The v0.58 app and relay are deployed and all seven requested provider credentials are present by redacted name, but every new fabric route correctly remains policy-disabled until its exact account/model/free-policy check and one bounded synthetic probe pass. See `docs/RELEASE_v0.58.md`.
