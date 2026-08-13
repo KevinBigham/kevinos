@@ -1,5 +1,7 @@
 # KevinOS AI Fabric Marathon Preparation Summary
 
+> Historical preparation snapshot. The implementation subsequently shipped in v0.58/schema v40 through PR #7; current activation truth is in `docs/CURRENT_STATE.md` and `docs/RELEASE_v0.58.md`.
+
 **Prepared:** 2026-08-12 (America/Chicago)
 **Mission:** `kevinos-personalization-ai-fabric-v40-2026-08-12`
 **Implementation status:** READY / NOT STARTED / NO CREDENTIALS REQUESTED

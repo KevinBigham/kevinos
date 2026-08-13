@@ -3,7 +3,7 @@
   "status": "BLOCKED-EXTERNAL",
   "currentWave": "K10",
   "currentTask": "K10.07",
-  "lastUpdated": "2026-08-13T07:37:07Z",
+  "lastUpdated": "2026-08-13T11:40:39Z",
   "baseline": {
     "appVersion": "0.57",
     "schemaVersion": 39,
@@ -126,8 +126,8 @@
       "id": "K10",
       "title": "Credentials-last secure activation and live synthetic verification",
       "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003"],
-      "notes": "All safe K10 work is complete: current official links/caveats, silent local ceremony, redacted verifier, strict one-provider loopback probe, dummy rotation/revocation, secret scan, and full wave gate pass. Live account/key/control confirmations and provider calls require Kevin's local ceremony; no remote secret mutation or deploy is authorized."
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003", "EV-K10-004"],
+      "notes": "The local ceremony, explicitly authorized remote secret transfer, v0.58 Pages release, and relay deployment are complete. All seven key-backed providers are present remotely by redacted name and Workers AI is bound, but every new fabric route remains policy-disabled. K10.07 and later live probes remain blocked on exact free/account/model facts plus Groq ZDR, Mistral Free Mode, and Gemini data-use confirmation."
     }
   ],
   "finalGates": {
@@ -141,7 +141,7 @@
     "providerFabricCredentialless": "PASS",
     "zeroDollarPolicy": "PASS",
     "preactivation": "PASS",
-    "credentialsLast": "BLOCKED-EXTERNAL",
+    "credentialsLast": "PASS",
     "liveSyntheticVerification": "BLOCKED-EXTERNAL",
     "secretLeakScan": "PASS",
     "finalReview": "PASS"

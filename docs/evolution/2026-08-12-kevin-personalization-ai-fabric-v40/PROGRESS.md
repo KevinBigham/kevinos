@@ -208,6 +208,17 @@ Every subsequent entry includes:
 
 `K10.07` — after Kevin completes the silent local ceremony, verify Groq ZDR/account state and run exactly one strict synthetic Groq probe. Live provider/account work is blocked externally until that confirmation.
 
+## K10 deployment receipt — 2026-08-13T11:40:39Z
+
+**Status:** STATIC AND RELAY DEPLOYED / PROVIDER ROUTES POLICY-DISABLED
+
+- Kevin completed the silent local ceremony and separately authorized commit, push, merge, remote secret transfer, and deployment.
+- PR #7 merged as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI `31696190329` and Pages `31696189587` passed.
+- Worker version `791fcd1d-6e35-4ffe-ad50-daa5b286bb51` is active. Health and Pages-origin CORS return 200; unauthenticated provider status returns 401.
+- Redacted name-only verification shows all seven requested key-backed providers plus the existing relay-lock/OAuth/push secrets present. No value entered Git, logs, browser output, or the handoff.
+- Live v0.58 onboarding, role/mode/capacity-aware Today, isolated demo cleanup, Studio, and Provider Control Center render with zero console errors.
+- Every new fabric route remains disabled. K10.07 resumes only after Groq ZDR/account state is confirmed; later routes retain their exact free-model, quota, and data-policy gates.
+
 ## K9 completion receipt — 2026-08-13T07:28:00Z
 
 **Status:** PREACTIVATION READY / v0.58 + SCHEMA v40 / NO CREDENTIALS REQUESTED

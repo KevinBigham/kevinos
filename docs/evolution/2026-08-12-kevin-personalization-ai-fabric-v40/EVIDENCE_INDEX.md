@@ -128,6 +128,7 @@ Codex creates fresh baseline evidence before source edits.
 | EV-K10-001 | MACHINE-VERIFIED / BLOCKED-EXTERNAL | Official provider pages refreshed 2026-08-13; `docs/AI_PROVIDER_VERIFICATION_2026-08-13.md`; `node tools/verify-ai-provider-config.js --redacted` | Core/optional setup links and current caveats recorded. All providers report NOT CONFIGURED/policy-disabled, paid routing is DISABLED, and no account/key/provider call occurred. The one K10 request follows the passed preactivation receipt. |
 | EV-K10-002 | MACHINE-VERIFIED | `sh tools/credential-ceremony.sh --self-test`; `node tools/probe-ai-provider.js --self-test`; `node relay/test/ai-fabric.test.js` | Mode-600 create/preserve/replace/rotate/revoke and redaction pass with dummy values; interrupted input restores the terminal; nine fixtures include a synthetic-only optional lane; live probe is loopback-only, strict single-provider/no-spill, content-discarding, and emits bounded model/latency/usage/rate metadata. |
 | EV-K10-003 | MACHINE-VERIFIED | `node tools/doctor.js`; `node tools/scan-secret-values.js`; `sh test/run.sh`; `sh tools/run-evolution-gates.sh wave` | v0.58/schema v40 doctor, 342-file zero-exposure scan, complete app/relay suite, and safe K10 wave gate PASS. Log: `output/evolution/wave-20260813T073638Z.log`. Live/provider/account checks remain external. |
+| EV-K10-004 | MACHINE-VERIFIED / BLOCKED-EXTERNAL | PR #7; CI `31696190329`; Pages `31696189587`; Worker `791fcd1d-6e35-4ffe-ad50-daa5b286bb51`; redacted `wrangler secret list`; live browser and HTTP boundary checks | v0.58/schema v40 is live; all seven requested provider credential names and Workers AI binding are present; relay health/CORS/auth denial and zero-error browser boot pass. New fabric routes remain policy-disabled and no live provider response was requested pending account/model/privacy confirmation. |
 
 ## Acceptance map
 
@@ -200,11 +201,11 @@ Codex creates fresh baseline evidence before source edits.
 | AT-154 | MACHINE-VERIFIED | EV-K7A-001 | Route recommendations never auto-apply and retain last-known-good rollback state. |
 | AT-155 | MACHINE-VERIFIED | EV-K7A-001, EV-K7A-004 | Stable aliases and stale/missing/non-free lifecycle gates preserve behavior and disable unsafe routes. |
 | AT-156 | MACHINE-VERIFIED | EV-K9-004, EV-K10-001 | The one credential request was issued only after K-1 through K9 and both preactivation gates passed. |
-| AT-157 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002, EV-K10-003 | Silent ignored storage/redaction and no-key scans pass; live local entry and post-entry scan require Kevin. |
+| AT-157 | MACHINE-VERIFIED | EV-K10-001, EV-K10-002, EV-K10-003, EV-K10-004 | Silent mode-600 entry, redacted name-only remote presence, post-entry secret scans, and Git/output exclusion pass without printing or committing a value. |
 | AT-158 | BLOCKED-EXTERNAL | EV-K10-002 | Strict redacted probe tooling passes; live calls require Kevin-created credentials/account access. |
 | AT-159 | MACHINE-VERIFIED | EV-K10-002 | Dummy rotation/revocation and console-first live incident steps are tested/documented. |
 | AT-160 | MACHINE-VERIFIED | EV-K7A-002, EV-K10-001 | Missing optional providers remain explicit, disabled, and non-blocking. |
-| AT-161 | BLOCKED-EXTERNAL | EV-K10-001 | No remote action occurred; future remote secret/binding/deploy work needs separate just-in-time authority. |
+| AT-161 | MACHINE-VERIFIED | EV-K10-001, EV-K10-004 | Kevin supplied separate just-in-time authority before remote secret transfer, Worker deploy, static publication, and live verification. Future remote actions still require fresh authority. |
 
 ## Provider activation evidence
 
