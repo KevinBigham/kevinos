@@ -1,6 +1,6 @@
 # KevinOS v0.58 release receipt
 
-Status: **YELLOW — STATIC APP AND RELAY DEPLOYED; GROQ VERIFIED FOR FOCUSED ACTIVATION**
+Status: **YELLOW — STATIC APP, RELAY, AND VERIFIED GROQ ROUTE DEPLOYED**
 
 ## Release identity
 
@@ -14,7 +14,7 @@ Status: **YELLOW — STATIC APP AND RELAY DEPLOYED; GROQ VERIFIED FOR FOCUSED AC
 | Post-merge CI | `https://github.com/KevinBigham/kevinos/actions/runs/31696190329` — `MACHINE-PASS` |
 | Pages deployment | `https://github.com/KevinBigham/kevinos/actions/runs/31696189587` — `MACHINE-PASS` |
 | Relay production | `https://kevinos-relay.kevinbigham.workers.dev` |
-| Relay version | `098fbb96-d4f3-424b-a718-07c0edf51a5b` |
+| Relay version | `364b59ca-7f8c-43dc-ad3d-f30c36f99760` |
 
 ## Product result
 
@@ -40,17 +40,19 @@ Status: **YELLOW — STATIC APP AND RELAY DEPLOYED; GROQ VERIFIED FOR FOCUSED AC
 - `sh tools/run-evolution-gates.sh wave` — 244 mission tasks, 72 acceptance contracts, secret boundary, doctor, and full suite `PASS`.
 - Live Pages source reports v0.58/schema v40 and service-worker cache `kevinos-v0_58`.
 - Live in-app browser: onboarding, Today operating model, isolated demo setup/cleanup, Studio Mission Control, and Provider Control Center rendered with zero console errors.
-- Live relay: public health 200; Pages-origin CORS preflight 200; unauthenticated `/ai/providers` 401.
+- Live relay: public root 200; Pages-origin CORS preflight 200; unauthenticated `/ai/providers` 401.
+- Focused Groq activation: PR #11 CI passed and Worker `364b59ca-7f8c-43dc-ad3d-f30c36f99760` deployed; public root 200, Pages-origin CORS 200, and unauthenticated `/ai/health` plus `/ai/providers` 401.
+- Post-deploy browser: live v0.58 Studio and its zero-dollar Provider Control Center opened with zero console warnings/errors; isolated demo data was cleared. The fresh origin stayed in local mode because no relay token was entered or inspected.
 - Remote secret registry: the seven requested provider credential names and the existing relay lock/OAuth/push names are present. No value was printed, stored in Git, or added to this receipt.
 - Strict Workers AI preview: exact model and 8,500-Neuron ceiling became eligible after the fixed 250-Neuron estimate; the single synthetic call reached the binding, returned an output that failed the local schema contract, stored no response content, ran no fallback, and opened the bounded 60-second circuit as `OUTPUT_SCHEMA`.
 
 ## Provider activation truth
 
-Groq, Mistral, Gemini, Cohere, OpenRouter, SambaNova, and NVIDIA are **CONFIGURED / POLICY-DISABLED** for the new fabric. Cloudflare Workers AI is **BOUND / MODEL-REACHABLE / OUTPUT-SCHEMA-FAILED / POLICY-DISABLED**. Key or binding presence is not represented as a successful provider contract, universal free-tier guarantee, or privacy acknowledgement.
+Groq is **VERIFIED-FREE-ACTIVE** at exact pair `groq:openai/gpt-oss-20b`. Mistral, Gemini, Cohere, OpenRouter, SambaNova, and NVIDIA are **CONFIGURED / POLICY-DISABLED** for the new fabric. Cloudflare Workers AI is **BOUND / MODEL-REACHABLE / OUTPUT-SCHEMA-FAILED / POLICY-DISABLED**. Key or binding presence is not represented as a successful provider contract, universal free-tier guarantee, or privacy acknowledgement.
 
 Core verification on 2026-08-13 changed only Groq's ruling: Kevin confirmed ZDR, and `groq:openai/gpt-oss-20b` passed the strict schema/privacy/proposal contract with live free-plan rate headers. The old Groq model was replaced ahead of its documented 2026-08-16 retirement. Mistral remains disabled after `OUTPUT_SCHEMA`; Gemini remains disabled after `MODEL_NOT_FOUND`; Workers AI and all optional providers remain disabled. Paid routing remains false.
 
-Only the exact Groq pair is eligible for the focused production allowlist. Optional seats retain their evaluation/emergency/lab/prototype-only classes; failed core seats require a later focused repair and fresh receipt, not optimistic activation.
+Only the exact Groq pair is present in the production enable/free allowlists. Optional seats retain their evaluation/emergency/lab/prototype-only classes; failed core seats require a later focused repair and fresh receipt, not optimistic activation.
 
 ## Rollback
 
@@ -60,4 +62,4 @@ Only the exact Groq pair is eligible for the focused production allowlist. Optio
 
 ## Remaining manual boundary
 
-Authenticated fabric/provider probes, provider dashboard policy controls, physical iOS/Android use, real OAuth consent, installed-device push, Lighthouse-on-live, and the elapsed 30-day adoption soak remain unverified. No known P0/P1 regression remains.
+Failed/optional provider repairs and probes, physical iOS/Android use, real OAuth consent, installed-device push, Lighthouse-on-live, and the elapsed 30-day adoption soak remain incomplete. Groq's strict authenticated receipt and ZDR confirmation are verified. No known P0/P1 regression remains.

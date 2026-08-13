@@ -282,8 +282,8 @@
 - [x] **K10.21** — Do not run `wrangler secret put`, deploy, or mutate remote secrets without a separate just-in-time Kevin authorization; prepare instructions/rollback instead. **Goals:** G-27, G-29 · **Acceptance:** AT-161
 - [x] **K10.22** — Test key rotation/replacement/revocation flow using dummy fixtures and document live manual steps. **Goals:** G-29 · **Acceptance:** AT-159
 - [x] **K10.23** — Rerun secret scans and verify no secret entered state/export/sync/logs/patches/screenshots/hashes. **Goals:** G-29 · **Acceptance:** AT-157
-- [ ] **K10.24** — Run focused live-activation tests, doctor, full suite, final browser/offline smoke, and final mission gates. **Goals:** G-19, G-27 · **Acceptance:** AT-120, AT-158
-- [ ] **K10.25** — Complete FINAL_KEVINOS_V40_HANDOFF.md with provider activation status, exact redacted evidence, remote actions not performed, rotation path, and Kevin's next physical action. **Goals:** G-19, G-27, G-29
+- [x] **K10.24** — Run focused live-activation tests, doctor, full suite, final browser/offline smoke, and final mission gates. **Goals:** G-19, G-27 · **Acceptance:** AT-120, AT-158
+- [x] **K10.25** — Complete FINAL_KEVINOS_V40_HANDOFF.md with provider activation status, exact redacted evidence, remote actions not performed, rotation path, and Kevin's next physical action. **Goals:** G-19, G-27, G-29
 
 ## Final exhaustion test
 
