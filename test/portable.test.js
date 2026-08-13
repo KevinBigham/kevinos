@@ -71,7 +71,11 @@ const { loadApp } = require("./harness");
   };
   const ok = app.applyPortableDoc(hostile, { reason: "import" });
   assert.strictEqual(ok, true);
-  assert.deepStrictEqual(st.items, [{ id: "imported", text: "from backup", u: 2 }], "arrays replaced");
+  assert.deepStrictEqual(
+    st.items,
+    [app.normalizeTaskRecord({ id: "imported", text: "from backup", u: 2 })],
+    "arrays replaced and task records normalized"
+  );
   assert.strictEqual(JSON.stringify(st.relay), beforeRelay, "relay untouched by import");
   assert.strictEqual(JSON.stringify(st.email), beforeEmail, "email untouched by import");
   assert.strictEqual(JSON.stringify(st.calendar), beforeCal, "calendar untouched by import");
@@ -111,7 +115,7 @@ const { loadApp } = require("./harness");
   const snap = app.portableDoc(st);
   st.items = []; st.habits = [];
   app.applyPortableDoc(snap, { reason: "snapshot" });
-  assert.deepStrictEqual(st.items, [{ id: "rt1", text: "round trip", u: 3, focusDate: "2026-08-11", focusRank: 1, focusSetAt: 99, focusSource: "manual" }]);
+  assert.deepStrictEqual(st.items, [app.normalizeTaskRecord({ id: "rt1", text: "round trip", u: 3, focusDate: "2026-08-11", focusRank: 1, focusSetAt: 99, focusSource: "manual" })]);
   assert.deepStrictEqual(st.habits, [{ id: "h1", name: "swim", done: {} }]);
 
   console.log("portable-doc round-trips ok");

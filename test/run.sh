@@ -27,6 +27,16 @@ echo "es5 clean"
 
 echo "── app suites ─────────────────────────────────"
 node test/app-logic.test.js
+node test/task-normalization.test.js
+node test/schema-v40.test.js
+node test/project-spine.test.js
+node test/commitment-contract.test.js
+node test/role-aware-today.test.js
+node test/wip-governor.test.js
+node test/playbooks-onboarding.test.js
+node test/studio-command.test.js
+node test/ai-fabric-client.test.js
+node test/supporting-surfaces.test.js
 node test/attention-proof.test.js
 node test/ui-contract.test.js
 node test/xss-corpus.test.js
@@ -48,7 +58,10 @@ node relay/test/sync-push.test.js
 node relay/test/lane-pins.test.js
 node relay/test/length-control.test.js
 node relay/test/inbox-intelligence.test.js
+node relay/test/ai-fabric.test.js
 node relay/test/security-boundaries.test.js
+sh tools/credential-ceremony.sh --self-test
+node tools/probe-ai-provider.js --self-test
 
 echo "───────────────────────────────────────────────"
 echo "ALL GREEN ✓"

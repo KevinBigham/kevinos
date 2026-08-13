@@ -33,8 +33,8 @@ What is already live for Kevin:
 
 - Static app: https://kevinbigham.github.io/kevinos/
 - Relay: https://kevinos-relay.kevinbigham.workers.dev
-- App version shown in the footer: `KevinOS v0.50`
-- Service worker cache: `kevinos-v0_50`
+- App version shown in the live footer: `KevinOS v0.51`
+- Live service worker cache: `kevinos-v0_51`
 - Persisted schema stamp: `state.v = 39`
 - Relay name: `kevinos-relay`
 - Relay entrypoint: `relay/worker.js`
@@ -57,6 +57,13 @@ What is optional:
 - Phone reminders.
 - GitHub, Gmail, and Google Calendar OAuth.
 - Extra Council seats beyond Gemini and Cloudflare Workers AI.
+
+Current repository candidate:
+
+- App/cache/schema: `v0.58` / `kevinos-v0_58` / `v40`.
+- Local core use, roles, Today, Project Hub, review, playbooks, search, and recovery require no provider.
+- The provider-neutral fabric defaults to `allowPaid=false`; every route stays disabled until the credentials-last ceremony verifies current account, model, free-eligibility, and data-policy facts.
+- The v0.58 candidate is not represented as live until review, merge, GitHub Pages deployment, and hosted verification are separately authorized and complete.
 
 Time estimate:
 
@@ -184,7 +191,7 @@ Local CORS caveat:
 Checkpoint:
 
 - The page opens.
-- The footer shows the current version from the repo (`KevinOS v0.50` at the time of writing — match it to `index.html`'s footer).
+- The footer shows the current version from the repo (`KevinOS v0.58` for this candidate — match it to `APP_VERSION` and `sw.js`'s cache).
 - Local edits save in the browser.
 - No relay-dependent feature is expected to work until a relay URL is connected.
 

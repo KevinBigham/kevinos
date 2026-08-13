@@ -1,0 +1,4 @@
+Total messages: 2 (Errors: 0, Warnings: 2)
+
+[WARNING] Manifest: Enctype should be set to either application/x-www-form-urlencoded or multipart/form-data. It currently defaults to application/x-www-form-urlencoded @ http://127.0.0.1:4173/manifest.json:0
+[WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://127.0.0.1:4173/index.html:0

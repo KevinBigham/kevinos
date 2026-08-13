@@ -1,0 +1,583 @@
+{
+  "missionId": "kevinos-personalization-ai-fabric-v40-2026-08-12",
+  "status": "BLOCKED-EXTERNAL",
+  "currentWave": "K10",
+  "currentTask": "K10.07",
+  "lastUpdated": "2026-08-13T07:37:07Z",
+  "baseline": {
+    "appVersion": "0.57",
+    "schemaVersion": 39,
+    "serviceWorkerCache": "kevinos-v0_57",
+    "doctor": "PASS",
+    "fullSuite": "PASS",
+    "gitMetadata": "PRESENT: base 43715bf46f33163fc764341e16a7f798852ee157, branch codex/kevinos-v40-ai-fabric",
+    "structureChecker": "PASS",
+    "secretValueScan": "PASS",
+    "evidenceLog": "output/evolution/baseline-20260813T043427Z.log",
+    "productBehaviorModifiedDuringPreparation": false,
+    "credentialsRequestedDuringPreparation": false
+  },
+  "credentialPolicy": {
+    "requestCredentialsOnlyAfterWave": "K9",
+    "preactivationRequired": true,
+    "pasteKeysIntoChat": false,
+    "allowPaid": false,
+    "allowRemoteSecretMutation": false,
+    "allowDeploy": false,
+    "coreProviders": [
+      "groq",
+      "mistral",
+      "gemini",
+      "cloudflare-workers-ai"
+    ],
+    "optionalProviders": [
+      "cohere",
+      "openrouter",
+      "sambanova",
+      "nvidia-nim"
+    ]
+  },
+  "waves": [
+    {
+      "id": "K-1",
+      "title": "Preflight, stabilization, and durable mission memory",
+      "status": "COMPLETE",
+      "evidence": ["EV-K1-001", "EV-K1-002", "EV-K1-003", "EV-K1-004"],
+      "notes": "Canonical Git checkout preserved; bundled older product source was not overlaid."
+    },
+    {
+      "id": "K0",
+      "title": "P0 correctness and canonical task normalization",
+      "status": "COMPLETE",
+      "evidence": ["EV-K0-001", "EV-K0-002", "EV-K0-003"],
+      "notes": "Canonical People note fixed; task Person editor and normalized ingress verified."
+    },
+    {
+      "id": "K1",
+      "title": "Schema v40, Kevin Role Registry, privacy, and reversible migration",
+      "status": "COMPLETE",
+      "evidence": ["EV-K1-005", "EV-K1-006", "EV-K1-007"],
+      "notes": "One tested v39-to-v40 migration; role registry, privacy monotonicity, remap preview/apply/Undo, and convergence verified."
+    },
+    {
+      "id": "K2",
+      "title": "Typed links, Project Spine, Project Hub, and Resume Capsules",
+      "status": "COMPLETE",
+      "evidence": ["EV-K2-001", "EV-K2-002", "EV-K2-003"],
+      "notes": "Canonical typed links, derived relationship index, Project Hub, Resume Capsule, task-goal editing, and Studio project gate verified."
+    },
+    {
+      "id": "K3",
+      "title": "Commitment Contract, Promise Radar, and explicit execution states",
+      "status": "COMPLETE",
+      "evidence": ["EV-K3-001", "EV-K3-002", "EV-K3-003"],
+      "notes": "Explicit commitment/execution facts, deterministic actionability and risk reasons, bounded capture/editor fields, saved views, recurrence/portable preservation, and responsive browser evidence verified."
+    },
+    {
+      "id": "K4",
+      "title": "Role-aware Today, day modes, capacity, and Do Next Coach",
+      "status": "COMPLETE",
+      "evidence": ["EV-K4-001", "EV-K4-002", "EV-K4-003"],
+      "notes": "Device-local day mode, explicit role/capacity controls, pure ordered Today, hard-promise crossover, fit/transition facts, and non-mutating Do Next Coach verified."
+    },
+    {
+      "id": "K5",
+      "title": "WIP Governor, portfolio decisions, weekly review, and restartability",
+      "status": "COMPLETE",
+      "evidence": ["EV-K5-001", "EV-K5-002", "EV-K5-003"],
+      "notes": "Six-status vocabulary, non-mutating WIP visibility, guarded admission/override, explicit decisions, canonical weekly review, operation receipts, Undo, and restart journey verified."
+    },
+    {
+      "id": "K6",
+      "title": "Kevin role playbooks and role-aware onboarding",
+      "status": "COMPLETE",
+      "evidence": ["EV-K6-001", "EV-K6-002", "EV-K6-003"],
+      "notes": "Fifteen version-locked first-party role playbooks, preview-only instantiation with provenance and Undo, role-aware Life Sweep, and fresh/returning onboarding with legacy deferral were verified."
+    },
+    {
+      "id": "K7",
+      "title": "AI Studio Command Queue and bounded multi-agent orchestration",
+      "status": "COMPLETE",
+      "evidence": ["EV-K7-001", "EV-K7-002", "EV-K7-003"],
+      "notes": "Closed queue states, local agent profiles, exact-file one-writer locks, handoff waitpoints, dependency views, packet identity, claim/proof review, and bounded pause/resume history verified."
+    },
+    {
+      "id": "K7A",
+      "title": "Provider-neutral free AI fabric, privacy firewall, routing, and continuous improvement",
+      "status": "COMPLETE",
+      "evidence": ["EV-K7A-001", "EV-K7A-002", "EV-K7A-003", "EV-K7A-004"],
+      "notes": "Credentialless eight-adapter fabric, pre-transport privacy denial, zero-dollar deterministic routing, proposal-only client jobs, content-free Eval Lab, provider controls, responsive/offline browser evidence, and full gates verified; every provider remains disabled and no credentials were requested."
+    },
+    {
+      "id": "K8",
+      "title": "Decisions, relationships, knowledge activation, search, admin radar, evidence, and pruning",
+      "status": "COMPLETE",
+      "evidence": ["EV-K8-001", "EV-K8-002", "EV-K8-003", "EV-K8-004"],
+      "notes": "Decision and communication lifecycles, canonical relationship views, confirmed knowledge conversion, typed local search, explicit admin facts, factual evidence, bounded Lab Budget, content-free counters, docs index, optional Chromium smoke, responsive browser evidence, and full gates verified."
+    },
+    {
+      "id": "K9",
+      "title": "Credentialless hardening and preactivation release candidate",
+      "status": "COMPLETE",
+      "evidence": ["EV-K9-001", "EV-K9-002", "EV-K9-003", "EV-K9-004"],
+      "notes": "v0.58/schema v40 release candidate passed focused/full state, privacy, XSS, browser, accessibility, offline, representative-scale, secret, diff, documentation, and preactivation review gates without credentials or remote action."
+    },
+    {
+      "id": "K10",
+      "title": "Credentials-last secure activation and live synthetic verification",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003"],
+      "notes": "All safe K10 work is complete: current official links/caveats, silent local ceremony, redacted verifier, strict one-provider loopback probe, dummy rotation/revocation, secret scan, and full wave gate pass. Live account/key/control confirmations and provider calls require Kevin's local ceremony; no remote secret mutation or deploy is authorized."
+    }
+  ],
+  "finalGates": {
+    "doctor": "PASS",
+    "fullSuite": "PASS",
+    "browserWidths": "PASS",
+    "offlineReload": "PASS",
+    "migrationRecovery": "PASS",
+    "privacySecurity": "PASS",
+    "performance": "PASS",
+    "providerFabricCredentialless": "PASS",
+    "zeroDollarPolicy": "PASS",
+    "preactivation": "PASS",
+    "credentialsLast": "BLOCKED-EXTERNAL",
+    "liveSyntheticVerification": "BLOCKED-EXTERNAL",
+    "secretLeakScan": "PASS",
+    "finalReview": "PASS"
+  },
+  "acceptance": [
+    {
+      "id": "AT-001",
+      "status": "PASS",
+      "evidence": ["EV-K0-001"],
+      "notes": "Canonical note opt-in and opt-out pair passes."
+    },
+    {
+      "id": "AT-002",
+      "status": "PASS",
+      "evidence": ["EV-K0-001", "EV-K0-002"],
+      "notes": "Capture parser, edit/change/clear, reload, portable round-trip, and browser flow pass."
+    },
+    {
+      "id": "AT-003",
+      "status": "PASS",
+      "evidence": ["EV-K0-001", "EV-K0-003"],
+      "notes": "Pure idempotent normalizer and all known task ingress paths verified."
+    },
+    {
+      "id": "AT-004",
+      "status": "PASS",
+      "evidence": ["EV-K0-001", "EV-K2-001", "EV-K2-002"],
+      "notes": "Task goalId is now normalized, editable, visible, reloadable, and portable."
+    },
+    {
+      "id": "AT-010",
+      "status": "PASS",
+      "evidence": ["EV-K1-005", "EV-K1-006"],
+      "notes": "Deterministic snapshot-first v39-to-v40 migration preserves records and is idempotent."
+    },
+    {
+      "id": "AT-011",
+      "status": "PASS",
+      "evidence": ["EV-K1-005"],
+      "notes": "Pure idempotent v40 normalizers preserve unknown fields and do not mint IDs on read."
+    },
+    {
+      "id": "AT-012",
+      "status": "PASS",
+      "evidence": ["EV-K1-005"],
+      "notes": "New collections and portfolio round-trip with connection exclusions intact."
+    },
+    {
+      "id": "AT-013",
+      "status": "PASS",
+      "evidence": ["EV-K1-005"],
+      "notes": "Merge, tombstone, and three-device v40 convergence fixtures pass."
+    },
+    {
+      "id": "AT-014",
+      "status": "PASS",
+      "evidence": ["EV-K1-005"],
+      "notes": "Privacy remains monotonic through migration, import, and both merge orders."
+    },
+    {
+      "id": "AT-020",
+      "status": "PASS",
+      "evidence": ["EV-K1-005", "EV-K1-006"],
+      "notes": "Eight stable roles seed once and are editable inside Plan and Review."
+    },
+    {
+      "id": "AT-021",
+      "status": "PASS",
+      "evidence": ["EV-K1-005", "EV-K1-006"],
+      "notes": "Ambiguous and unknown legacy areas remain stable reviewable roles."
+    },
+    {
+      "id": "AT-022",
+      "status": "PASS",
+      "evidence": ["EV-K1-005", "EV-K1-006"],
+      "notes": "Role remap preview, checkpoint, apply receipt, and bounded Undo are verified."
+    },
+    {
+      "id": "AT-030",
+      "status": "PASS",
+      "evidence": ["EV-K3-001", "EV-K3-002"],
+      "notes": "Waiting and delegated work stay out of actionable selection until the explicit review date."
+    },
+    {
+      "id": "AT-031",
+      "status": "PASS",
+      "evidence": ["EV-K3-001", "EV-K3-002"],
+      "notes": "Explicit or lead-day start-by facts produce visible PROMISE_START_BY risk without invented duration."
+    },
+    {
+      "id": "AT-032",
+      "status": "PASS",
+      "evidence": ["EV-K3-001"],
+      "notes": "Pure selectors preserve source order and return identical ordered actions and reason sets for identical input."
+    },
+    {
+      "id": "AT-033",
+      "status": "PASS",
+      "evidence": ["EV-K3-001", "EV-K3-002"],
+      "notes": "Stable reason codes and plain-language explanations are visible; no weighted universal urgency score exists."
+    },
+    {
+      "id": "AT-040",
+      "status": "PASS",
+      "evidence": ["EV-K5-001", "EV-K5-002"],
+      "notes": "Seven admitted Active projects at cap three render 7/3 and over by four with explicit decision controls."
+    },
+    {
+      "id": "AT-041",
+      "status": "PASS",
+      "evidence": ["EV-K5-001", "EV-K5-002"],
+      "notes": "Cap changes and all portfolio selectors preserve source project status and WIP class until Kevin decides."
+    },
+    {
+      "id": "AT-042",
+      "status": "PASS",
+      "evidence": ["EV-K5-001", "EV-K5-002"],
+      "notes": "Over-cap admission fails closed without reason/review and approved overrides stay visible in Project Hub and Weekly Review."
+    },
+    {
+      "id": "AT-050",
+      "status": "PASS",
+      "evidence": ["EV-K2-001", "EV-K2-002"],
+      "notes": "Project Hub derives every supported relationship without persisting duplicate state."
+    },
+    {
+      "id": "AT-051",
+      "status": "PASS",
+      "evidence": ["EV-K2-001", "EV-K2-002"],
+      "notes": "Resume Capsule truth, links, proof, and restart checklist survive reload and convergence."
+    },
+    {
+      "id": "AT-052",
+      "status": "PASS",
+      "evidence": ["EV-K2-001", "EV-K2-002"],
+      "notes": "New Studio missions require a project or the explicit canonical Incubator placeholder."
+    },
+    {
+      "id": "AT-060",
+      "status": "PASS",
+      "evidence": ["EV-K4-001", "EV-K4-002"],
+      "notes": "Representative Today has exactly one primary action, no more than the configured limit, hard stop, transition, and ordered reasons."
+    },
+    {
+      "id": "AT-061",
+      "status": "PASS",
+      "evidence": ["EV-K4-001", "EV-K4-002"],
+      "notes": "Start-by-risk external promise crosses the BSPC role filter with an explicit ROLE_CROSSOVER_PROMISE explanation."
+    },
+    {
+      "id": "AT-062",
+      "status": "PASS",
+      "evidence": ["EV-K4-001", "EV-K4-002"],
+      "notes": "Low capacity renders one commitment and capacity deferrals without mutating task, project, or portfolio source facts."
+    },
+    {
+      "id": "AT-063",
+      "status": "PASS",
+      "evidence": ["EV-K4-001", "EV-K4-002"],
+      "notes": "Six bounded stuck reasons return deterministic proposal-only physical actions with Escape/focus return."
+    },
+    {
+      "id": "AT-070",
+      "status": "PASS",
+      "evidence": ["EV-K5-001", "EV-K5-002", "EV-K5-003"],
+      "notes": "Weekly review records one/two outcomes, protected commitments, not-now IDs, next review, content-free receipt, checkpoint, and exact-state Undo."
+    },
+    {
+      "id": "AT-071",
+      "status": "PASS",
+      "evidence": ["EV-K5-001", "EV-K5-002"],
+      "notes": "Canonical wins, promises, overdue waiting review, stale/blocked Active work, overrides, and unverified shipped claims are visible."
+    },
+    {
+      "id": "AT-080",
+      "status": "PASS",
+      "evidence": ["EV-K7-001", "EV-K7-002"],
+      "notes": "Exact target collisions including index.html deny a second Running writer; a reasoned override becomes Awaiting Kevin until handoff."
+    },
+    {
+      "id": "AT-081",
+      "status": "PASS",
+      "evidence": ["EV-K7-001", "EV-K7-002"],
+      "notes": "Collaborator claims and references remain unverified; claim/evidence review and approval fail closed without current local proof; Studio launches nothing."
+    },
+    {
+      "id": "AT-082",
+      "status": "PASS",
+      "evidence": ["EV-K7-001"],
+      "notes": "Packet version/fingerprint covers project, agent/reviewer, files, scope, commands, acceptance, and selected context; changed identity makes old proof stale."
+    },
+    {
+      "id": "AT-083",
+      "status": "PASS",
+      "evidence": ["EV-K7-001", "EV-K7-002"],
+      "notes": "All nine states, dependency-aware ready/blocked facts, fail-closed transitions, and bounded serialized pause/resume history pass."
+    },
+    {
+      "id": "AT-090",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-002"],
+      "notes": "The proposal UI requires an exact one-record field manifest, bounded manual text, privacy class, redaction attestation, and explicit approval before relay transport."
+    },
+    {
+      "id": "AT-091",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001"],
+      "notes": "Youth-sensitive and unapproved internal packets fail before transport; existing separately opted-in People note behavior remains covered."
+    },
+    {
+      "id": "AT-092",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001"],
+      "notes": "Public-copy output requires a redactions array and rejects direct identifiers or forbidden fields before proposal creation."
+    },
+    {
+      "id": "AT-100",
+      "status": "PASS",
+      "evidence": ["EV-K8-001", "EV-K8-002"],
+      "notes": "Typed deterministic local search covers ten canonical record types, all six filters, stable ordering, safe open/edit actions, keyboard/mobile access, and hostile content."
+    },
+    {
+      "id": "AT-110",
+      "status": "PASS",
+      "evidence": ["EV-K2-002", "EV-K3-002", "EV-K4-002", "EV-K5-002", "EV-K6-002", "EV-K7-002", "EV-K8-002", "EV-K8-003", "EV-K9-002"],
+      "notes": "Thirty final critical room/width checks pass without horizontal overflow or online console errors; labels, focus return, reduced motion, contrast, coarse targets, and semantics pass."
+    },
+    {
+      "id": "AT-111",
+      "status": "PASS",
+      "evidence": ["EV-K7A-002", "EV-K9-002"],
+      "notes": "Installed v0.58 cache controls hard reload and a new offline tab; Today, Projects, Review, Library, and Studio remain usable with only expected caught relay fetch failures."
+    },
+    {
+      "id": "AT-112",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K8-001", "EV-K9-003"],
+      "notes": "A 526,011-byte synthetic fixture with 1,000 tasks, 500 notes, 200 friction marks, and linked projects/people/goals/events loaded in 70ms; critical rooms measured 38-92ms and exact typed search 11ms on this machine."
+    },
+    {
+      "id": "AT-120",
+      "status": "PASS",
+      "evidence": ["EV-K3-003", "EV-K4-003", "EV-K5-003", "EV-K6-003", "EV-K7-003", "EV-K7A-003", "EV-K8-004", "EV-K9-001", "EV-K9-004", "EV-K10-003"],
+      "notes": "v0.58 doctor, secret scan, syntax/ES5, complete app/relay suite, mission-state check, preactivation gate, and final credentialless K10 wave gate pass."
+    },
+    {
+      "id": "AT-130",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001"],
+      "notes": "All eight adapters pass credentialless success, HTTP edge, malformed-response, exact-model, usage, and rate-header normalization fixtures."
+    },
+    {
+      "id": "AT-131",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-003"],
+      "notes": "Browser code has no provider authorization path or key storage; portable, sync, test output, screenshots, and provider status remain secret-free."
+    },
+    {
+      "id": "AT-132",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001"],
+      "notes": "Restricted classes, unapproved internal data, failed de-identification, and secret-pattern packets make zero transport calls."
+    },
+    {
+      "id": "AT-133",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-004"],
+      "notes": "allowPaid is hard false; missing, unknown-price, non-allowlisted, disabled, quota-exhausted, and stale policies fail closed."
+    },
+    {
+      "id": "AT-134",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-002"],
+      "notes": "Fixed capability lanes produce deterministic eligible order and visible exclusion reasons in relay and Control Center."
+    },
+    {
+      "id": "AT-135",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001"],
+      "notes": "Fallback is sequential, bounded to compatible pre-qualified routes, and never crosses privacy, usage-class, capability, or price gates."
+    },
+    {
+      "id": "AT-136",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001"],
+      "notes": "Content-free daily ceilings, normalized rate headers, OPEN/HALF_OPEN/CLOSED circuits, one transient retry, and no fan-out are verified."
+    },
+    {
+      "id": "AT-137",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-002"],
+      "notes": "Provider, exact model, alias, prompt, packet, fallback, privacy, and timestamp survive proposal edit/apply/reject/Undo."
+    },
+    {
+      "id": "AT-138",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-003"],
+      "notes": "Provider, router, privacy, proposal, Eval Lab, and UI suites pass without credentials or outbound provider traffic."
+    },
+    {
+      "id": "AT-139",
+      "status": "PASS",
+      "evidence": ["EV-K7A-002", "EV-K7A-003"],
+      "notes": "The installed PWA reloads offline; local workflows remain usable and Studio reports provider status unavailable without blocking."
+    },
+    {
+      "id": "AT-140",
+      "status": "PASS",
+      "evidence": ["EV-K7A-002"],
+      "notes": "Studio Control Center shows all eight redacted statuses, usage class, exact configured model, quota, circuit, lifecycle, policy, and route reasons without secret input."
+    },
+    {
+      "id": "AT-141",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001"],
+      "notes": "Requires Kevin's Gemini account/key, explicit free-tier data-use acknowledgement, and exact account/model free eligibility confirmation."
+    },
+    {
+      "id": "AT-142",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002"],
+      "notes": "Requires Kevin's Groq key and confirmation that ZDR is enabled before one strict live probe."
+    },
+    {
+      "id": "AT-143",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002"],
+      "notes": "Requires Kevin's Mistral Free Mode account/key and live account/model/limit discovery."
+    },
+    {
+      "id": "AT-144",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002"],
+      "notes": "Requires authorized Cloudflare account/binding access and one live binding probe; no remote mutation was performed."
+    },
+    {
+      "id": "AT-145",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002"],
+      "notes": "Optional Cohere evaluation remains honestly disabled until Kevin chooses to create an evaluation key."
+    },
+    {
+      "id": "AT-146",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002"],
+      "notes": "Optional OpenRouter emergency lane remains disabled until Kevin creates a key and live account limits are read."
+    },
+    {
+      "id": "AT-147",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002"],
+      "notes": "Optional SambaNova lab lane remains disabled until Kevin creates a key and live quotas are confirmed."
+    },
+    {
+      "id": "AT-148",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002"],
+      "notes": "Optional NVIDIA prototype lane remains disabled until Kevin chooses Developer Program access and creates a key."
+    },
+    {
+      "id": "AT-149",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-002"],
+      "notes": "Seven bounded jobs create editable Proposal Inbox entries only; browser apply and Undo are explicit and preserve fabric provenance."
+    },
+    {
+      "id": "AT-150",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-002"],
+      "notes": "Credentialless contracts cover capture, capsule, review, classification, playbook, public copy, and Studio second-opinion journeys."
+    },
+    {
+      "id": "AT-151",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001"],
+      "notes": "Malformed, wrong-shape, forbidden nested fields, direct identifiers, missing fields, and bounded prompt-injection fixtures fail before mutation."
+    },
+    {
+      "id": "AT-152",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-002"],
+      "notes": "Quota, circuit, and Eval Lab receipts are bounded and content-free; browser storage inspection contains scorecard metadata only."
+    },
+    {
+      "id": "AT-153",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-002", "EV-K10-002"],
+      "notes": "Nine built-in fictional fixtures, including the synthetic-only optional-provider probe, produce deterministic content-free scorecards and sequential or strict-single-provider comparisons."
+    },
+    {
+      "id": "AT-154",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001"],
+      "notes": "Recommendations require five passing samples, remain Awaiting Kevin, never auto-apply, and retain last-known-good rollback state."
+    },
+    {
+      "id": "AT-155",
+      "status": "PASS",
+      "evidence": ["EV-K7A-001", "EV-K7A-004"],
+      "notes": "Stable aliases separate features from exact models; missing, retired, non-free, or policy-stale routes disable visibly and fail closed."
+    },
+    {
+      "id": "AT-156",
+      "status": "PASS",
+      "evidence": ["EV-K9-004", "EV-K10-001"],
+      "notes": "The one credential request was issued only after every K-1 through K9 task and both preactivation gates passed."
+    },
+    {
+      "id": "AT-157",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003"],
+      "notes": "Silent ignored mode-600 storage, redacted verification, and zero-exposure scans pass with dummy/no credentials; Kevin's live local entry and post-entry scan remain required."
+    },
+    {
+      "id": "AT-158",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-002"],
+      "notes": "Strict one-provider, loopback-only, content-discarding probe tooling passes locally; live calls require Kevin-created credentials/account access."
+    },
+    {
+      "id": "AT-159",
+      "status": "PASS",
+      "evidence": ["EV-K10-002"],
+      "notes": "Dummy create/preserve/replace/rotate/revoke, mode-600, redaction, interruption safety, and live console-first incident steps are tested/documented."
+    },
+    {
+      "id": "AT-160",
+      "status": "PASS",
+      "evidence": ["EV-K7A-002", "EV-K10-001"],
+      "notes": "All optional providers remain explicitly NOT CONFIGURED and policy-disabled without blocking the fully usable local app."
+    },
+    {
+      "id": "AT-161",
+      "status": "BLOCKED-EXTERNAL",
+      "evidence": ["EV-K10-001"],
+      "notes": "No remote secret mutation or deploy occurred; any future wrangler secret or binding action requires a separate just-in-time Kevin authorization."
+    }
+  ]
+}

@@ -160,5 +160,27 @@ const KEY = "v2:" + "ab".repeat(32); // prove convergence under the new key form
   assert.deepStrictEqual(proofIds[1], proofIds[2], "three-device structured acceptance converges");
   assert.deepStrictEqual(C.app.getState().builds[0].proofBundle.attempts.map((x) => x.id), ["attempt-a", "attempt-b"], "attempt receipts survive convergence");
 
+  // v40: canonical roles and decisions use the same lossless identity merge,
+  // and their tombstones prevent resurrection across three devices.
+  A.app.getState().roles.push(A.app.normalizeRoleRecord({ id: "role-community-test", label: "Community test", status: "active", privacyDefault: "work-internal", u: 800 }));
+  A.app.getState().decisions.push(A.app.normalizeDecisionRecord({ id: "decision-v40", question: "Ship v40?", choiceId: "hold", privacyClass: "work-internal", u: 800 }));
+  await A.push(); await B.pull();
+  B.app.getState().decisions.find((d) => d.id === "decision-v40").choiceId = "ship";
+  B.app.getState().decisions.find((d) => d.id === "decision-v40").u = 900;
+  B.app.getState().projects.push(B.app.normalizeProjectRecord({ id: "project-v40", title: "v40 convergence", area: "Work", roleId: "role-legacy-work", status: "Active", privacyClass: "youth-sensitive", currentState: "Relationship spine wired", nextAction: "Verify on three devices", blockers: ["None"], resumeChecklist: ["Pull", "Verify"], repoRefs: [{ label: "KevinOS", branch: "codex/v40" }], lastProof: "Focused suite", lastProofAt: 900, u: 900 }));
+  B.app.getState().notes.push(B.app.normalizeLinkedRecord({ id: "note-v40-spine", title: "Convergence note", projectId: "project-v40", roleId: "role-legacy-work", privacyClass: "youth-sensitive", u: 900 }));
+  await B.push(); await C.pull(); await A.pull();
+  for (const d of [A, B, C]) {
+    assert.strictEqual(d.app.getState().roles.filter((r) => r.id === "role-community-test").length, 1, "role converges once");
+    assert.strictEqual(d.app.getState().decisions.find((x) => x.id === "decision-v40").choiceId, "ship", "newest decision edit converges");
+    assert.strictEqual(d.app.getState().projects.find((x) => x.id === "project-v40").privacyClass, "youth-sensitive", "project role/privacy links converge");
+    assert.deepStrictEqual(d.app.getState().projects.find((x) => x.id === "project-v40").resumeChecklist, ["Pull", "Verify"], "Resume Capsule survives three-device convergence");
+    assert.strictEqual(d.app.relationshipIndex(d.app.getState()).byProject["project-v40"].notes[0].id, "note-v40-spine", "relationship index reconstructs from converged canonical records");
+  }
+  C.app.getState().deleted["decision-v40"] = Date.now();
+  C.app.getState().decisions = C.app.getState().decisions.filter((d) => d.id !== "decision-v40");
+  await C.push(); await A.pull(); await B.pull();
+  assert.ok([A, B, C].every((d) => !d.app.getState().decisions.some((x) => x.id === "decision-v40")), "decision tombstone prevents resurrection");
+
   console.log("three-device convergence ok");
 })().catch((err) => { console.error(err); process.exit(1); });
