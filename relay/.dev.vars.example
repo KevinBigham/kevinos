@@ -1,0 +1,28 @@
+# Names only. Keep values empty in this committed example.
+# Do not paste real keys into chat or source. K10 uses the silent local ceremony.
+GEMINI_API_KEY=
+GROQ_API_KEY=
+MISTRAL_API_KEY=
+COHERE_API_KEY=
+OPENROUTER_API_KEY=
+SAMBANOVA_API_KEY=
+NVIDIA_API_KEY=
+
+# Non-secret policy. Empty means every Provider Fabric adapter is disabled.
+# Activation must explicitly list enabled providers and the exact provider:model
+# pairs whose current free eligibility was verified for this account.
+AI_ALLOW_PAID=false
+AI_ENABLED_PROVIDERS=
+AI_FREE_VERIFIED_MODELS=
+AI_MAX_FALLBACK_HOPS=2
+AI_MAX_RETRIES_PER_PROVIDER=1
+
+# Optional conservative app ceilings. Defaults exist in worker.js.
+GROQ_DAILY_CEILING=900
+MISTRAL_DAILY_CEILING=200
+GEMINI_DAILY_CEILING=100
+CLOUDFLARE_DAILY_CEILING=8500
+COHERE_DAILY_CEILING=25
+OPENROUTER_DAILY_CEILING=40
+SAMBANOVA_DAILY_CEILING=18
+NVIDIA_DAILY_CEILING=20

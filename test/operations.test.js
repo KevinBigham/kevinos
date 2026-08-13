@@ -23,6 +23,14 @@ const { loadApp } = require("./harness");
   assert.notStrictEqual(finished.afterFingerprint, before);
   assert.match(app.operationsHTML(), /View checkpoint/, "checkpoint-backed operations link to recovery history");
 
+  const remapOp = app.beginOperation("role.remap", { source: "Roles settings", affectedCount: 3, targetKind: "role", targetId: "role-legacy-work", checkpointReason: "pre-role-remap" });
+  assert.ok(remapOp, "explicit role remap is an allowlisted consequential operation");
+  assert.strictEqual(app.finishOperation(remapOp, "succeeded", { affectedCount: 3, targetKind: "role", targetId: "role-studio", undoAvailable: true }), true);
+  assert.ok(app.loadOperations().some((x) => x.type === "kevinos.role.remapped" && x.affectedCount === 3 && x.undoAvailable), "role remap receipt is bounded and exposes Undo availability");
+  const remapUndo = app.beginOperation("role.undo", { source: "Roles settings", affectedCount: 3, targetKind: "role", targetId: "role-legacy-work", revertsOperationId: remapOp });
+  app.finishOperation(remapUndo, "succeeded", { affectedCount: 3 });
+  assert.strictEqual(app.loadOperations().find((x) => x.id === remapUndo).revertsOperationId, remapOp, "role Undo links to the remap operation");
+
   const countBeforeTyping = app.loadOperations().length;
   state.items[0].text = "Ordinary edit";
   assert.strictEqual(app.loadOperations().length, countBeforeTyping, "ordinary typing is never recorded");

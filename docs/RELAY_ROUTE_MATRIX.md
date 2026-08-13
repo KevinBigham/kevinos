@@ -50,3 +50,18 @@ Body classes used by the hardening target: `small` 64 KiB, `ai` 256 KiB, `mail` 
 | POST `/calendar/create` | Protected | mail | create after app approval | route-auth |
 
 Unknown routes return 404. Worker-wide auth and rate limiting run before dispatch. The fetch boundary must convert unexpected failures to a safe correlation-ID envelope.
+
+## Provider Fabric routes — implemented, credentialless
+
+These protected routes share pre-transport classification, the hard zero-dollar policy, content-free quota/circuit state, normalized receipts, and proposal-only approval contracts. Every provider remains disabled until the separate activation gate.
+
+| Method/path | Access | Input | Output | Required coverage |
+|---|---|---|---|---|
+| GET `/ai/providers` | Protected | none | redacted aliases, free eligibility, quota/circuit/lifecycle status | auth, redaction, disabled states |
+| GET `/ai/health` | Protected | none | content-free adapter/account/binding health | auth, redaction, quota/circuit |
+| GET `/ai/fixtures` | Protected | none | IDs and policy metadata for nine built-in synthetic fixtures; no fixture content | auth, redaction, synthetic-only |
+| POST `/ai/preview` | Protected | synthetic metadata | deterministic compatible candidates and visible include/exclude reasons; zero adapter calls | privacy, free-only, capability, quota, circuit |
+| POST `/ai/route` | Protected | ai | one classified/minimized capability request to normalized proposal | privacy pre-denial, free-only routing, adapters, fallback, schema safety |
+| POST `/ai/evaluate` | Protected | built-in fixture ID plus optional provider IDs | sequential content-free scorecards; response content discarded | named-synthetic guard, maximum three providers, no mutation |
+
+Provider keys are never accepted in request bodies, query strings, cookies, browser state, or responses.

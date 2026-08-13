@@ -8,10 +8,21 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 - Runtime: dependency-free static PWA plus plain Node test scripts; no package install required.
 - Baseline version: app v0.49, service-worker cache `kevinos-v0_49`, schema v39.
 - Live static release: app v0.51, service-worker cache `kevinos-v0_51`, schema v39.
-- Current candidate: app v0.57, service-worker cache `kevinos-v0_57`, schema v39.
+- Current candidate: app v0.58, service-worker cache `kevinos-v0_58`, schema v40.
 - Baseline gate on 2026-08-09: `sh test/run.sh` — ALL GREEN.
 - Browser baseline: real Chromium at 390x844 reproduced crushed mobile task text, duplicate navigation, missing Tasks bottom-nav entry, and microphone overlap; console had zero warnings/errors.
-- Governing mission: KevinOS Convergence. Historical marathon documents are evidence, not current plans.
+- Verified baseline mission: KevinOS Convergence. Its completed waves remain the trusted starting point.
+- Active implementation mission: KevinOS v40 Personalization + Free AI Provider Fabric. See `ACTIVE_MISSION.md` and `docs/evolution/2026-08-12-kevin-personalization-ai-fabric-v40/00_START_HERE.md`.
+
+## Active v40 evolution mission
+
+Kevin has authorized the local implementation marathon over this canonical Git checkout. The package's bundled product source is not imported wholesale because it predates the canonical Attention Proof Loop; live code and passing tests remain source truth.
+
+The mission adds the Kevin Role Registry, Commitment Contract, Project Spine, Resume Capsules, role-aware Today, WIP/Weekly Review, playbooks/onboarding, project-linked AI Studio, privacy classes, local search, and a server-side provider-neutral AI fabric. Provider work is credentialless through K9, enforces `allowPaid=false`, rejects sensitive packets before transport, stores no secret values in KevinOS state, and must preserve complete offline/local use.
+
+**Current status:** K-1 through K9 are complete and the preactivation gate passed. v0.58/schema v40 includes P0 normalization, roles/modes, Project Spine/Resume Capsules, commitments/Today, WIP/Review, 15 playbooks/onboarding, Studio queue, the eight-adapter credentialless Provider Fabric, decisions/relationships/knowledge/search/admin/evidence/Lab surfaces, and final accessibility/offline/scale hardening. Safe K10 preparation is also complete: current official setup links, silent mode-600 local ceremony, redacted verifier, strict one-provider loopback probe, dummy rotation/revocation, zero-exposure scan, and full wave gate all pass. Every provider remains disabled/key-missing. The mission is BLOCKED-EXTERNAL at K10.07 until Kevin creates desired accounts/keys, confirms provider controls, and runs the ceremony. No credential value has been requested in chat or added. No live provider, deploy, push, billing, or remote action has been performed.
+
+K-1 through K9 and the `preactivation` gate completed before K10 issued its one request for Kevin to run the silent local credential ceremony. Push, deploy, publish, paid use, billing changes, remote secret mutation, outward sends, destructive operations, historical deletion, and GATE-76 bypass remain unauthorized.
 
 ## v0.51 release — Attention Proof Loop
 
@@ -48,7 +59,7 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 ## Gates and deliberate constraints
 
 - Keep `index.html` single-file, dependency-free, and ES5-style.
-- Schema stayed v39. AI proposals and Studio extend existing open record shapes compatibly; old records normalize at use sites and remain readable.
+- The verified starting baseline was schema v39. The single authorized v39→v40 migration is now implemented and recovery-tested; no intermediate schemas exist.
 - GATE-76 client-side sync encryption remains deferred until the live version is confirmed, the real-device re-key drill passes, and Kevin explicitly approves it.
 - Publication is limited to a focused GitHub branch and pull request. No deploy, secrets mutation, historical-file deletion, or GATE-76 work is authorized.
 - The 30-day daily-driver observation period starts when Kevin adopts v0.50; its ready-to-use local scorecard is `docs/ADOPTION_SOAK.md`.
@@ -62,17 +73,17 @@ Keep for evidence, but do not treat as current instructions: `MISSION.md`, `HAND
 
 ## Verification receipt
 
-- Focused: app logic, UI contracts, 12-surface external-content XSS corpus, operations, friction, material-conflict fixtures, portability, merge, convergence, 50-seed operation-reference permutations, relay auth/sync, and security-boundary suites all green.
-- Release: `sh test/run.sh` — ALL GREEN on 2026-08-12 at app v0.57/schema v39/cache `kevinos-v0_57`, including the published v0.51 Attention Proof Loop suite and every v0.57 research suite.
+- Focused: app logic, schema migration, Project Spine, commitments, role-aware Today, WIP Governor, role playbooks/onboarding, Studio Command Queue, UI contracts, 12-surface external-content XSS corpus, operations, friction, material-conflict fixtures, portability, merge, convergence, 50-seed operation-reference permutations, relay auth/sync, and security-boundary suites all green.
+- Release candidate: `sh test/run.sh` — ALL GREEN at app v0.58/schema v40/cache `kevinos-v0_58`, including all v40, provider-fabric, credential-ceremony, and strict probe contracts. Preactivation is EV-K9-004; safe K10 preparation is EV-K10-001 through EV-K10-003.
 - Browser: Chromium at 320x568, 390x844, 430x932, 768x1024, and 1440x900; zero same-page horizontal overflow. The integrated NOW card displayed both deterministic “Why this is NOW” evidence and Focus Rail reason labels; Attention recording controls and Studio's Mission Capsule plus structured-proof fields coexisted; service-worker offline reload returned v0.57. Final console: zero warnings/errors. Earlier v0.57 receipts also cover AI receipt details, stale mission proof, high-stakes Escape/focus return, the read-only backup drill, operation receipts, and Calm Friction controls.
 - Accessibility: selected normal-text contrast ratios are 4.78–15.31 light and 6.51–15.08 dark; reduced-motion CSS suppresses recurring animation and coarse-pointer CSS enforces 44px controls.
 - Performance: with 1,000 tasks + 500 notes + the maximum 200 friction marks (176 KB canonical state plus the bounded sidecar), Chromium DOMContentLoaded was 69 ms and load 70 ms on this machine. NOW stayed capped at three and the weekly aggregate rendered. This does not open Track B5's checkpoint gate.
-- Data/security: schema v39 round trip, connection exclusion, tombstones, calendar/AI pending isolation, OAuth nonce replay, byte-limit boundaries, private-network URL rejection, hostile-content render corpus, and safe provider-error envelope covered.
+- Data/security: schema v40 migration/idempotence/round trip, connection exclusion, privacy monotonicity, tombstones, three-device convergence, calendar/AI pending isolation, OAuth nonce replay, byte-limit boundaries, private-network URL rejection, hostile-content render corpus, and safe provider-error envelope covered.
 
 ## Meaningful files
 
 - Product/runtime: `index.html`, `sw.js`, `relay/worker.js`.
-- Verification: `test/app-logic.test.js`, `test/ui-contract.test.js`, `test/xss-corpus.test.js`, `test/operations.test.js`, `test/friction.test.js`, `test/conflicts.test.js`, `test/sync-reference.test.js`, `relay/test/security-boundaries.test.js`, `test/run.sh`, `tools/doctor.js`.
+- Verification: `test/app-logic.test.js`, `test/wip-governor.test.js`, `test/playbooks-onboarding.test.js`, `test/studio-command.test.js`, `test/ai-fabric-client.test.js`, `test/ui-contract.test.js`, `test/xss-corpus.test.js`, `test/operations.test.js`, `test/friction.test.js`, `test/conflicts.test.js`, `test/sync-reference.test.js`, `relay/test/ai-fabric.test.js`, `relay/test/security-boundaries.test.js`, `test/run.sh`, `tools/doctor.js`.
 - Operating layer: `AGENTS.md`, `relay/AGENTS.md`, `docs/*` including `docs/LOCAL_EVIDENCE_VOCABULARY.md` and the verbatim source report at `docs/history/KevinOS_Hardcore_Open_Source_Research_Report.md`, `.agents/skills/*`, `CLAUDE.md`, `.github/copilot-instructions.md`, `GETTING_STARTED.md`, `README.md`.
 - Install/release: `manifest.json` now has stable `id: "./"`; `docs/ADOPTION_SOAK.md` is the local 30-day scorecard.
 
@@ -84,13 +95,13 @@ Keep for evidence, but do not treat as current instructions: `MISSION.md`, `HAND
 - Relay code and Cloudflare state were unchanged. The v0.50 relay version `583e5905-f97a-4c6a-9391-54db89f53ada` remains active; its prior health/security receipt and rollback target stay in `docs/RELEASE_v0.50.md`.
 - Activation status is YELLOW only because physical-device, authenticated provider/OAuth, push, and elapsed adoption checks remain honestly unverified; no P0/P1 defect is known.
 
-The v0.57 candidate is not represented as live until its pull request is reviewed, merged, and the static deployment is verified.
+The v0.58 candidate is not represented as live until its pull request is reviewed, merged, and the static deployment is verified.
 
 ## Residual risks
 
-- No v0.57 live deploy, Lighthouse-on-live, real provider call, real OAuth consent, real-device push, 30 elapsed days of adoption evidence, real-world material conflict, or multi-device re-key was performed.
+- No v0.58 live deploy, Lighthouse-on-live, real provider call, real OAuth consent, real-device push, 30 elapsed days of adoption evidence, real-world material conflict, or multi-device re-key was performed.
 - GATE-76 remains intentionally deferred by its explicit product gate. Historical Home/Launch internals remain as compatibility/reuse code; their user-facing routes alias Today.
 
 ## Cold resume
 
-Read `AGENTS.md`, this file, `docs/RELEASE_v0.51.md`, and one relevant domain doc. Run `node tools/doctor.js` and `sh test/run.sh`. Treat v0.51 static and the unchanged v0.50 relay as activated; treat v0.57 as a candidate until its pull request, deployment, and live receipt are complete. The next product work is the 30-day daily-driver soak or a future track whose documented evidence gate has actually opened—never an inferred schema, adapter, CRDT, or encryption gate.
+Read `AGENTS.md`, this file, `ACTIVE_MISSION.md`, and the relevant domain doc. Run `node tools/doctor.js` and `sh test/run.sh`. Treat v0.51 static and the unchanged v0.50 relay as activated; treat v0.58/schema v40 as a candidate until its pull request, deployment, and live receipt are complete. Resume the active evolution mission at K10.07 only after Kevin replies `ceremony complete`; never infer an adapter, CRDT, encryption, credential, deploy, or remote-action gate.

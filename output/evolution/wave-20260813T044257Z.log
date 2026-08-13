@@ -1,0 +1,47 @@
+KevinOS evolution gate mode: wave
+UTC start: 2026-08-13T04:42:57Z
+── mission state ──────────────────────────────
+KevinOS evolution mission state ok — mode structure, 244 tasks, 72 acceptance contracts
+── secret-value boundary ──────────────────────
+KevinOS secret-value scan ok — 111 text files, 0 approved local secret store(s) skipped, 0 exposed values
+── repository doctor ──────────────────────────
+KevinOS doctor ok — app v0.57, schema v39, 20 rooms, 42 relay routes
+── complete test suite ────────────────────────
+── repository doctor ──────────────────────────
+KevinOS doctor ok — app v0.57, schema v39, 20 rooms, 42 relay routes
+── static checks ──────────────────────────────
+syntax ok (app script, sw.js, worker.js)
+── ES5 contraband scan (app script) ───────────
+es5 clean
+── app suites ─────────────────────────────────
+app-logic harness ok
+task normalization contracts ok
+attention proof loop contracts ok
+responsive UI contracts ok
+KevinOS: re-minted 4 unsafe entity id(s) at ingress
+external-content XSS corpus ok (12 surfaces)
+capture table ok (41 cases)
+local operation receipts ok
+calm friction pilot ok
+material conflict fixtures ok (test-only; production gate remains closed)
+KevinOS: re-minted 1 unsafe entity id(s) at ingress
+KevinOS: re-minted 1 unsafe entity id(s) at ingress
+merge convergence ok
+KevinOS: re-minted 3 unsafe entity id(s) at ingress
+portable-doc round-trips ok
+parseICS fixtures ok
+recurrence roll-forward ok
+habit streaks ok
+three-device convergence ok
+operation-based sync reference ok (50 fixed seeds × 6 permutations)
+── relay suites ───────────────────────────────
+route auth ok
+sync push semantics ok
+lane pins ok
+length control ok
+inbox intelligence ok
+relay security boundaries ok
+───────────────────────────────────────────────
+ALL GREEN ✓
+UTC end: 2026-08-13T04:43:13Z
+EVOLUTION GATE PASS

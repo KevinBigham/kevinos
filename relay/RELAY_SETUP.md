@@ -1,5 +1,7 @@
 # KevinOS Relay — setup (the fool-proof version)
 
+> **Provider Fabric activation gate:** the v40 Provider Fabric is implemented but intentionally disabled and credentialless. Do not follow the provider-key steps below for the new fabric until the current mission reaches K10 and Kevin explicitly authorizes activation. Existing Council/provider setup described here is legacy operational documentation, not proof that a Provider Fabric model is free-eligible. Before activation, use `docs/AI_PROVIDER_VERIFICATION_2026-08-13.md`, `relay/.dev.vars.example`, and the credentials-last runbook.
+
 For full end-to-end KevinOS setup, start with **[../GETTING_STARTED.md](../GETTING_STARTED.md)**. This file is the relay-focused appendix: Worker deploys, provider secrets, Cloudflare resources, OAuth callbacks, and relay feature notes.
 
 The relay is a tiny free server ("Worker") that holds AI keys and OAuth tokens so your phone/browser never has to. Once it's live, KevinOS can use the **Council queue**, sync, push reminders, GitHub, Gmail, Google Calendar, and AI-powered rooms.

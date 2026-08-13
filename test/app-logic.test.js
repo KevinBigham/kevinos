@@ -13,7 +13,7 @@ const { loadApp } = require("./harness");
   const required = [
     "parseCaptureText", "mergeById", "mergeRemoteDoc", "portableDoc", "applyPortableDoc",
     "parseICS", "expandRecurrence", "rollRecurring", "habitCurrentStreak", "habitLongestStreak",
-    "buildSyncDoc", "applySyncDoc", "escapeHtml", "todayKey", "addDaysKey",
+    "buildSyncDoc", "applySyncDoc", "escapeHtml", "todayKey", "addDaysKey", "normalizeTaskRecord",
   ];
   for (const n of required) assert.strictEqual(typeof app[n], "function", "export missing: " + n);
   assert.strictEqual(typeof app.SCHEMA_VERSION, "number", "SCHEMA_VERSION exported");
@@ -26,9 +26,45 @@ const { loadApp } = require("./harness");
 
   // Fresh normal mode is real blank state, never silent demo content.
   assert.deepStrictEqual(stored.builds, [], "fresh boot does not seed sample builds");
-  assert.deepStrictEqual(stored.briefs, [], "fresh boot does not seed sample briefs");
+  assert.strictEqual(stored.briefs.length, app.PLAYBOOK_SEEDS.length, "fresh boot seeds reusable first-party playbook templates only");
+  assert.ok(stored.briefs.every((b) => b.kind === "Playbook" && b.builtIn && b.createdAt === 0), "fresh briefs are config-like templates, never fake active work");
   assert.deepStrictEqual(stored.links, [], "fresh boot does not seed sample links");
   assert.deepStrictEqual(stored.prompts, [], "fresh boot does not seed sample prompts");
+
+  // K0 canonical task ingress: complete optional shape, legacy safety, and
+  // repeated normalization without source mutation.
+  const legacyTask = { id: "legacy-task", text: 7, area: "Work", due: undefined, personId: "person-a", custom: { keep: true } };
+  const legacyBefore = JSON.stringify(legacyTask);
+  const normalizedTask = app.normalizeTaskRecord(legacyTask);
+  assert.strictEqual(JSON.stringify(legacyTask), legacyBefore, "task normalization is pure");
+  assert.deepStrictEqual(app.normalizeTaskRecord(normalizedTask), normalizedTask, "task normalization is idempotent");
+  assert.strictEqual(normalizedTask.text, "7");
+  assert.strictEqual(normalizedTask.personId, "person-a");
+  assert.strictEqual(normalizedTask.projectId, null);
+  assert.strictEqual(normalizedTask.due, null);
+  assert.strictEqual(normalizedTask.dueTime, "");
+  assert.strictEqual(normalizedTask.repeat, "");
+  assert.deepStrictEqual(normalizedTask.custom, { keep: true }, "unknown compatible fields survive");
+  const malformedTask = app.normalizeTaskRecord(null);
+  assert.strictEqual(malformedTask.text, "");
+  assert.strictEqual(malformedTask.area, "Inbox");
+  assert.strictEqual(malformedTask.personId, null);
+
+  const linkedStored = {
+    v: app.SCHEMA_VERSION,
+    items: [{ id: "linked-task", text: "Call Avery", area: "Inbox", personId: "person-a" }],
+    people: [{ id: "person-a", name: "Avery", note: "Private canonical note" }],
+  };
+  const linkedBoot = await loadApp({ storedState: linkedStored });
+  assert.strictEqual(linkedBoot.app.getState().items[0].personId, "person-a", "task-person link survives reload");
+  const linkedPortable = linkedBoot.app.portableDoc(linkedBoot.app.getState());
+  linkedBoot.app.getState().items = [];
+  assert.strictEqual(linkedBoot.app.applyPortableDoc(linkedPortable), true);
+  assert.strictEqual(linkedBoot.app.getState().items[0].personId, "person-a", "task-person link survives portable export/import");
+  const changedPerson = linkedBoot.app.normalizeTaskRecord(Object.assign({}, linkedBoot.app.getState().items[0], { personId: "person-b" }));
+  assert.strictEqual(changedPerson.personId, "person-b", "task-person link can change");
+  const clearedPerson = linkedBoot.app.normalizeTaskRecord(Object.assign({}, changedPerson, { personId: null }));
+  assert.strictEqual(clearedPerson.personId, null, "task-person link can clear");
 
   // Boot room is Today.
   assert.strictEqual(app.getRoom(), "today", "boot room is today");
@@ -60,7 +96,7 @@ const { loadApp } = require("./harness");
   const drillRaw = JSON.stringify(drillDoc);
   const drillPass = app.recoveryDrillDocument(drillRaw, drillDoc);
   assert.strictEqual(drillPass.ok, true, "portable backup passes the read-only drill");
-  assert.strictEqual(drillPass.collectionsPresent, 17);
+  assert.strictEqual(drillPass.collectionsPresent, app.CONTENT_ARRAYS.length);
   assert.strictEqual(drillPass.connectionsExcluded, true);
   assert.strictEqual(drillPass.differences, 0);
   assert.ok(drillPass.fingerprint, "drill records a content fingerprint, not titles");
@@ -483,12 +519,12 @@ const { loadApp } = require("./harness");
   assert.deepStrictEqual(Object.keys(app.AI_PROMPTS), ["Decide", "Plan", "Review", "Draft", "Challenge"]);
   assert.strictEqual(app.AI_PROMPTS.Draft.version, 2, "prompt versions are explicit");
   const aiState = app.getState();
-  aiState.people = [{ id: "aiperson", name: "Avery", email: "secret@example.com", notes: "private note", lastContact: "2026-08-01" }];
+  aiState.people = [{ id: "aiperson", name: "Avery", email: "secret@example.com", note: "private canonical note", lastContact: "2026-08-01" }];
   const safePerson = app.aiContext("person", "aiperson", {});
-  assert.doesNotMatch(safePerson.text, /secret@example|private note/, "person email and notes are not silently shared");
+  assert.doesNotMatch(safePerson.text, /secret@example|private canonical note/, "person email and notes are not silently shared");
   const sharedPerson = app.aiContext("person", "aiperson", { personEmail: true, personNotes: true });
   assert.match(sharedPerson.text, /secret@example.com/);
-  assert.match(sharedPerson.text, /private note/);
+  assert.match(sharedPerson.text, /private canonical note/, "canonical singular note is shared only after opt-in");
   assert.strictEqual(app.aiFingerprint("same"), app.aiFingerprint("same"), "context receipt is deterministic");
   assert.strictEqual(app.AI_RECEIPT_VERSION, 2, "AI receipt policy is explicitly versioned");
   assert.strictEqual(app.canonicalAiString({ b: 2, a: 1 }), app.canonicalAiString({ a: 1, b: 2 }), "canonical request serialization ignores property order");

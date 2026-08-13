@@ -108,7 +108,7 @@ const { loadApp } = require("./harness");
   const capsule = app.missionCapsule(capsuleInput);
   const capsuleAgain = app.missionCapsule(capsuleInput);
   assert.deepStrictEqual(capsuleAgain, capsule, "capsule ordering and fingerprint are stable");
-  assert.deepStrictEqual(Object.keys(capsule), ["capsuleVersion", "outcome", "currentState", "nextPhysicalAction", "assignedAI", "role", "repository", "branch", "worktree", "allowedScope", "forbiddenScope", "sourceEvidence", "contextPolicy", "privacyBoundary", "dataClassification", "expectedArtifact", "acceptanceCriteria", "verificationCommands", "evidence", "rollbackPlan", "blockers", "lastHandoff", "fingerprint"]);
+  assert.deepStrictEqual(Object.keys(capsule), ["capsuleVersion", "packetVersion", "missionStatus", "projectId", "outcome", "currentState", "nextPhysicalAction", "agentProfileId", "assignedAI", "role", "reviewer", "repository", "branch", "worktree", "targetFiles", "writerLockOwner", "dependencies", "allowedScope", "forbiddenScope", "sourceEvidence", "contextPolicy", "privacyBoundary", "dataClassification", "expectedArtifact", "acceptanceCriteria", "verificationCommands", "claimSummary", "claimEvidenceRefs", "changedFiles", "evidence", "rollbackPlan", "blockers", "lastHandoff", "fingerprint"]);
   assert.ok(capsule.fingerprint);
   assert.ok(!JSON.stringify(capsule).includes("NEVER"), "connection data cannot enter capsules implicitly");
 

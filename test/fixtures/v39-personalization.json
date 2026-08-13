@@ -1,0 +1,30 @@
+{
+  "v": 39,
+  "items": [
+    {"id":"t-teach","text":"Prepare class","area":"Teaching","today":true,"done":false,"createdAt":10},
+    {"id":"t-work","text":"Review release","area":"Work","today":false,"done":false,"createdAt":11},
+    {"id":"t-coach","text":"Write practice","area":"Coaching","today":false,"done":false,"createdAt":12},
+    {"id":"t-ana","text":"Plan dinner","area":"Ana","today":false,"done":false,"personId":"p-ana","createdAt":13},
+    {"id":"t-custom","text":"Community follow-up","area":"Community","today":false,"done":false,"privacyClass":"youth-sensitive","createdAt":14}
+  ],
+  "events": [
+    {"id":"e-personal","title":"Portfolio review","area":"Personal","date":"2026-08-14","createdAt":20},
+    {"id":"e-inbox","title":"Unsorted stop","area":"Inbox","date":"2026-08-15","createdAt":21}
+  ],
+  "projects": [
+    {"id":"pr-active","title":"KevinOS v40","area":"Work","status":"Active","outcome":"Ship safely","nextAction":"Write migration tests","createdAt":30},
+    {"id":"pr-paused","title":"Future idea","area":"Personal","status":"Paused","outcome":"Preserve it","nextAction":"","createdAt":31}
+  ],
+  "builds": [{"id":"b-1","title":"Migration mission","area":"Work","status":"Active","createdAt":40}],
+  "briefs": [{"id":"br-1","title":"Meet playbook","area":"Coaching","kind":"SOP","createdAt":50}],
+  "people": [{"id":"p-ana","name":"Ana","note":"Private family note","createdAt":60}],
+  "goals": [{"id":"g-1","text":"Strong semester","area":"Teaching","createdAt":70}],
+  "notes": [{"id":"n-1","title":"Legacy note","area":"Archive-X","body":"Keep me","createdAt":80}],
+  "deleted": {"deleted-old": 99},
+  "relay": {"url":"https://relay.example","token":"device-token"},
+  "github": {"token":"device-github","session":"session","login":"kevin","pendingOAuth":false},
+  "sync": {"on":true,"key":"device-sync","deviceId":"mac","updatedAt":1,"rev":3,"lastSyncAt":2,"err":""},
+  "push": {"enabled":true,"endpoint":"device-push","hour":8,"syncedAt":1},
+  "email": {"session":"device-email","accounts":["kevin@example.com"],"active":"kevin@example.com"},
+  "calendar": {"connected":true,"calId":"primary","calIds":["primary"],"lastSyncAt":1}
+}
