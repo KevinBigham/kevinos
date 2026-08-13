@@ -3,7 +3,7 @@
   "status": "BLOCKED-EXTERNAL",
   "currentWave": "K10",
   "currentTask": "K10.07",
-  "lastUpdated": "2026-08-13T11:40:39Z",
+  "lastUpdated": "2026-08-13T11:53:02Z",
   "baseline": {
     "appVersion": "0.57",
     "schemaVersion": 39,
@@ -126,8 +126,8 @@
       "id": "K10",
       "title": "Credentials-last secure activation and live synthetic verification",
       "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003", "EV-K10-004"],
-      "notes": "The local ceremony, explicitly authorized remote secret transfer, v0.58 Pages release, and relay deployment are complete. All seven key-backed providers are present remotely by redacted name and Workers AI is bound, but every new fabric route remains policy-disabled. K10.07 and later live probes remain blocked on exact free/account/model facts plus Groq ZDR, Mistral Free Mode, and Gemini data-use confirmation."
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003", "EV-K10-004", "EV-K10-005"],
+      "notes": "The local ceremony, explicitly authorized remote secret transfer, v0.58 Pages release, and relay deployment are complete. All seven key-backed providers are present remotely by redacted name. Workers AI is bound/model-reachable but its single strict synthetic response failed OUTPUT_SCHEMA, was discarded, and did not fall back. Every new fabric route remains policy-disabled. K10.07 and later probes remain blocked on exact free/account/model facts plus Groq ZDR, Mistral Free Mode, and Gemini data-use confirmation."
     }
   ],
   "finalGates": {
@@ -474,32 +474,32 @@
     {
       "id": "AT-144",
       "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001", "EV-K10-002"],
-      "notes": "Requires authorized Cloudflare account/binding access and one live binding probe; no remote mutation was performed."
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-005"],
+      "notes": "Authorized binding/model access and one strict live call are proved, but the discarded result failed OUTPUT_SCHEMA. Workers AI remains disabled until its bounded proposal contract passes."
     },
     {
       "id": "AT-145",
       "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001", "EV-K10-002"],
-      "notes": "Optional Cohere evaluation remains honestly disabled until Kevin chooses to create an evaluation key."
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-004"],
+      "notes": "Optional Cohere credential is present by redacted name; evaluation remains disabled until exact account/model limits and one strict synthetic probe pass."
     },
     {
       "id": "AT-146",
       "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001", "EV-K10-002"],
-      "notes": "Optional OpenRouter emergency lane remains disabled until Kevin creates a key and live account limits are read."
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-004"],
+      "notes": "Optional OpenRouter credential is present by redacted name; emergency lane remains disabled until exact free-model/account limits and one strict synthetic probe pass."
     },
     {
       "id": "AT-147",
       "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001", "EV-K10-002"],
-      "notes": "Optional SambaNova lab lane remains disabled until Kevin creates a key and live quotas are confirmed."
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-004"],
+      "notes": "Optional SambaNova credential is present by redacted name; lab lane remains disabled until exact model/quota and one strict synthetic probe pass."
     },
     {
       "id": "AT-148",
       "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001", "EV-K10-002"],
-      "notes": "Optional NVIDIA prototype lane remains disabled until Kevin chooses Developer Program access and creates a key."
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-004"],
+      "notes": "Optional NVIDIA credential is present by redacted name; prototype lane remains disabled until exact program/model limits and one strict synthetic probe pass."
     },
     {
       "id": "AT-149",
@@ -551,15 +551,15 @@
     },
     {
       "id": "AT-157",
-      "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003"],
-      "notes": "Silent ignored mode-600 storage, redacted verification, and zero-exposure scans pass with dummy/no credentials; Kevin's live local entry and post-entry scan remain required."
+      "status": "PASS",
+      "evidence": ["EV-K10-001", "EV-K10-002", "EV-K10-003", "EV-K10-004"],
+      "notes": "Silent mode-600 entry, redacted name-only remote presence, post-entry zero-exposure scans, and Git/output exclusion pass without printing or committing a value."
     },
     {
       "id": "AT-158",
       "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-002"],
-      "notes": "Strict one-provider, loopback-only, content-discarding probe tooling passes locally; live calls require Kevin-created credentials/account access."
+      "evidence": ["EV-K10-002", "EV-K10-005"],
+      "notes": "Strict loopback tooling passes and one Workers AI call reached the model, discarded an OUTPUT_SCHEMA failure, and did not fall back. Remaining provider probes are still blocked."
     },
     {
       "id": "AT-159",
@@ -570,14 +570,14 @@
     {
       "id": "AT-160",
       "status": "PASS",
-      "evidence": ["EV-K7A-002", "EV-K10-001"],
-      "notes": "All optional providers remain explicitly NOT CONFIGURED and policy-disabled without blocking the fully usable local app."
+      "evidence": ["EV-K7A-002", "EV-K10-001", "EV-K10-004"],
+      "notes": "Optional providers are present by redacted name but explicitly policy-disabled and non-blocking until their narrow live gates pass."
     },
     {
       "id": "AT-161",
-      "status": "BLOCKED-EXTERNAL",
-      "evidence": ["EV-K10-001"],
-      "notes": "No remote secret mutation or deploy occurred; any future wrangler secret or binding action requires a separate just-in-time Kevin authorization."
+      "status": "PASS",
+      "evidence": ["EV-K10-001", "EV-K10-004", "EV-K10-005"],
+      "notes": "Kevin supplied separate just-in-time authority before remote secret transfer, Worker deploy, and bounded live binding verification. Future remote actions still require fresh authority."
     }
   ]
 }

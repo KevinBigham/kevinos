@@ -4,14 +4,14 @@
 
 KevinOS v0.58/schema v40 is a merged and deployed release. It now models Kevin's roles, operating modes, commitments, portfolio capacity, project truth, restart context, AI missions, decisions, communication state, knowledge activation, local search, admin facts, evidence, and bounded product experiments without adding a room or weakening local-first custody. Core use remains complete with every new fabric route disabled.
 
-Static and relay activation are complete. All seven requested key-backed providers are present remotely by redacted name and Workers AI is bound; no credential value or live model response is represented here. Exact provider-account controls, strict synthetic probes, and physical-device claims remain deliberately incomplete.
+Static and relay activation are complete. All seven requested key-backed providers are present remotely by redacted name. Workers AI is bound and model-reachable; its one strict synthetic response failed the local schema contract, was discarded, and did not fall back. Exact provider-account controls, remaining strict probes, and physical-device claims remain deliberately incomplete.
 
 ## 2. Baseline and final versions
 
 - Start: app v0.57, schema v39, cache `kevinos-v0_57`; canonical Git base `43715bf46f33163fc764341e16a7f798852ee157`.
 - Final: app/footer v0.58, schema v40, cache `kevinos-v0_58`; merged from `codex/kevinos-v40-ai-fabric`.
 - Migration: one v39→v40 gate only. No intermediate schema exists.
-- PR #7 merged the focused branch as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI and Pages passed. Worker version `791fcd1d-6e35-4ffe-ad50-daa5b286bb51` is deployed.
+- PR #7 merged the v0.58 implementation as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI and Pages passed. PR #9 added the strict Workers AI Neuron-estimate fix; Worker version `098fbb96-d4f3-424b-a718-07c0edf51a5b` is deployed.
 - Final credentialless K10 wave gate: `output/evolution/wave-20260813T112952Z.log`. The earlier preactivation log is `output/evolution/preactivation-20260813T072756Z.log`.
 
 ## 3. Kevin-shaped product evolution
@@ -35,7 +35,7 @@ Only PUBLIC or explicitly SANITIZED packets with an exact approved manifest and 
 | Groq | `NOT_CONFIGURED` | Credential missing; exact free eligibility and ZDR confirmation pending. |
 | Mistral | `NOT_CONFIGURED` | Credential missing; Free Mode/account discovery pending. |
 | Gemini | `NOT_CONFIGURED` | Credential missing; current free-eligible model and data-use acknowledgement pending. |
-| Cloudflare Workers AI | `BOUND / POLICY-DISABLED` | Binding and current model catalog are verified; strict live fabric probe remains pending. |
+| Cloudflare Workers AI | `MODEL_REACHABLE / OUTPUT_SCHEMA / DISABLED` | Exact model and binding were reached once; response content was discarded after local schema failure and no fallback ran. |
 | Cohere | `OPTIONAL_MISSING` | Optional evaluation lane. |
 | OpenRouter | `OPTIONAL_MISSING` | Optional emergency free lane. |
 | SambaNova | `OPTIONAL_MISSING` | Optional lab lane. |

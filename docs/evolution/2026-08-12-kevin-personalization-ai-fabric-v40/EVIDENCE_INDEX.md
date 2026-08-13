@@ -129,6 +129,7 @@ Codex creates fresh baseline evidence before source edits.
 | EV-K10-002 | MACHINE-VERIFIED | `sh tools/credential-ceremony.sh --self-test`; `node tools/probe-ai-provider.js --self-test`; `node relay/test/ai-fabric.test.js` | Mode-600 create/preserve/replace/rotate/revoke and redaction pass with dummy values; interrupted input restores the terminal; nine fixtures include a synthetic-only optional lane; live probe is loopback-only, strict single-provider/no-spill, content-discarding, and emits bounded model/latency/usage/rate metadata. |
 | EV-K10-003 | MACHINE-VERIFIED | `node tools/doctor.js`; `node tools/scan-secret-values.js`; `sh test/run.sh`; `sh tools/run-evolution-gates.sh wave` | v0.58/schema v40 doctor, 342-file zero-exposure scan, complete app/relay suite, and safe K10 wave gate PASS. Log: `output/evolution/wave-20260813T073638Z.log`. Live/provider/account checks remain external. |
 | EV-K10-004 | MACHINE-VERIFIED / BLOCKED-EXTERNAL | PR #7; CI `31696190329`; Pages `31696189587`; Worker `791fcd1d-6e35-4ffe-ad50-daa5b286bb51`; redacted `wrangler secret list`; live browser and HTTP boundary checks | v0.58/schema v40 is live; all seven requested provider credential names and Workers AI binding are present; relay health/CORS/auth denial and zero-error browser boot pass. New fabric routes remain policy-disabled and no live provider response was requested pending account/model/privacy confirmation. |
+| EV-K10-005 | MACHINE-VERIFIED / BLOCKED-EXTERNAL | PR #9; exact Workers AI catalog check; isolated remote preview; `node tools/probe-ai-provider.js --redacted --provider cloudflare`; Worker `098fbb96-d4f3-424b-a718-07c0edf51a5b` | Fixed missing synthetic Neuron estimate. Exact model and 8,500-Neuron ceiling became eligible; one strict call reached Workers AI, failed the local `OUTPUT_SCHEMA` contract, retained no response content, ran no fallback, and opened the bounded circuit. Production route remains disabled. |
 
 ## Acceptance map
 
@@ -188,11 +189,11 @@ Codex creates fresh baseline evidence before source edits.
 | AT-141 | BLOCKED-EXTERNAL | EV-K10-001 | Requires Kevin's Gemini key, exact account/model free eligibility, and data-use acknowledgement. |
 | AT-142 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002 | Requires Kevin's Groq key, ZDR confirmation, and one strict live probe. |
 | AT-143 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002 | Requires Kevin's Mistral Free Mode account/key and live model/limit discovery. |
-| AT-144 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002 | Requires authorized Workers AI account/binding access and one live binding probe. |
-| AT-145 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002 | Optional Cohere remains explicitly disabled until Kevin chooses an evaluation key. |
-| AT-146 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002 | Optional OpenRouter remains disabled until Kevin chooses a key and live limits are read. |
-| AT-147 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002 | Optional SambaNova remains disabled until Kevin chooses a key and live quotas are read. |
-| AT-148 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002 | Optional NVIDIA remains disabled until Kevin chooses Developer Program/key access. |
+| AT-144 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002, EV-K10-005 | Workers AI binding/model access is proved, but the single discarded response failed `OUTPUT_SCHEMA`; the route remains disabled. |
+| AT-145 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002, EV-K10-004 | Cohere credential is present by redacted name; exact evaluation model/limits and strict probe remain pending. |
+| AT-146 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002, EV-K10-004 | OpenRouter credential is present by redacted name; exact free-model limits and strict emergency probe remain pending. |
+| AT-147 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002, EV-K10-004 | SambaNova credential is present by redacted name; exact lab model/quota and strict probe remain pending. |
+| AT-148 | BLOCKED-EXTERNAL | EV-K10-001, EV-K10-002, EV-K10-004 | NVIDIA credential is present by redacted name; exact prototype program/model limits and strict probe remain pending. |
 | AT-149 | MACHINE-VERIFIED | EV-K7A-001, EV-K7A-002 | Seven AI jobs produce editable Proposal Inbox entries only; apply/reject/Undo remain explicit. |
 | AT-150 | MACHINE-VERIFIED | EV-K7A-001, EV-K7A-002 | All seven Kevin-shaped proposal journeys have credentialless contracts and one real-browser inbox path. |
 | AT-151 | MACHINE-VERIFIED | EV-K7A-001 | Schema, bounds, forbidden-field, prompt-injection, malformed, and public-redaction failures prevent mutation. |
@@ -202,7 +203,7 @@ Codex creates fresh baseline evidence before source edits.
 | AT-155 | MACHINE-VERIFIED | EV-K7A-001, EV-K7A-004 | Stable aliases and stale/missing/non-free lifecycle gates preserve behavior and disable unsafe routes. |
 | AT-156 | MACHINE-VERIFIED | EV-K9-004, EV-K10-001 | The one credential request was issued only after K-1 through K9 and both preactivation gates passed. |
 | AT-157 | MACHINE-VERIFIED | EV-K10-001, EV-K10-002, EV-K10-003, EV-K10-004 | Silent mode-600 entry, redacted name-only remote presence, post-entry secret scans, and Git/output exclusion pass without printing or committing a value. |
-| AT-158 | BLOCKED-EXTERNAL | EV-K10-002 | Strict redacted probe tooling passes; live calls require Kevin-created credentials/account access. |
+| AT-158 | BLOCKED-EXTERNAL | EV-K10-002, EV-K10-005 | Strict redacted tooling passes and Workers AI was reached once; its discarded `OUTPUT_SCHEMA` failure and the remaining provider probes keep the gate open. |
 | AT-159 | MACHINE-VERIFIED | EV-K10-002 | Dummy rotation/revocation and console-first live incident steps are tested/documented. |
 | AT-160 | MACHINE-VERIFIED | EV-K7A-002, EV-K10-001 | Missing optional providers remain explicit, disabled, and non-blocking. |
 | AT-161 | MACHINE-VERIFIED | EV-K10-001, EV-K10-004 | Kevin supplied separate just-in-time authority before remote secret transfer, Worker deploy, static publication, and live verification. Future remote actions still require fresh authority. |
