@@ -76,6 +76,11 @@ function envFor(ids) {
   const optionalPreview = worker.fabricRoutePreview(optionalProbe, Object.assign(envFor(["openrouter", "sambanova"]), { AI_FREE_VERIFIED_MODELS: "openrouter:openrouter/free,sambanova:gpt-oss-120b" }), {});
   assert.strictEqual(optionalPreview.selected, "openrouter", "optional emergency lane is probeable only through its bounded route");
   assert.strictEqual(optionalPreview.candidates.length, 1, "strict synthetic probe cannot spill into another provider");
+  const cloudflareProbe = worker.fabricFixtureRequest(worker.fabricGoldenFixture("commitments-public"), "cloudflare");
+  cloudflareProbe.strictProvider = true;
+  const cloudflarePreview = worker.fabricRoutePreview(cloudflareProbe, Object.assign(envFor(["cloudflare"]), { AI_FREE_VERIFIED_MODELS: "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast" }), {});
+  assert.strictEqual(cloudflareProbe.estimatedNeurons, 250, "synthetic evals carry a conservative deterministic Neuron estimate");
+  assert.strictEqual(cloudflarePreview.selected, "cloudflare", "strict Workers AI probes are eligible only after the exact model and Neuron estimate pass");
 
   const routeEnv = envFor(["groq", "mistral"]);
   routeEnv.AI_FREE_VERIFIED_MODELS = "groq:openai/gpt-oss-20b,mistral:mistral-small-latest";
