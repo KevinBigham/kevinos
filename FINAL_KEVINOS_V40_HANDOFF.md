@@ -11,7 +11,7 @@ Static and relay deployment are complete. All seven requested key-backed provide
 - Start: app v0.57, schema v39, cache `kevinos-v0_57`; canonical Git base `43715bf46f33163fc764341e16a7f798852ee157`.
 - Final: app/footer v0.58, schema v40, cache `kevinos-v0_58`; merged from `codex/kevinos-v40-ai-fabric`.
 - Migration: one v39→v40 gate only. No intermediate schema exists.
-- PR #7 merged the v0.58 implementation as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI and Pages passed. PR #9 added the strict Workers AI Neuron-estimate fix; Worker version `098fbb96-d4f3-424b-a718-07c0edf51a5b` is deployed.
+- PR #7 merged the v0.58 implementation as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI and Pages passed. PR #11 merged the strict core-provider activation as `aacabef`; Worker version `364b59ca-7f8c-43dc-ad3d-f30c36f99760` is deployed with Groq as the sole enabled fabric route.
 - Final credentialless K10 wave gate: `output/evolution/wave-20260813T112952Z.log`. The earlier preactivation log is `output/evolution/preactivation-20260813T072756Z.log`.
 
 ## 3. Kevin-shaped product evolution
@@ -32,7 +32,7 @@ Only PUBLIC or explicitly SANITIZED packets with an exact approved manifest and 
 
 | Provider | Status | Exact model/runtime fact |
 | --- | --- | --- |
-| Groq | `VERIFIED_FREE / ACTIVATION_CANDIDATE` | `openai/gpt-oss-20b`; ZDR confirmed; strict schema/privacy/proposal receipt passed in 687 ms with free-plan rate headers. |
+| Groq | `VERIFIED_FREE_ACTIVE` | `openai/gpt-oss-20b`; ZDR confirmed; strict schema/privacy/proposal receipt passed in 687 ms with free-plan rate headers; sole production-enabled route. |
 | Mistral | `CONFIGURED / CONTROL_CONFIRMED / DISABLED` | `mistral-small-latest`; Free Mode confirmed; strict receipt failed `OUTPUT_SCHEMA`. |
 | Gemini | `CONFIGURED / ACKNOWLEDGED / DISABLED` | `gemini-2.5-flash`; data use acknowledged and catalog visibility confirmed; strict receipt failed `MODEL_NOT_FOUND`. |
 | Cloudflare Workers AI | `MODEL_REACHABLE / OUTPUT_SCHEMA / DISABLED` | Exact model and binding were reached once; response content was discarded after local schema failure and no fallback ran. |
@@ -120,4 +120,4 @@ Kevin explicitly authorized branch publication, PR/merge, static publication, re
 
 ## 17. Kevin's next physical action
 
-No credential action is required. Use Groq for public or explicitly sanitized proposal jobs after the production activation receipt lands. Mistral, Gemini, Workers AI, and the optional seats stay visibly unavailable until a later focused repair/verification slice passes their exact contracts. Never paste or rotate a key merely to fix an adapter/schema failure.
+No credential action is required. Use Groq for public or explicitly sanitized proposal jobs now. Mistral, Gemini, Workers AI, and the optional seats stay visibly unavailable until a later focused repair/verification slice passes their exact contracts. Never paste or rotate a key merely to fix an adapter/schema failure.

@@ -236,6 +236,14 @@ Every subsequent entry includes:
 - Local production policy is staged for Groq only. `AI_ALLOW_PAID=false`; there is no automatic provider promotion, fallback spill, or outward action.
 - Doctor, 345-file secret scan, full suite, mission structure, and wave gate pass. Evidence log: `output/evolution/wave-20260813T125836Z.log`.
 
+## K10 Groq production receipt — 2026-08-13T13:02Z
+
+- PR #11 passed both CI jobs and merged as `aacabef`. The ignored mode-600 store transferred 23 existing credential/policy names to Cloudflare without printing values.
+- Worker `364b59ca-7f8c-43dc-ad3d-f30c36f99760` deployed with `GROQ_MODEL=openai/gpt-oss-20b`; the sealed production allowlists contain only Groq and the exact verified pair. `AI_ALLOW_PAID=false` remains sealed.
+- Live public root returned 200, Pages-origin CORS returned 200, and unauthenticated `/ai/health` plus `/ai/providers` returned 401. GitHub Pages still exposes v0.58/schema v40/cache `kevinos-v0_58`.
+- A real in-app browser loaded the live GitHub Pages app, opened Studio and the zero-dollar Provider Control Center through isolated demo data, then cleared that data. Final console had zero warnings/errors. The fresh browser origin correctly remained in local mode because no relay token was entered or inspected.
+- Mistral, Gemini, Workers AI, and optional providers remain production-disabled. The activation changed no static app or save schema and performed no paid call, send, publish, schedule, calendar, OAuth, push, or destructive action.
+
 ## K9 completion receipt — 2026-08-13T07:28:00Z
 
 **Status:** PREACTIVATION READY / v0.58 + SCHEMA v40 / NO CREDENTIALS REQUESTED
