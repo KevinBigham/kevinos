@@ -244,13 +244,15 @@ Every subsequent entry includes:
 - A real in-app browser loaded the live GitHub Pages app, opened Studio and the zero-dollar Provider Control Center through isolated demo data, then cleared that data. Final console had zero warnings/errors. The fresh browser origin correctly remained in local mode because no relay token was entered or inspected.
 - Mistral, Gemini, Workers AI, and optional providers remain production-disabled. The activation changed no static app or save schema and performed no paid call, send, publish, schedule, calendar, OAuth, push, or destructive action.
 
-## K10 Gemini repair candidate — 2026-08-13T13:15:52Z
+## K10 Gemini production activation — 2026-08-13T13:15:52Z
 
 - Kevin's signed-in AI Studio showed the KevinOS project on Free Tier with one key and no monthly spend. The authenticated catalog listed the configured 2.5 model, but its generation endpoint explicitly rejected that model for new users.
 - KevinOS now uses `gemini-flash-latest`, moves every Gemini credential from query strings to Google's documented `x-goog-api-key` header, supplies `responseJsonSchema` for strict jobs, and records the provider's resolved `modelVersion`.
 - One bounded synthetic remote-preview probe resolved to exact `gemini-3.6-flash` and passed schema, privacy, and proposal-only validation in 3,743 ms. It reported 72 input, 52 output, and 590 total tokens; retained no response content and ran no fallback.
 - Focused fabric, inbox-intelligence, syntax, doctor, credential-ceremony, 346-file zero-exposure scan, mission structure, complete app/relay suite, and wave gate pass. Evidence log: `output/evolution/wave-20260813T131956Z.log`. The ignored mode-600 policy store is staged for only Groq and Gemini with `AI_ALLOW_PAID=false`.
-- This is an activation candidate until the focused branch is merged and the sealed secrets plus Worker are redeployed. Mistral, Workers AI, and every optional provider remain disabled.
+- PR #13 merged as `a841150`; post-merge CI `31704561682` and Pages `31704560962` passed. The ignored mode-600 store transferred 23 existing credential/policy names without printing values, and Worker `12fab779-f1b5-430e-b67b-64d3543ef295` deployed with `GEMINI_MODEL=gemini-flash-latest`.
+- Production root and Pages-origin CORS returned 200; unauthenticated `/ai/health` and `/ai/providers` returned 401. Redacted name-only inspection confirmed the Gemini key, policy bindings, and relay lock. Groq and Gemini are the only enabled/free allowlisted routes; `AI_ALLOW_PAID=false` remains sealed.
+- No device relay token was inspected, so the already-passing authenticated remote-preview receipt was not repeated against production. Mistral, Workers AI, and every optional provider remain disabled.
 
 ## K9 completion receipt — 2026-08-13T07:28:00Z
 

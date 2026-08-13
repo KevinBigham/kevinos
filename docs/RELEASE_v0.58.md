@@ -14,7 +14,7 @@ Status: **YELLOW — STATIC APP, RELAY, AND VERIFIED GROQ ROUTE DEPLOYED**
 | Post-merge CI | `https://github.com/KevinBigham/kevinos/actions/runs/31696190329` — `MACHINE-PASS` |
 | Pages deployment | `https://github.com/KevinBigham/kevinos/actions/runs/31696189587` — `MACHINE-PASS` |
 | Relay production | `https://kevinos-relay.kevinbigham.workers.dev` |
-| Relay version | `364b59ca-7f8c-43dc-ad3d-f30c36f99760` |
+| Relay version | `12fab779-f1b5-430e-b67b-64d3543ef295` |
 
 ## Product result
 
@@ -42,17 +42,18 @@ Status: **YELLOW — STATIC APP, RELAY, AND VERIFIED GROQ ROUTE DEPLOYED**
 - Live in-app browser: onboarding, Today operating model, isolated demo setup/cleanup, Studio Mission Control, and Provider Control Center rendered with zero console errors.
 - Live relay: public root 200; Pages-origin CORS preflight 200; unauthenticated `/ai/providers` 401.
 - Focused Groq activation: PR #11 CI passed and Worker `364b59ca-7f8c-43dc-ad3d-f30c36f99760` deployed; public root 200, Pages-origin CORS 200, and unauthenticated `/ai/health` plus `/ai/providers` 401.
+- Focused Gemini activation: PR #13 merged as `a841150`; post-merge CI and Pages passed; Worker `12fab779-f1b5-430e-b67b-64d3543ef295` deployed with Groq + Gemini as the only enabled/free allowlisted routes. Public root/CORS returned 200 and protected AI routes returned 401 without the device token.
 - Post-deploy browser: live v0.58 Studio and its zero-dollar Provider Control Center opened with zero console warnings/errors; isolated demo data was cleared. The fresh origin stayed in local mode because no relay token was entered or inspected.
 - Remote secret registry: the seven requested provider credential names and the existing relay lock/OAuth/push names are present. No value was printed, stored in Git, or added to this receipt.
 - Strict Workers AI preview: exact model and 8,500-Neuron ceiling became eligible after the fixed 250-Neuron estimate; the single synthetic call reached the binding, returned an output that failed the local schema contract, stored no response content, ran no fallback, and opened the bounded 60-second circuit as `OUTPUT_SCHEMA`.
 
 ## Provider activation truth
 
-Groq is **VERIFIED-FREE-ACTIVE** at exact pair `groq:openai/gpt-oss-20b`. Gemini is **STRICT-PASS / ACTIVATION-CANDIDATE** through `gemini-flash-latest`, resolving to `gemini-3.6-flash`; production activation awaits the focused repair merge/deploy. Mistral, Cohere, OpenRouter, SambaNova, and NVIDIA are **CONFIGURED / POLICY-DISABLED**. Cloudflare Workers AI is **BOUND / MODEL-REACHABLE / OUTPUT-SCHEMA-FAILED / POLICY-DISABLED**. Key or binding presence is not represented as a successful provider contract, universal free-tier guarantee, or privacy acknowledgement.
+Groq is **VERIFIED-FREE-ACTIVE** at exact pair `groq:openai/gpt-oss-20b`. Gemini is **VERIFIED-FREE-ACTIVE** through `gemini-flash-latest`, with its strict receipt resolving to `gemini-3.6-flash`. Mistral, Cohere, OpenRouter, SambaNova, and NVIDIA are **CONFIGURED / POLICY-DISABLED**. Cloudflare Workers AI is **BOUND / MODEL-REACHABLE / OUTPUT-SCHEMA-FAILED / POLICY-DISABLED**. Key or binding presence is not represented as a successful provider contract, universal free-tier guarantee, or privacy acknowledgement.
 
 Core verification on 2026-08-13 first activated Groq after Kevin confirmed ZDR and `groq:openai/gpt-oss-20b` passed the strict schema/privacy/proposal contract with live free-plan rate headers. A later focused Gemini repair replaced the new-user-ineligible 2.5 target, secured key transport in the documented header, supplied the strict schema, and passed on resolved model `gemini-3.6-flash`. Mistral remains disabled after `OUTPUT_SCHEMA`; Workers AI and all optional providers remain disabled. Paid routing remains false.
 
-Only the exact Groq pair is present in the production enable/free allowlists. Optional seats retain their evaluation/emergency/lab/prototype-only classes; failed core seats require a later focused repair and fresh receipt, not optimistic activation.
+Only Groq plus the current Gemini Flash alias are present in the production enable/free allowlists. Optional seats retain their evaluation/emergency/lab/prototype-only classes; failed core seats require a later focused repair and fresh receipt, not optimistic activation.
 
 ## Rollback
 

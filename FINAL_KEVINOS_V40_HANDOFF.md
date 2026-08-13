@@ -4,14 +4,14 @@
 
 KevinOS v0.58/schema v40 is a merged and deployed release. It now models Kevin's roles, operating modes, commitments, portfolio capacity, project truth, restart context, AI missions, decisions, communication state, knowledge activation, local search, admin facts, evidence, and bounded product experiments without adding a room or weakening local-first custody. Core use remains complete with every new fabric route disabled.
 
-Static and relay deployment are complete. All seven requested key-backed providers are present remotely by redacted name. Kevin confirmed the three core account controls. Groq passed the strict synthetic contract on `openai/gpt-oss-20b`. Gemini's focused repair now passes through `gemini-flash-latest`, resolving to `gemini-3.6-flash`, and awaits merge/deployment beside Groq. Mistral and Workers AI failed closed and remain disabled. Optional-provider and physical-device claims remain deliberately incomplete.
+Static and relay deployment are complete. All seven requested key-backed providers are present remotely by redacted name. Kevin confirmed the three core account controls. Groq passed on `openai/gpt-oss-20b`; Gemini passes through `gemini-flash-latest`, resolving to `gemini-3.6-flash`. Both are production-active with paid routing disabled. Mistral and Workers AI failed closed and remain disabled. Optional-provider and physical-device claims remain deliberately incomplete.
 
 ## 2. Baseline and final versions
 
 - Start: app v0.57, schema v39, cache `kevinos-v0_57`; canonical Git base `43715bf46f33163fc764341e16a7f798852ee157`.
 - Final: app/footer v0.58, schema v40, cache `kevinos-v0_58`; merged from `codex/kevinos-v40-ai-fabric`.
 - Migration: one v39→v40 gate only. No intermediate schema exists.
-- PR #7 merged the v0.58 implementation as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI and Pages passed. PR #11 merged the strict core-provider activation as `aacabef`; Worker version `364b59ca-7f8c-43dc-ad3d-f30c36f99760` is deployed with Groq as the sole enabled fabric route.
+- PR #7 merged the v0.58 implementation as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI and Pages passed. PR #11 activated Groq. PR #13 merged the Gemini repair as `a841150`; post-merge CI and Pages passed; Worker `12fab779-f1b5-430e-b67b-64d3543ef295` is deployed with Groq and Gemini as the only enabled fabric routes.
 - Final credentialless K10 wave gate: `output/evolution/wave-20260813T112952Z.log`. The earlier preactivation log is `output/evolution/preactivation-20260813T072756Z.log`.
 
 ## 3. Kevin-shaped product evolution
@@ -32,9 +32,9 @@ Only PUBLIC or explicitly SANITIZED packets with an exact approved manifest and 
 
 | Provider | Status | Exact model/runtime fact |
 | --- | --- | --- |
-| Groq | `VERIFIED_FREE_ACTIVE` | `openai/gpt-oss-20b`; ZDR confirmed; strict schema/privacy/proposal receipt passed in 687 ms with free-plan rate headers; sole production-enabled route. |
+| Groq | `VERIFIED_FREE_ACTIVE` | `openai/gpt-oss-20b`; ZDR confirmed; strict schema/privacy/proposal receipt passed in 687 ms with free-plan rate headers. |
 | Mistral | `CONFIGURED / CONTROL_CONFIRMED / DISABLED` | `mistral-small-latest`; Free Mode confirmed; strict receipt failed `OUTPUT_SCHEMA`. |
-| Gemini | `CONFIGURED / ACKNOWLEDGED / STRICT-PASS CANDIDATE` | `gemini-flash-latest` resolved to `gemini-3.6-flash`; schema/privacy/proposal-only passed with no retained content; focused production deploy pending. |
+| Gemini | `VERIFIED_FREE_ACTIVE / ACKNOWLEDGED` | `gemini-flash-latest` resolved to `gemini-3.6-flash`; schema/privacy/proposal-only passed with no retained content; production-active beside Groq. |
 | Cloudflare Workers AI | `MODEL_REACHABLE / OUTPUT_SCHEMA / DISABLED` | Exact model and binding were reached once; response content was discarded after local schema failure and no fallback ran. |
 | Cohere | `CONFIGURED / OPTIONAL_DISABLED` | Optional evaluation lane; strict activation pending. |
 | OpenRouter | `CONFIGURED / OPTIONAL_DISABLED` | Optional emergency free lane; strict activation pending. |
@@ -103,7 +103,7 @@ Key reversible assumptions are AS-009 through AS-012; key implementation decisio
 ## 14. Residual risks and external/manual gates
 
 - Physical iOS/Android validation, elapsed adoption, optional-provider probes, and real OAuth/push journeys remain unproved. Hosted v0.58, public relay health/CORS, unauthenticated denial, and the strict Groq receipt are live-verified.
-- Mistral remains disabled after its exact failed receipt. Gemini has a passing activation candidate but remains production-disabled until the focused merge/deploy. Workers AI remains disabled after its schema failure. Provider models, quotas, regions, and free eligibility are still dated runtime facts.
+- Mistral remains disabled after its exact failed receipt. Gemini is production-active after its passing focused repair. Workers AI remains disabled after its schema failure. Provider models, quotas, regions, and free eligibility are still dated runtime facts.
 - GATE-76 encryption remains closed. Optional providers may remain missing without reducing local completion.
 
 ## 15. Remote action receipt
@@ -120,4 +120,4 @@ Kevin explicitly authorized branch publication, PR/merge, static publication, re
 
 ## 17. Kevin's next physical action
 
-No credential action is required. Use Groq for public or explicitly sanitized proposal jobs now. Gemini becomes available after this passing focused repair is merged/deployed. Mistral, Workers AI, and the optional seats stay visibly unavailable until a later focused repair/verification slice passes their exact contracts. Never paste or rotate a key merely to fix an adapter/schema failure.
+No credential action is required. Use Groq or Gemini for public or explicitly sanitized proposal jobs now. Mistral, Workers AI, and the optional seats stay visibly unavailable until a later focused repair/verification slice passes their exact contracts. Never paste or rotate a key merely to fix an adapter/schema failure.
