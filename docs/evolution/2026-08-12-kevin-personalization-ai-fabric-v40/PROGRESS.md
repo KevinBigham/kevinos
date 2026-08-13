@@ -214,10 +214,18 @@ Every subsequent entry includes:
 
 - Kevin completed the silent local ceremony and separately authorized commit, push, merge, remote secret transfer, and deployment.
 - PR #7 merged as `9cd35b3c7a459f889c55c2728b2d22704d468813`; post-merge CI `31696190329` and Pages `31696189587` passed.
-- Worker version `791fcd1d-6e35-4ffe-ad50-daa5b286bb51` is active. Health and Pages-origin CORS return 200; unauthenticated provider status returns 401.
+- Worker version `791fcd1d-6e35-4ffe-ad50-daa5b286bb51` was active at this deployment receipt. Health and Pages-origin CORS returned 200; unauthenticated provider status returned 401.
 - Redacted name-only verification shows all seven requested key-backed providers plus the existing relay-lock/OAuth/push secrets present. No value entered Git, logs, browser output, or the handoff.
 - Live v0.58 onboarding, role/mode/capacity-aware Today, isolated demo cleanup, Studio, and Provider Control Center render with zero console errors.
 - Every new fabric route remains disabled. K10.07 resumes only after Groq ZDR/account state is confirmed; later routes retain their exact free-model, quota, and data-policy gates.
+
+## K10 Workers AI probe receipt — 2026-08-13T11:53:02Z
+
+- Official account catalog confirmed `@cf/meta/llama-3.3-70b-instruct-fp8-fast`; official pricing still provides a 10,000-Neuron daily free allocation.
+- A missing fixed Neuron estimate initially made strict Workers AI evals structurally ineligible. PR #9 added the deterministic 250-Neuron estimate and regression coverage.
+- In an isolated remote preview with only the Cloudflare route allowlisted, exact-model and 8,500-Neuron checks passed and one strict synthetic call reached the binding.
+- The returned content failed local `OUTPUT_SCHEMA`, was discarded, ran no fallback, and opened the bounded 60-second circuit. Production allowlists remain empty.
+- The corrected merged Worker is `098fbb96-d4f3-424b-a718-07c0edf51a5b`. Workers AI is model-reachable but remains policy-disabled until its proposal schema passes.
 
 ## K9 completion receipt — 2026-08-13T07:28:00Z
 

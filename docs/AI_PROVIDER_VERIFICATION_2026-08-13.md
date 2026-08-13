@@ -2,6 +2,8 @@
 
 This is the dated implementation snapshot for the credentialless KevinOS Provider Fabric. It is not an activation receipt. No account was created, no key was requested, no live provider was called, and no billing or credit action was taken.
 
+> Activation addendum, 2026-08-13 11:53 UTC: after the credentialless snapshot, Kevin separately authorized deployment and bounded live verification. All requested credential names are present remotely without value exposure. One strict synthetic Workers AI call reached `@cf/meta/llama-3.3-70b-instruct-fp8-fast` after an explicit 250-Neuron estimate passed the 8,500-Neuron ceiling; the returned content failed the local `OUTPUT_SCHEMA` contract, was discarded, and triggered the bounded circuit. Production fabric allowlists remain empty.
+
 ## Routing rule
 
 A provider is routable only when all of these runtime facts are true:

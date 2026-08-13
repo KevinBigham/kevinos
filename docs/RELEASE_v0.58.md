@@ -14,7 +14,7 @@ Status: **YELLOW — STATIC APP AND RELAY DEPLOYED; LIVE PROVIDER POLICY GATES R
 | Post-merge CI | `https://github.com/KevinBigham/kevinos/actions/runs/31696190329` — `MACHINE-PASS` |
 | Pages deployment | `https://github.com/KevinBigham/kevinos/actions/runs/31696189587` — `MACHINE-PASS` |
 | Relay production | `https://kevinos-relay.kevinbigham.workers.dev` |
-| Relay version | `791fcd1d-6e35-4ffe-ad50-daa5b286bb51` |
+| Relay version | `098fbb96-d4f3-424b-a718-07c0edf51a5b` |
 
 ## Product result
 
@@ -42,17 +42,18 @@ Status: **YELLOW — STATIC APP AND RELAY DEPLOYED; LIVE PROVIDER POLICY GATES R
 - Live in-app browser: onboarding, Today operating model, isolated demo setup/cleanup, Studio Mission Control, and Provider Control Center rendered with zero console errors.
 - Live relay: public health 200; Pages-origin CORS preflight 200; unauthenticated `/ai/providers` 401.
 - Remote secret registry: the seven requested provider credential names and the existing relay lock/OAuth/push names are present. No value was printed, stored in Git, or added to this receipt.
+- Strict Workers AI preview: exact model and 8,500-Neuron ceiling became eligible after the fixed 250-Neuron estimate; the single synthetic call reached the binding, returned an output that failed the local schema contract, stored no response content, ran no fallback, and opened the bounded 60-second circuit as `OUTPUT_SCHEMA`.
 
 ## Provider activation truth
 
-Groq, Mistral, Gemini, Cohere, OpenRouter, SambaNova, and NVIDIA are **CONFIGURED / POLICY-DISABLED** for the new fabric. Cloudflare Workers AI is **BOUND / POLICY-DISABLED**. Key or binding presence is not represented as a successful provider call, free-tier guarantee, privacy acknowledgement, or current model proof.
+Groq, Mistral, Gemini, Cohere, OpenRouter, SambaNova, and NVIDIA are **CONFIGURED / POLICY-DISABLED** for the new fabric. Cloudflare Workers AI is **BOUND / MODEL-REACHABLE / OUTPUT-SCHEMA-FAILED / POLICY-DISABLED**. Key or binding presence is not represented as a successful provider contract, universal free-tier guarantee, or privacy acknowledgement.
 
 Before any route becomes active, complete the exact remaining K10 gate: verify the account's model and quota, confirm Groq ZDR, confirm Mistral Free Mode, acknowledge Gemini free-tier data use, record the exact `provider:model` pair, and run at most one strict synthetic content-discarding probe. Optional seats retain their evaluation/emergency/lab/prototype-only classes.
 
 ## Rollback
 
 - Static app: use a normal auditable revert or forward-fix PR against merge commit `9cd35b3c7a459f889c55c2728b2d22704d468813`; never force-push or rewrite user state.
-- Relay code: redeploy the last-known-good Worker version `583e5905-f97a-4c6a-9391-54db89f53ada` if v0.58 relay behavior regresses.
+- Relay code: redeploy the pre-probe-fix v0.58 Worker version `791fcd1d-6e35-4ffe-ad50-daa5b286bb51` if the corrected relay regresses; v0.50 version `583e5905-f97a-4c6a-9391-54db89f53ada` remains the deeper compatibility rollback.
 - Provider fabric: keep both enable/free allowlists empty to disable every new route without deleting credentials. Rotate or revoke an actual credential only through its provider and the silent ceremony.
 
 ## Remaining manual boundary
