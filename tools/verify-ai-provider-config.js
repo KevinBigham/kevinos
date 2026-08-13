@@ -41,10 +41,15 @@ const store = loadNamesOnly();
 const enabled = String(values.AI_ENABLED_PROVIDERS || process.env.AI_ENABLED_PROVIDERS || "").split(",").map((x) => x.trim()).filter(Boolean);
 const freeModels = String(values.AI_FREE_VERIFIED_MODELS || process.env.AI_FREE_VERIFIED_MODELS || "").split(",").map((x) => x.trim()).filter(Boolean);
 const paid = String(values.AI_ALLOW_PAID || process.env.AI_ALLOW_PAID || "false").toLowerCase();
+function confirmed(name) {
+  const value = Object.prototype.hasOwnProperty.call(values, name) ? values[name] : process.env[name];
+  return value === "1" || String(value).toLowerCase() === "true";
+}
+
 const providers = [
-  ["Groq", "groq", "GROQ_API_KEY", "ZDR-UNCONFIRMED"],
-  ["Mistral", "mistral", "MISTRAL_API_KEY", "FREE-MODE-UNCONFIRMED"],
-  ["Gemini", "gemini", "GEMINI_API_KEY", "MODEL-FREE-ELIGIBILITY-UNCONFIRMED"],
+  ["Groq", "groq", "GROQ_API_KEY", confirmed("GROQ_ZDR_CONFIRMED") ? "ZDR-CONFIRMED" : "ZDR-UNCONFIRMED"],
+  ["Mistral", "mistral", "MISTRAL_API_KEY", confirmed("MISTRAL_FREE_MODE_CONFIRMED") ? "FREE-MODE-CONFIRMED" : "FREE-MODE-UNCONFIRMED"],
+  ["Gemini", "gemini", "GEMINI_API_KEY", confirmed("GEMINI_FREE_DATA_USE_ACKNOWLEDGED") ? "FREE-DATA-USE-ACKNOWLEDGED" : "MODEL-FREE-ELIGIBILITY-UNCONFIRMED"],
   ["Cohere", "cohere", "COHERE_API_KEY", "OPTIONAL"],
   ["OpenRouter", "openrouter", "OPENROUTER_API_KEY", "OPTIONAL"],
   ["SambaNova", "sambanova", "SAMBANOVA_API_KEY", "OPTIONAL"],

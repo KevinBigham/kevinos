@@ -265,11 +265,11 @@
 - [x] **K10.04** — Build and test `tools/credential-ceremony.sh` (or equivalent) using silent interactive input, ignored local storage, restrictive permissions, skip/rotate support, and no CLI key arguments. **Goals:** G-27, G-29 · **Acceptance:** AT-157, AT-159
 - [x] **K10.05** — Build and test a redacted presence/health verifier that never reads secrets into output or dumps environment/files. **Goals:** G-27, G-29 · **Acceptance:** AT-157, AT-158
 - [x] **K10.06** — Ask Kevin exactly once to create the desired provider accounts/keys and run the silent script; explicitly tell him not to paste keys into chat. **Goals:** G-27 · **Acceptance:** AT-156, AT-157
-- [ ] **K10.07** — Activate/verify Groq locally with one synthetic structured probe and record exact model/rate headers without content. **Goals:** G-20, G-21, G-27 · **Acceptance:** AT-142, AT-158
-- [ ] **K10.08** — Require Kevin to confirm Groq ZDR is enabled before the route becomes `VERIFIED_FREE_ACTIVE`. **Goals:** G-22, G-27 · **Acceptance:** AT-142
+- [x] **K10.07** — Activate/verify Groq locally with one synthetic structured probe and record exact model/rate headers without content. **Goals:** G-20, G-21, G-27 · **Acceptance:** AT-142, AT-158
+- [x] **K10.08** — Require Kevin to confirm Groq ZDR is enabled before the route becomes `VERIFIED_FREE_ACTIVE`. **Goals:** G-22, G-27 · **Acceptance:** AT-142
 - [ ] **K10.09** — Activate/verify Mistral Free Mode locally; discover current models/limits and record no fixed-dollar assumption. **Goals:** G-20, G-21, G-27 · **Acceptance:** AT-143, AT-158
-- [ ] **K10.10** — Activate/verify Gemini locally only when a current model's free eligibility is confirmed; otherwise leave Gemini blocked/disabled and preserve fallback. **Goals:** G-20, G-21, G-22, G-27 · **Acceptance:** AT-141, AT-158
-- [ ] **K10.11** — Display/record Kevin's acknowledgement of Gemini free-tier data-use limits before activation. **Goals:** G-22, G-27 · **Acceptance:** AT-141
+- [x] **K10.10** — Activate/verify Gemini locally only when a current model's free eligibility is confirmed; otherwise leave Gemini blocked/disabled and preserve fallback. **Goals:** G-20, G-21, G-22, G-27 · **Acceptance:** AT-141, AT-158
+- [x] **K10.11** — Display/record Kevin's acknowledgement of Gemini free-tier data-use limits before activation. **Goals:** G-22, G-27 · **Acceptance:** AT-141
 - [ ] **K10.12** — Verify the Cloudflare Workers AI binding path and conservative Neuron ceiling with a synthetic probe only when account/binding access is available and explicitly authorized. **Goals:** G-20, G-21, G-27 · **Acceptance:** AT-144, AT-158, AT-161
 - [ ] **K10.13** — Offer/activate Cohere only as an optional evaluation lane; missing key remains honest and non-blocking. **Goals:** G-20, G-27 · **Acceptance:** AT-145, AT-158, AT-160
 - [ ] **K10.14** — Offer/activate OpenRouter only as an optional emergency free lane with current low ceiling. **Goals:** G-20, G-21, G-27 · **Acceptance:** AT-146, AT-158, AT-160
@@ -278,7 +278,7 @@
 - [ ] **K10.17** — For every configured provider, run at most one bounded synthetic initial probe and discard response content after validation. **Goals:** G-27, G-29 · **Acceptance:** AT-158
 - [ ] **K10.18** — Re-run negative privacy fixtures with live provider transports instrumented and prove denied packets make zero outbound calls. **Goals:** G-22 · **Acceptance:** AT-132
 - [ ] **K10.19** — Re-prove `allowPaid=false`, free eligibility, quota ceilings, and no paid fallback after live account discovery. **Goals:** G-21 · **Acceptance:** AT-133, AT-141, AT-143, AT-144
-- [ ] **K10.20** — Record redacted provider statuses: verified active, configured disabled, optional missing, account/region blocked, free-eligibility blocked, or revoked. **Goals:** G-26, G-27 · **Acceptance:** AT-140, AT-160
+- [x] **K10.20** — Record redacted provider statuses: verified active, configured disabled, optional missing, account/region blocked, free-eligibility blocked, or revoked. **Goals:** G-26, G-27 · **Acceptance:** AT-140, AT-160
 - [x] **K10.21** — Do not run `wrangler secret put`, deploy, or mutate remote secrets without a separate just-in-time Kevin authorization; prepare instructions/rollback instead. **Goals:** G-27, G-29 · **Acceptance:** AT-161
 - [x] **K10.22** — Test key rotation/replacement/revocation flow using dummy fixtures and document live manual steps. **Goals:** G-29 · **Acceptance:** AT-159
 - [x] **K10.23** — Rerun secret scans and verify no secret entered state/export/sync/logs/patches/screenshots/hashes. **Goals:** G-29 · **Acceptance:** AT-157
