@@ -18,6 +18,7 @@ async function loadWorker() {
 function stubAI() {
   return { run: async () => ({ response: "stub answer" }) };
 }
+function stubLedger() { return { async get() { return null; }, async put() {} }; }
 
 async function health(worker, env) {
   const res = await worker.default.fetch(new Request("https://relay.test/", { method: "GET" }), env);
@@ -58,9 +59,15 @@ async function health(worker, env) {
     new Request("https://relay.test/council", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: "hi", synthesize: false, lanes: { cloudflare: "outside", nosuchseat: "devil" } }),
+      body: JSON.stringify({ prompt: "hi", synthesize: false, allowPaid: false, privacyClass: "PUBLIC", providerIds: ["cloudflare"], manifest: { approved: true, purpose: "Test Council lane override", deidentified: false, records: [{ id: "test", fields: ["prompt"], privacyClass: "PUBLIC" }] }, lanes: { cloudflare: "outside", nosuchseat: "devil" } }),
     }),
-    { AI: stubAI(), LANE_PINS: "cloudflare=devil" }
+    {
+      AI: stubAI(),
+      PUSH: stubLedger(),
+      LANE_PINS: "cloudflare=devil",
+      AI_ENABLED_PROVIDERS: "cloudflare",
+      AI_FREE_VERIFIED_MODELS: "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    }
   );
   assert.strictEqual(res.status, 200, "council with stubbed AI seat should answer");
   const body = await res.json();

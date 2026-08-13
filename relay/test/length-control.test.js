@@ -19,11 +19,16 @@ function capturingAI(seen) {
 }
 
 async function council(worker, env, body) {
+  env = Object.assign({
+    AI_ENABLED_PROVIDERS: "cloudflare",
+    AI_FREE_VERIFIED_MODELS: "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    PUSH: { async get() { return null; }, async put() {} },
+  }, env);
   const res = await worker.default.fetch(
     new Request("https://relay.test/council", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({ prompt: "hi", synthesize: false }, body)),
+      body: JSON.stringify(Object.assign({ prompt: "hi", synthesize: false, allowPaid: false, privacyClass: "PUBLIC", providerIds: ["cloudflare"], manifest: { approved: true, purpose: "Test Council length", deidentified: false, records: [{ id: "test", fields: ["prompt"], privacyClass: "PUBLIC" }] } }, body)),
     }),
     env
   );

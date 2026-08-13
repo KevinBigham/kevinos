@@ -112,11 +112,14 @@ const { loadApp } = require("./harness");
   // ── full round-trip: export → apply reproduces content ────────────────
   st.items = [{ id: "rt1", text: "round trip", u: 3, focusDate: "2026-08-11", focusRank: 1, focusSetAt: 99, focusSource: "manual" }];
   st.habits = [{ id: "h1", name: "swim", done: {} }];
+  st.projects = [app.normalizeProjectRecord({ id: "p-ai", title: "Private AI opt-in", privacyClass: "work-internal", aiPolicy: { enabled: true, allowedJobIds: ["project-truth-draft"], allowedPrivacyClasses: ["WORK_INTERNAL"], preferredProviderIds: ["groq"], dailyCallCeiling: 3, updatedAt: 123 } })];
   const snap = app.portableDoc(st);
-  st.items = []; st.habits = [];
+  st.items = []; st.habits = []; st.projects = [];
   app.applyPortableDoc(snap, { reason: "snapshot" });
   assert.deepStrictEqual(st.items, [app.normalizeTaskRecord({ id: "rt1", text: "round trip", u: 3, focusDate: "2026-08-11", focusRank: 1, focusSetAt: 99, focusSource: "manual" })]);
   assert.deepStrictEqual(st.habits, [{ id: "h1", name: "swim", done: {} }]);
+  assert.deepStrictEqual(st.projects[0].aiPolicy, app.normalizeProjectAiPolicy({ enabled: true, allowedJobIds: ["project-truth-draft"], allowedPrivacyClasses: ["WORK_INTERNAL"], preferredProviderIds: ["groq"], dailyCallCeiling: 3, updatedAt: 123 }), "optional nested project AI policy survives a portable round-trip");
+  assert.strictEqual(JSON.stringify(st.projects[0].aiPolicy).indexOf("token"), -1, "project AI policy contains no connection or secret material");
 
   console.log("portable-doc round-trips ok");
 })().catch((err) => { console.error(err); process.exit(1); });

@@ -348,16 +348,15 @@ const { loadApp } = require("./harness");
   assert.strictEqual(deep.app.aiContext("event", "nope"), null, "unknown event -> null");
   assert.strictEqual(deep.app.aiContext("stash", "nope"), null, "unknown stash -> null");
 
-  // W8 item 65 — weekly Council retro: client-side digest rides the question
-  // as q.ctx (no server doc read); the queue card text stays short.
+  // v0.62 — weekly Council retro opens the reviewed Council composer. It no
+  // longer creates or auto-runs a legacy queue item with ambient week context.
   st62.items.unshift({ id: "t-65", text: "File the taxes", area: "Money", today: false, done: false, due: deep.app.todayKey(), projectId: null, repeat: "" });
   const wc65 = deep.app.weeklyContextText(deep.app.todayKey());
   assert.ok(/^Week starting: /.test(wc65) && /File the taxes/.test(wc65), "digest is built from local state");
+  const beforeCouncil65 = deep.app.getState().council.length;
   deep.app.councilRetroAsk();
-  const q65 = deep.app.getState().council[0];
-  assert.match(q65.text, /Weekly retro:/, "retro question queued");
-  assert.ok(/^My week:\n/.test(q65.ctx) && /File the taxes/.test(q65.ctx), "week digest rides as ctx, not in the visible text");
-  assert.strictEqual(q65.status, "queued", "no relay in tests -> stays queued");
+  assert.strictEqual(deep.app.getState().council.length, beforeCouncil65, "retro does not create an unapproved Council queue item");
+  assert.strictEqual(deep.app.getRoom(), "next", "retro routes Kevin to Plan & Review for privacy and seat approval");
 
   // W8 item 70 — profile-fact hygiene: dedupe keeps the freshest copy and
   // tombstones the rest; the stale card surfaces the oldest unreviewed fact.
