@@ -12,7 +12,7 @@ Activation is deliberately incomplete: no provider credential, live model call, 
 - Candidate: app/footer v0.58, schema v40, cache `kevinos-v0_58`; branch `codex/kevinos-v40-ai-fabric`.
 - Migration: one v39→v40 gate only. No intermediate schema exists.
 - A local checkpoint commit exists on `codex/kevinos-v40-ai-fabric`; it remains unpushed. No remote action was performed.
-- Final credentialless K10 wave gate: `output/evolution/wave-20260813T073638Z.log`. The earlier preactivation log is `output/evolution/preactivation-20260813T072756Z.log`.
+- Final credentialless K10 wave gate: `output/evolution/wave-20260813T112952Z.log`. The earlier preactivation log is `output/evolution/preactivation-20260813T072756Z.log`.
 
 ## 3. Kevin-shaped product evolution
 
