@@ -39,6 +39,14 @@ See `STATE_CONTRACT.md` before edits.
 - Providers: only explicit bounded context for the selected operation.
 - Outward actions: app review/confirmation before email send or calendar creation.
 
+### Grading Machine protected sidecar
+
+The Grading Machine is launched from More → Teaching Tools as a dedicated overlay, not a canonical room. Its protected records are not part of the KevinOS state graph. The browser owns a separate `kevinos-grading-v1` vault contract with seven stores: batches, rubrics, submissions, identity mappings, results, artifacts, and queue state. Session-only is the default and remains memory-only; persistence is an explicit, warned 1/7/30-day choice.
+
+Original bytes are read once, SHA-256 hashed with WebCrypto, stored as an immutable source Blob only in the protected vault, and never rewritten. Extracted TXT/Markdown/CSV text, local identities, criterion evidence, grades, feedback, and artifacts never enter canonical state, backup/import, snapshots, sync, typed search, Library, Council, contextual AI, general receipts, logs, or telemetry. Generated feedback is a new sidecar artifact. Batch deletion is scoped across all seven stores and reports content-free counts only.
+
+Phase A has no bridge, relay, or provider dependency. Its grading engine is restricted to source-controlled synthetic fixtures and returns the strict grading schema; non-synthetic local inputs fail closed for human review. Deterministic browser code owns totals, percentages, rounding, scale conversion, cutoff flags, finalization status, and export mapping. Kevin owns every finalization. The existing provider Fabric and `FABRIC_DENIED_PRIVACY` remain unchanged.
+
 AI requests use a small deterministic proposal layer: a selected role and versioned prompt, explicit context categories, a context fingerprint, provider/model receipt, and a persisted review state. Returned text has no mutation authority. Approved proposal actions call the same local state/touch/bury/save contracts as direct UI actions and retain an Undo receipt.
 
 Attention evidence is an explicitly enabled device-local recorder. Its allowlisted receipts are bounded and sanitized, are restored on local boot, and are deliberately absent from portable documents, sync documents, relay requests, and AI context. Pure digest/signal functions compute current/prior seven-day evidence and provide at most one calm, fixed-precedence intervention without participating in `nowModel()`. Today only renders the deterministic NOW explanation and a qualifying friction signal; status, privacy, summaries, and controls live under collapsed Plan & Review disclosure.

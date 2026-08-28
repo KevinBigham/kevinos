@@ -8,7 +8,7 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 - Runtime: dependency-free static PWA plus plain Node test scripts; no package install required.
 - Baseline version: app v0.49, service-worker cache `kevinos-v0_49`, schema v39.
 - Live static release: app v0.62, service-worker cache `kevinos-v0_62`, schema v40.
-- Current candidate: none; v0.62 is merged and live.
+- Current candidate: app v0.63, service-worker cache `kevinos-v0_63`, schema v40 — local Grading Machine foundation on `codex/grading-machine-foundation`; not pushed or deployed.
 - Baseline gate on 2026-08-09: `sh test/run.sh` — ALL GREEN.
 - Browser baseline: real Chromium at 390x844 reproduced crushed mobile task text, duplicate navigation, missing Tasks bottom-nav entry, and microphone overlap; console had zero warnings/errors.
 - Verified baseline mission: KevinOS Convergence. Its completed waves remain the trusted starting point.
@@ -17,6 +17,18 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 ## Active v40 evolution mission
 
 Kevin has authorized the local implementation marathon over this canonical Git checkout. The package's bundled product source is not imported wholesale because it predates the canonical Attention Proof Loop; live code and passing tests remain source truth.
+
+## v0.63 Grading Machine candidate
+
+Packet fingerprint: `grading-machine-v1-a8b2826f7b93a83d7656`.
+
+The current local candidate adds a Teaching Tools launch under More and a dedicated offline Grading Machine overlay without creating a canonical room or changing schema v40. Protected grading contents live only in the separate `kevinos-grading-v1` vault abstraction: session-only batches remain volatile by default, while explicit 1/7/30-day choices may write to seven IndexedDB stores (`batches`, `rubrics`, `submissions`, `identityMap`, `results`, `artifacts`, and `queue`). No grading record enters `state`, `CONTENT_ARRAYS`, `PORTABLE_OBJS`, backup, snapshots, sync, typed search, Library, Council, contextual AI, general receipts, or operations.
+
+Phase A provides bounded TXT/Markdown/CSV intake, byte-level SHA-256 source hashes, WebCrypto submission tokens, a structured/fingerprinted rubric, an exact-schema synthetic-only proposal engine, deterministic local arithmetic, every-grade Review Desk controls, preserved proposals and reasoned override/Undo, finalized-only gradebook CSV/JSON, complete hour summaries, per-submission feedback sidecars, review/reteach/rubric/calibration/override/file-problem/audit artifacts, and count-only batch deletion. Non-synthetic local uploads fail closed as `CANNOT_GRADE`; they are never sent remotely.
+
+The optional Phase B companion under `grading-bridge/` binds to loopback only, checks exact Origin and Host, uses short-lived bearer sessions and isolated temporary directories, parses bounded text/HTML/DOCX/basic PDF locally, marks images unreadable when local OCR is unavailable, rejects hostile/oversized inputs, validates mock local-model output against the same strict packet schema, generates new versioned feedback PDFs, logs content-free facts, and returns count-only deletion proof. Its explicit health check never blocks the browser workspace. No live model adapter, provider call, relay call, secret, deployment, or remote infrastructure was activated.
+
+Baseline before the edit passed doctor, secret scan, mission structure, the full baseline evolution gate, and aggregate `sh test/run.sh` at HEAD `7af764ee8a944e6051801d9b60e3515247e5dab6`; the aggregate completed normally. Focused Grading Machine and bridge suites are part of `test/run.sh`. Exact final repository and browser receipts live in `docs/grading-machine/FINAL_GRADING_MACHINE_HANDOFF.md`.
 
 The mission adds the Kevin Role Registry, Commitment Contract, Project Spine, Resume Capsules, role-aware Today, WIP/Weekly Review, playbooks/onboarding, project-linked AI Studio, privacy classes, local search, and a server-side provider-neutral AI fabric. Provider work is credentialless through K9, enforces `allowPaid=false`, rejects sensitive packets before transport, stores no secret values in KevinOS state, and must preserve complete offline/local use.
 

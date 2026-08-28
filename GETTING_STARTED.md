@@ -16,6 +16,18 @@ The deterministic **NOW** card is immediately authoritative. AI may explain or c
 
 You can stop here. Everything below is operator setup for optional connected capabilities.
 
+## Optional Grading Machine
+
+The local v0.63 candidate adds **More → Teaching Tools → Grading Machine**. It keeps protected submissions, identity mappings, grades, evidence, and feedback outside canonical KevinOS state in the separate `kevinos-grading-v1` vault. Retention defaults to session-only. Every generated grade is a proposal until Kevin explicitly finalizes it locally, and local finalization is always labeled `NOT POSTED`.
+
+The browser workspace needs no relay or provider. Its synthetic demonstration and TXT/Markdown/CSV intake work offline. The separately gated `grading-bridge/` companion is optional for bounded local DOCX/basic-PDF parsing and feedback-PDF generation:
+
+```sh
+GRADING_BRIDGE_ORIGINS=http://127.0.0.1:4173 node grading-bridge/bridge.js
+```
+
+Serve the static app from the exact allowlisted origin, then use **Check local bridge** in Batch Intake. Do not broaden the origin list or bind the bridge to a non-loopback address. No provider or live local model is activated by this command. See `grading-bridge/README.md` and `docs/grading-machine/05_ACCEPTANCE_LEDGER.md`.
+
 ## Optional Connected Setup
 
 By the end, you can:

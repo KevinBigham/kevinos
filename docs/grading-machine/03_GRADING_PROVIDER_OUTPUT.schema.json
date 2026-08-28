@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kevinos.local/schemas/grading-provider-output-v1.json",
+  "title": "KevinOS Grading Provider Output v1",
+  "description": "Proposal-only response from a local model or approved de-identified provider. Identity, class hour, official total, letter grade, and finalization remain local.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "submissionToken",
+    "rubricFingerprint",
+    "status",
+    "criteria",
+    "feedback",
+    "flags",
+    "review"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1"
+    },
+    "submissionToken": {
+      "type": "string",
+      "pattern": "^SUB-[A-Z0-9]{6,24}$"
+    },
+    "rubricFingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": ["READY_FOR_REVIEW", "REVIEW_REQUIRED", "CANNOT_GRADE"]
+    },
+    "criteria": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "criterionId",
+          "pointsProposed",
+          "evidence",
+          "rationale",
+          "studentFeedback"
+        ],
+        "properties": {
+          "criterionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "pointsProposed": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "evidence": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["location", "excerpt", "explanation"],
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "excerpt": {
+                  "type": "string",
+                  "maxLength": 800
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1200
+                }
+              }
+            }
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1600
+          },
+          "studentFeedback": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1200
+          },
+          "confidenceSignal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strengths", "nextSteps", "studentNote", "teacherNote"],
+      "properties": {
+        "strengths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "nextSteps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "studentNote": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1600
+        },
+        "teacherNote": {
+          "type": "string",
+          "maxLength": 1600
+        }
+      }
+    },
+    "flags": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "severity", "message"],
+        "properties": {
+          "code": {
+            "enum": [
+              "MISSING_PAGE",
+              "LOW_PARSE_COVERAGE",
+              "UNREADABLE",
+              "MISSING_REQUIRED_SECTION",
+              "RUBRIC_AMBIGUITY",
+              "EVIDENCE_NOT_FOUND",
+              "EVIDENCE_CONFLICT",
+              "POSSIBLE_PROMPT_INJECTION",
+              "SENSITIVE_CONTENT",
+              "BORDERLINE_SCORE",
+              "NEEDS_ACCOMMODATION_REVIEW",
+              "OUTPUT_UNSTABLE",
+              "OTHER"
+            ]
+          },
+          "severity": {
+            "enum": ["INFO", "REVIEW", "BLOCK"]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 800
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "reasons", "recommendedAction"],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "recommendedAction": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    }
+  }
+}

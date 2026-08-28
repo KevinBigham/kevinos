@@ -51,6 +51,10 @@ node test/recurrence.test.js
 node test/streaks.test.js
 node test/convergence.test.js
 node test/sync-reference.test.js
+node test/grading-machine.test.js
+node test/grading-vault.test.js
+node test/grading-export.test.js
+node grading-bridge/test/bridge.test.js
 
 echo "── relay suites ───────────────────────────────"
 node relay/test/route-auth.test.js
