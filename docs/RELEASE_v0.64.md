@@ -1,4 +1,4 @@
-# KevinOS v0.64 local candidate — credentialless Grading Groq ZDR pilot
+# KevinOS v0.64 local candidate — Grading Groq ZDR pilot
 
 Packet fingerprint: `grading-groq-zdr-pilot-v1-f85f024dfaa65e676a29`
 
@@ -15,7 +15,9 @@ App/cache/schema: v0.64 / `kevinos-v0_64` / v40. Branch: `codex/grading-groq-zdr
 
 ## Deliberate gates
 
-This release does not establish live Groq account policy, ZDR state, free-model availability, or production transport. It uses no real student data or secret value. A live fixed synthetic probe requires a separate Kevin-authorized credential ceremony. Any non-synthetic educational record requires a new privacy packet.
+Kevin authorized one fixed synthetic Groq ZDR probe after confirming Global ZDR in the Personal organization. The call failed closed after one provider request: no proposal was accepted, validation did not run, fallback was zero, no response content was stored, and nothing was posted or finalized. The authorization is consumed and the exact reason is unavailable because the first redacted receipt omitted the relay's content-free failure classification; the tool now preserves that classification for a future separately authorized run. See `docs/grading-machine/groq-zdr-pilot/04_LIVE_PROBE_RECEIPT.md`.
+
+This candidate does not establish a passing live grading route, change production provider policy, or activate transport. It uses no real student data and records no secret value. Any retry requires new just-in-time authorization. Any non-synthetic educational record requires a new privacy packet.
 
 ## Rollback
 

@@ -82,6 +82,7 @@ async function route(worker, payload, routeEnv, token) {
     assert.strictEqual(body.provenance.fallbackChain.length, 0, "strict route has no fallback");
     assert.strictEqual(calls, 1);
     assert.match(outbound.url, /^https:\/\/api\.groq\.com\//);
+    assert.strictEqual(outbound.body.store, false, "Groq request explicitly disables response storage");
     const sent = String(outbound.body.messages[1].content || "");
     for (const forbidden of ["student name", "source filename", "course", "hour", "assignment name", "official total", "letter grade", "finalization state", "vault submission token"]) assert.ok(!sent.includes(forbidden), forbidden + " is absent from provider body");
     assert.ok(!JSON.stringify(Array.from(successEnv._rows.entries())).includes("seventy-five"), "ledger remains content-free");

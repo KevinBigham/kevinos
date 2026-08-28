@@ -19,6 +19,10 @@ After authorization, verify only content-free account facts: exact Groq model, n
 
 Run exactly one fixed built-in synthetic capsule. Inspect the outbound body for absence of identity, filename, course/hour, assignment metadata, accommodations, vault token, official grade, finalization, and original bytes. Verify exact-schema response, evidence match, proposal-only language, content-free quota/circuit state, and zero retained grading content. Disable the pilot flags immediately if any fact is unknown, stale, malformed, billed, retained, or inconsistent.
 
+The local-only command is `node tools/probe-grading-groq-pilot.js --redacted --zdr-confirmed`. The explicit ZDR flag is a just-in-time assertion about the account behind the locally entered key; do not run it unless Kevin confirms that external fact. The tool reads only the ignored mode-600 local store, applies the Groq/free/ZDR/pilot flags ephemerally in one process, binds an in-memory relay to `127.0.0.1`, permits exactly one HTTPS destination and one provider call, prints a content-free receipt, clears memory, and exits. It never modifies `.dev.vars`, the provider allowlist, Worker settings, or production.
+
 ## Stop after the probe
 
 A passing synthetic probe does not authorize real educational records. It only converts GP-G01 from an external gate to evidence about one synthetic request at one account/model/policy moment. GP-G02 remains blocked until a new privacy packet defines de-identification assurance, institutional policy, consent/authority, retention/deletion proof, incident response, sampling/calibration, and an explicit real-data release decision.
+
+The 2026-08-27 authorization was consumed by one failed closed probe. See `04_LIVE_PROBE_RECEIPT.md`. Do not rerun the command under that authorization. A future attempt requires new just-in-time authority and must preserve the new content-free HTTP/route/provider failure classification.

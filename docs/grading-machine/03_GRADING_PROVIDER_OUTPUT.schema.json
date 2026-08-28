@@ -42,7 +42,8 @@
           "pointsProposed",
           "evidence",
           "rationale",
-          "studentFeedback"
+          "studentFeedback",
+          "confidenceSignal"
         ],
         "properties": {
           "criterionId": {

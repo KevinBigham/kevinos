@@ -1,11 +1,13 @@
-# KevinOS v0.64 credentialless Grading Groq ZDR pilot handoff
+# KevinOS v0.64 Grading Groq ZDR pilot handoff
 
 Packet fingerprint: `grading-groq-zdr-pilot-v1-f85f024dfaa65e676a29`
+
+Grading Machine foundation fingerprint: `grading-machine-v1-a8b2826f7b93a83d7656`
 
 Date: 2026-08-27 America/Chicago
 Branch: `codex/grading-groq-zdr-pilot`
 Release candidate: app v0.64 / cache `kevinos-v0_64` / schema v40
-Remote status: not pushed, deployed, published, activated, or connected to a live grading provider.
+Remote status: not pushed, deployed, published, or activated. One local fixed synthetic request reached Groq and failed closed; no retry occurred.
 
 ## 1. Outcome
 
@@ -13,11 +15,13 @@ KevinOS now has the complete credentialless preactivation slice for the next gat
 
 The relay now exposes a protected/bounded/rate-limited `POST /grading/pilot/route` contract that is disabled by default. If a future authority gate enables both dedicated flags, it still requires the exact synthetic/sanitized/reviewed packet and valid capsule fingerprint, routes strictly to Groq with no fallback, and fails unless ZDR, exact free-model verification, policy freshness, content-free ledger, circuit, and quota headroom all pass. Output is constrained to the exact Grading Provider Output v1 structural schema and a grading-specific validator checks rubric bounds, source evidence, proposal-only status, and forbidden claims.
 
-Still gated: any secret ceremony, live Groq call, live account/ZDR/free-policy proof, real student data, non-synthetic capsule, provider-policy mutation, deployment, push, publication, finalization by a model, or grade posting.
+Kevin completed the silent local credential ceremony and confirmed Global ZDR for the Groq Personal organization. The single authorized fixed synthetic call then failed closed after exactly one provider request. No proposal was accepted, validation did not run, fallback was zero, no response content was stored, and nothing was posted or finalized. No retry occurred.
+
+Still gated: a successful live Groq grading receipt, any real student data, non-synthetic capsule, provider-policy mutation, deployment, push, publication, finalization by a model, or grade posting.
 
 ## 2. Acceptance ledger
 
-`02_ACCEPTANCE_LEDGER.md` records GP-A01–A07, GP-B01–B09, and GP-C01–C02 as `pass` with local evidence. GP-G01 (one future fixed synthetic live probe) remains `pending / BLOCKED-EXTERNAL` for separate Kevin authorization. GP-G02 (any real educational record) remains `pending / BLOCKED-AUTHORITY` and requires a new privacy packet. No item is waived and a pending gate is not counted as pass.
+`02_ACCEPTANCE_LEDGER.md` records GP-A01–A07, GP-B01–B09, and GP-C01–C02 as `pass` with local evidence. GP-G01 is `fail`; `04_LIVE_PROBE_RECEIPT.md` preserves the unedited content-free result. GP-G02 remains `pending / BLOCKED-AUTHORITY` and requires a new privacy packet. No item is waived, and neither a failed nor pending gate counts as pass.
 
 ## 3. Changed-file map
 
@@ -26,12 +30,15 @@ Still gated: any secret ceremony, live Groq call, live account/ZDR/free-policy p
 - `relay/worker.js` — route registration, disabled-by-default handler, exact request/fingerprint/output validation, dedicated prompt/schema, strict Groq/ZDR routing.
 - `test/harness.js` — exports pilot app contracts to dependency-free tests.
 - `test/run.sh` — includes both new pilot suites.
+- `tools/probe-grading-groq-pilot.js` — one-call loopback probe, secret-safe loading, transport guard, redacted success/failure receipt, and memory cleanup.
+- `test/grading-groq-probe.test.js` — CLI/secret/transport boundaries plus content-free success and failure receipt coverage.
 - `test/grading-groq-pilot.test.js` — transient/canonical/portable isolation, synthetic-only, token, omission, hostile-input, UI, and zero-call source contracts.
 - `relay/test/grading-groq-pilot.test.js` — auth/disabled/privacy/ZDR/free/ledger/no-fallback gates, exact schema equality, outbound minimization, evidence, forbidden-claim, and content-free ledger tests.
 - `docs/grading-machine/groq-zdr-pilot/00_READ_ME_FIRST.md` — scope and hard stops.
 - `docs/grading-machine/groq-zdr-pilot/01_BLUEPRINT.md` — trust boundary and relay architecture.
 - `docs/grading-machine/groq-zdr-pilot/02_ACCEPTANCE_LEDGER.md` — dependency-ordered evidence ledger.
 - `docs/grading-machine/groq-zdr-pilot/03_ACTIVATION_RUNBOOK.md` — future JIT authority gate; no current permission.
+- `docs/grading-machine/groq-zdr-pilot/04_LIVE_PROBE_RECEIPT.md` — unedited failed one-call receipt and stop condition.
 - `docs/grading-machine/groq-zdr-pilot/FINAL_HANDOFF.md` — this formal handoff.
 - `docs/RELEASE_v0.64.md` — local candidate scope and rollback.
 - `docs/CURRENT_STATE.md` — current v0.64 candidate truth and remaining gates.
@@ -54,6 +61,7 @@ The app and Pilot Lab render from the dependency-free cached `index.html`. With 
 - `FABRIC_DENIED_PRIVACY` remains exactly youth-sensitive, finance-sensitive, and secret; `allowPaid=false` remains mandatory.
 - Blocked disabled/auth/privacy/manifest/ZDR/free/ledger/provider cases leave the fetch spy at zero.
 - The only successful transport in tests is a mocked Groq request. Its user body contains only the shadow token, rubric fingerprint/version/criteria, and synthetic source paragraphs. No identity, filename, course/hour, assignment metadata, vault token, official grade, or finalization is sent.
+- The separately authorized live probe made one fixed synthetic Groq request, returned no accepted proposal, retained no response content locally, used no fallback, and performed no posting or finalization. Global ZDR was visibly enabled before transport.
 - KV evidence contains counters/circuit state only and no source or response text.
 - Exact request keys, cryptographic capsule fingerprint, bounded paragraphs/criteria, and output schema all fail closed. Invented evidence and finalization/posting/integrity claims are rejected.
 
@@ -65,6 +73,9 @@ Final focused and aggregate commands:
 
 ```sh
 node --check relay/worker.js
+node --check tools/probe-grading-groq-pilot.js
+node test/grading-groq-probe.test.js
+node tools/probe-grading-groq-pilot.js --self-test
 node test/grading-groq-pilot.test.js
 node relay/test/grading-groq-pilot.test.js
 node relay/test/ai-fabric.test.js
@@ -82,13 +93,15 @@ Final aggregate result, unedited summary:
 
 ```text
 KevinOS doctor ok — app v0.64, schema v40, 20 rooms, 49 relay routes
-KevinOS secret-value scan ok — 177 text files, 0 approved local secret store(s) skipped, 0 exposed values
+KevinOS secret-value scan ok — 180 text files, 1 approved local secret store(s) skipped, 0 exposed values
 syntax ok (app script, sw.js, worker.js)
 es5 clean
 grading Groq pilot app privacy ok
+grading Groq pilot live-probe boundary ok
 grading Groq pilot relay privacy and schema ok
 credential ceremony self-test ok — create, preserve, rotate, revoke, permissions, redaction, and core policy staging
 provider probe self-test ok — loopback-only, strict single-provider, synthetic, content-free, and redacted
+grading Groq pilot probe self-test ok — fixed synthetic capsule, loopback-only, one provider call, content-free receipt
 ALL GREEN ✓
 ```
 
@@ -106,7 +119,8 @@ Real in-app-browser checks covered 390×844 and 1440×900, the Teaching Tools la
 
 ## 8. Known limitations and failed attempts
 
-- This is credentialless policy proof, not live Groq/account/ZDR/free-tier proof.
+- The one authorized fixed synthetic Groq call failed closed. It returned no accepted proposal and did not run schema/privacy/business validation.
+- The first probe receipt discarded the relay's content-free HTTP/provider failure classification. The exact cause is therefore unknown and cannot be recovered without another provider call. The tool now preserves only safe HTTP status, route code, and provider error code, but no retry was made.
 - Pattern scanning cannot prove arbitrary educational text is de-identified; that is why all non-synthetic data remains blocked.
 - The relay route exists but is disabled, and the browser intentionally has no activation or send path.
 - Two guessed standalone check commands (`tools/check-es5.js` and `tools/check-contraband.js`) did not exist. The repository's actual extracted-script syntax and ES5/contraband checks in `test/run.sh` were then used and passed.
@@ -116,7 +130,7 @@ Real in-app-browser checks covered 390×844 and 1440×900, the Teaching Tools la
 
 ## 9. Next authority gate
 
-Follow `03_ACTIVATION_RUNBOOK.md` only after fresh Kevin authorization. Do not paste keys into chat. Verify content-free account facts, enable only the two dedicated flags, run one fixed built-in synthetic capsule, inspect the exact outbound body and response, then stop. A successful probe still does not authorize real educational data. Any such expansion requires a separate de-identification/privacy/institutional-authority packet.
+GP-G01 remains failed. Follow `03_ACTIVATION_RUNBOOK.md` only after fresh Kevin authorization for one new attempt; the prior authorization is consumed. Do not paste keys into chat. A future probe must emit the hardened content-free failure classification and stop after one call. Even a successful probe would not authorize real educational data. Any such expansion requires a separate de-identification/privacy/institutional-authority packet.
 
 ## 10. Packet fingerprint
 
