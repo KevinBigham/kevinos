@@ -51,6 +51,12 @@ node test/recurrence.test.js
 node test/streaks.test.js
 node test/convergence.test.js
 node test/sync-reference.test.js
+node test/grading-machine.test.js
+node test/grading-vault.test.js
+node test/grading-export.test.js
+node test/grading-groq-pilot.test.js
+node test/grading-groq-probe.test.js
+node grading-bridge/test/bridge.test.js
 
 echo "── relay suites ───────────────────────────────"
 node relay/test/route-auth.test.js
@@ -59,9 +65,11 @@ node relay/test/lane-pins.test.js
 node relay/test/length-control.test.js
 node relay/test/inbox-intelligence.test.js
 node relay/test/ai-fabric.test.js
+node relay/test/grading-groq-pilot.test.js
 node relay/test/security-boundaries.test.js
 sh tools/credential-ceremony.sh --self-test
 node tools/probe-ai-provider.js --self-test
+node tools/probe-grading-groq-pilot.js --self-test
 
 echo "───────────────────────────────────────────────"
 echo "ALL GREEN ✓"

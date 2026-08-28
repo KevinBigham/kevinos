@@ -63,5 +63,6 @@ These protected routes share pre-transport classification, the hard zero-dollar 
 | POST `/ai/preview` | Protected | synthetic metadata | deterministic compatible candidates and visible include/exclude reasons; zero adapter calls | privacy, free-only, capability, quota, circuit |
 | POST `/ai/route` | Protected | ai | one classified/minimized capability request to normalized proposal | privacy pre-denial, free-only routing, adapters, fallback, schema safety |
 | POST `/ai/evaluate` | Protected | built-in fixture ID plus optional provider IDs | sequential content-free scorecards; response content discarded | named-synthetic guard, maximum three providers, no mutation |
+| POST `/grading/pilot/route` | Protected | exact reviewed synthetic Grading shadow capsule | disabled-by-default strict Groq ZDR proposal; no fallback, finalization, or posting | auth, body/rate bounds, synthetic/privacy pre-denial, ZDR/free/ledger gates, exact grading schema and evidence |
 
 Provider keys are never accepted in request bodies, query strings, cookies, browser state, or responses.

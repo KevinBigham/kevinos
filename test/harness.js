@@ -126,6 +126,8 @@ const EXPORT_NAMES = [
   "FABRIC_LANE_OPTS", "FABRIC_PRIVACY_OPTS", "FABRIC_FEATURE_OPTS", "PROJECT_AI_JOB_IDS", "FABRIC_GOLDEN_OPTS", "FABRIC_LAB_RECEIPT_KEEP", "fabricFeature", "fabricProposalText", "buildFabricProposalRequest", "sanitizeFabricScorecard", "normalizeFabricLab", "loadFabricLab", "saveFabricLab", "recordFabricScorecards", "fabricLabRecommendation", "approveFabricLabRecommendation", "rollbackFabricLabRoute", "fabricProposalComposerHTML", "fabricEvalLabHTML", "aiFabricControlHTML", "contextualSingleCapsule", "contextualAiSource", "contextualAiEligibility", "fabricAdoptionStart", "coachModeConfig", "coachModeEligible", "coachModePendingForToday", "coachModeHTML",
   "normalizeAiProposal", "renderAiReviewHTML", "aiFeedbackSummary", "aiWorkflowSummary", "aiWorkflowEvidenceHTML", "applyAIProposal", "rejectAIProposal", "undoAIProposal", "calendarPendings", "approveAllPending", "dismissAllPending",
   "systemHealthHTML",
+  "GM_PACKET_FINGERPRINT", "GM_DB_NAME", "GM_DB_VERSION", "GM_BRIDGE_URL", "GM_STORES", "GM_MAX_FILE_BYTES", "GM_MAX_FILES", "GM_MAX_TOTAL_BYTES", "GM_SCHEMA_VERSION", "GM_PROMPT_VERSION", "GM_WORKFLOW", "GM_PILOT_PACKET_FINGERPRINT", "GM_PILOT_VERSION", "GM_PILOT_PROMPT_VERSION", "GM_PILOT_MAX_CHARS",
+  "gmMem", "gmMemPut", "gmVaultDeleteBatch", "gmBlankCriterion", "gmBlankRubric", "gmRandomId", "gmSubmissionToken", "gmHex", "gmSha256Bytes", "gmSha256Text", "gmParagraphs", "gmSafeName", "gmRetentionPersistent", "gmRetentionExpiry", "gmRubricFromRaw", "gmRubricFacts", "gmRubricFingerprint", "gmAllowedKeys", "gmNormEvidence", "gmValidateProposal", "gmScaleLetter", "gmGradeFacts", "gmInjectionFlags", "gmPilotScanText", "gmPilotCapsule", "gmPilotHTML", "gmSyntheticProposal", "gmCsvCell", "gmMedian", "gmCommonMisconceptions", "gmSummaryModel", "gmSummaryCsv", "gmReviewQueueCsv", "gmFeedbackHtml", "renderGrading", "openGrading", "closeGrading",
   "AI_ROLES", "VERIFY_STATUS", "PROOF_BUNDLE_VERSION", "proofLines", "proofItemId", "normalizeProofBundle", "missionStatusFromLegacy", "normalizeStringList", "normalizeMissionEvents", "agentProfileById", "missionStageForStatus", "missionTargetFiles", "missionWriterLockDecision", "missionDependencyFacts", "appendMissionEvent", "setMissionStatus", "intakeMissionHandoff", "missionReviewDecision", "missionPacketFingerprint", "refreshProofFingerprint", "convertMissionProof", "recordMissionAttempt", "missionProofStatus", "missionVerified", "missionCanShip", "missionProofEditorHTML", "missionReviewHTML", "agentRegistryHTML", "missionPacket", "missionMatches",
   "relay401IsAccount", "emailConnectionError", "emailIntelDraftFrom", "emailIntelHTML",
   "weeklyContextText", "councilRetroAsk",
@@ -158,6 +160,7 @@ function loadApp(opts) {
   const windowStub = {
     localStorage: stubLS,
     indexedDB: undefined,
+    crypto: require("crypto").webcrypto,
     addEventListener() {},
     removeEventListener() {},
     atob(s) { return Buffer.from(s, "base64").toString("binary"); },
