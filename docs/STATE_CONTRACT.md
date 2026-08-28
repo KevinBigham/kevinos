@@ -10,6 +10,8 @@
 
 The Grading Machine is not a canonical or device-local top-level state field. Protected grading data uses the separate `kevinos-grading-v1` IndexedDB boundary (or volatile memory for the default session-only mode) and may never be restored by the boot whitelist. Its stores are `batches`, `rubrics`, `submissions`, `identityMap`, `results`, `artifacts`, and `queue`. None may be added to `CONTENT_ARRAYS`, `PORTABLE_OBJS`, `SYNC_ARRAYS`, snapshots, operations, attention receipts, Lab signals, backups, imports, merge documents, search indexes, AI manifests, or Mission Capsules.
 
+The Grading Groq ZDR pilot preview is even narrower: its shadow capsule exists only in transient `gmUi` memory and is cleared with the batch or reload. It is not written to any Grading Vault store. The one-time shadow token and capsule fingerprint may not enter canonical state, device-local sidecars, receipts, backups, sync, search, contextual surfaces, or general AI fabric history.
+
 Explicit retained batches carry their own expiry and remain local to the browser. A source record owns the immutable original Blob and byte-level SHA-256; feedback/export records are new artifacts and never replace that Blob. Deletion is batch-scoped across every store and returns counts only. Browser storage deletion proves logical record absence, not forensic overwrite of storage media.
 
 Nested records are intentionally tolerant of missing optional fields. Read old records defensively and normalize at use sites. A new top-level field is stricter: initialize it, restore it in the boot whitelist, classify it, and add round-trip coverage in one change.

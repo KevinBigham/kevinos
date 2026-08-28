@@ -39,6 +39,8 @@ Legacy disposition:
 
 No provider room was added. Studio contains project-linked missions, proof receipts, second-opinion and other proposal jobs, synthetic evaluation, and the detailed Provider Control Center. System Health shows collapsed redacted availability and the `allowPaid=false` policy. Proposal Inbox preserves the context manifest, exact provider/model/prompt/packet provenance, validations, and explicit edit/apply/reject/Undo. Existing universal AI actions remain in their current rooms; the new provider-fabric jobs accept only manually pasted Public or attested de-identified text, so no protected source record is silently gathered. Credential entry remains terminal/server-side only.
 
-## Grading Machine placement — v0.63 candidate
+## Grading Machine placement — v0.64 candidate
 
 More includes a static `Teaching Tools` section with a `Grading Machine` launch card. It opens a dedicated full-screen overlay and does not add an entry to `ROOM_DEFS`, route normalization, primary/mobile navigation, command routing, room heat, or canonical search. The workspace remains available from the cached single-file shell while offline and when the optional future Grading Bridge is absent.
+
+The inactive Groq ZDR Pilot Lab is a card within that overlay, not another room or route. Its credentialless preactivation UI prepares only a local synthetic shadow preview and exposes no transport control.

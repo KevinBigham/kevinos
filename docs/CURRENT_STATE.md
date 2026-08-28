@@ -8,7 +8,7 @@ This is the canonical live mission ledger. Code and passing tests remain the beh
 - Runtime: dependency-free static PWA plus plain Node test scripts; no package install required.
 - Baseline version: app v0.49, service-worker cache `kevinos-v0_49`, schema v39.
 - Live static release: app v0.62, service-worker cache `kevinos-v0_62`, schema v40.
-- Current candidate: app v0.63, service-worker cache `kevinos-v0_63`, schema v40 — local Grading Machine foundation on `codex/grading-machine-foundation`; not pushed or deployed.
+- Current candidate: app v0.64, service-worker cache `kevinos-v0_64`, schema v40 — credentialless synthetic-only Grading Groq ZDR pilot on `codex/grading-groq-zdr-pilot`; not pushed or deployed.
 - Baseline gate on 2026-08-09: `sh test/run.sh` — ALL GREEN.
 - Browser baseline: real Chromium at 390x844 reproduced crushed mobile task text, duplicate navigation, missing Tasks bottom-nav entry, and microphone overlap; console had zero warnings/errors.
 - Verified baseline mission: KevinOS Convergence. Its completed waves remain the trusted starting point.
@@ -29,6 +29,16 @@ Phase A provides bounded TXT/Markdown/CSV intake, byte-level SHA-256 source hash
 The optional Phase B companion under `grading-bridge/` binds to loopback only, checks exact Origin and Host, uses short-lived bearer sessions and isolated temporary directories, parses bounded text/HTML/DOCX/basic PDF locally, marks images unreadable when local OCR is unavailable, rejects hostile/oversized inputs, validates mock local-model output against the same strict packet schema, generates new versioned feedback PDFs, logs content-free facts, and returns count-only deletion proof. Its explicit health check never blocks the browser workspace. No live model adapter, provider call, relay call, secret, deployment, or remote infrastructure was activated.
 
 Baseline before the edit passed doctor, secret scan, mission structure, the full baseline evolution gate, and aggregate `sh test/run.sh` at HEAD `7af764ee8a944e6051801d9b60e3515247e5dab6`; the aggregate completed normally. Focused Grading Machine and bridge suites are part of `test/run.sh`. Exact final repository and browser receipts live in `docs/grading-machine/FINAL_GRADING_MACHINE_HANDOFF.md`.
+
+## v0.64 Grading Groq ZDR pilot candidate
+
+Packet fingerprint: `grading-groq-zdr-pilot-v1-f85f024dfaa65e676a29`.
+
+This separate packet adds an inactive Pilot Lab inside the existing Grading Machine. It prepares a transient, synthetic-only shadow capsule for local inspection and exposes no send control. The capsule uses a fresh random token unrelated to the vault token and omits identity, filename, course/hour, assignment metadata, accommodations, teacher-only notes, official totals/letter grades, finalization, and original bytes. Hostile instructions plus obvious accommodation, contact, identifier, and secret patterns fail closed. Pattern scanning is not represented as proof that arbitrary educational records are de-identified, so non-synthetic work remains ineligible.
+
+The protected `POST /grading/pilot/route` relay contract is bounded, rate-limited, authenticated, and disabled by default. Even after its two explicit server-side activation flags, it accepts only the exact reviewed synthetic/sanitized packet and routes strictly to Groq with no fallback after existing free-model, ZDR, policy-freshness, ledger, circuit, and headroom gates pass. A grading-specific exact-schema validator rejects extra fields, rubric mismatches, out-of-bounds scores, invented evidence, and finalization/posting/integrity claims. The generic provider-fabric route cannot invoke this dedicated prompt.
+
+No credential was requested or inspected; no live provider call, policy mutation, push, deploy, publication, or real-data pilot occurred. The credentialless preactivation suites are integrated into `test/run.sh`. Live account/ZDR/free-model verification and one fixed synthetic probe remain a separate Kevin authority gate; real educational records require a new privacy packet.
 
 The mission adds the Kevin Role Registry, Commitment Contract, Project Spine, Resume Capsules, role-aware Today, WIP/Weekly Review, playbooks/onboarding, project-linked AI Studio, privacy classes, local search, and a server-side provider-neutral AI fabric. Provider work is credentialless through K9, enforces `allowPaid=false`, rejects sensitive packets before transport, stores no secret values in KevinOS state, and must preserve complete offline/local use.
 
